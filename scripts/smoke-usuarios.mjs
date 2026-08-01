@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 const URL = 'http://localhost:5173/#/config/usuarios';
 const resultados = [];
 const ok = (n, cond, extra = '') =>
-  resultados.push(`${cond ? 'PASS' : 'FALHA'}  ${n}${extra ? ` — ${extra}` : ''}`);
+  resultados.push(`${cond ? 'PASS' : 'FALHA'}  ${n}${extra ? ` — ${extra}` : ''}`);
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -13,12 +13,14 @@ page.on('pageerror', (e) => erros.push(String(e)));
 page.on('console', (m) => m.type() === 'error' && erros.push(m.text()));
 
 await page.goto(URL, { waitUntil: 'networkidle' });
-await page.evaluate(() => localStorage.removeItem('crm.usuarios.v1'));
+await page.evaluate(() => localStorage.removeItem('focus.usuarios.v1'));
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('table');
 
 const totalInicial = await page.locator('tbody tr').count();
-ok('lista carrega com as contas semeadas', totalInicial === 14, `${totalInicial} linhas`);
+// 14 contas do time + as 3 de advogado, que aparecem na lista mas são
+// gerenciadas no funil, não aqui (INV-12).
+ok('lista carrega com as contas semeadas', totalInicial === 17, `${totalInicial} linhas`);
 
 // --- validação -------------------------------------------------------------
 await page.click('text=Novo usuário');
@@ -33,13 +35,13 @@ await page.waitForTimeout(200);
 ok('nome sem sobrenome é recusado', /sobrenome/i.test(erroNome ?? ''), erroNome?.trim());
 
 await page.fill('[role="dialog"] input[placeholder="Ana Ribeiro"]', 'Ana Ribeiro');
-await page.fill('[role="dialog"] input[type="email"]', 'victor@agencia.com.br');
+await page.fill('[role="dialog"] input[type="email"]', 'victor@focus.ai');
 await page.waitForTimeout(150);
 const textoErros = await page.locator('[role="dialog"]').innerText();
 ok('e-mail duplicado é recusado', /Já existe uma conta com este e-mail/.test(textoErros));
 
 // --- criação ---------------------------------------------------------------
-await page.fill('[role="dialog"] input[type="email"]', 'ana.ribeiro@agencia.com.br');
+await page.fill('[role="dialog"] input[type="email"]', 'ana.ribeiro@focus.ai');
 await page.selectOption('[role="dialog"] select', 'gestor_trafego');
 await page.waitForTimeout(200);
 
@@ -62,7 +64,7 @@ ok('toast confirma o cadastro', /cadastrado/i.test(toast ?? ''), toast?.trim());
 const totalDepois = await page.locator('tbody tr').count();
 ok('nova conta entra na lista', totalDepois === totalInicial + 1, `${totalDepois} linhas`);
 
-const linhaAna = page.locator('tbody tr', { hasText: 'ana.ribeiro@agencia.com.br' });
+const linhaAna = page.locator('tbody tr', { hasText: 'ana.ribeiro@focus.ai' });
 const statusAna = await linhaAna.innerText();
 ok('conta nasce como convite pendente', /Convite pendente/.test(statusAna));
 
@@ -73,7 +75,7 @@ const totalPosReload = await page.locator('tbody tr').count();
 ok('cadastro sobrevive ao reload', totalPosReload === totalInicial + 1, `${totalPosReload} linhas`);
 
 // --- ACC-R03: ninguém edita a si mesmo -------------------------------------
-const linhaEu = page.locator('tbody tr', { hasText: 'victor@agencia.com.br' });
+const linhaEu = page.locator('tbody tr', { hasText: 'victor@focus.ai' });
 const editarEu = linhaEu.locator('button[aria-label^="Editar"]');
 ok('botão de editar a própria conta fica desabilitado', await editarEu.isDisabled());
 
@@ -91,7 +93,7 @@ ok(
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 
-const linhaGerente = page.locator('tbody tr', { hasText: 'marina@agencia.com.br' });
+const linhaGerente = page.locator('tbody tr', { hasText: 'marina@focus.ai' });
 ok(
   'gestor não gerencia conta de gerente',
   await linhaGerente.locator('button[aria-label^="Editar"]').isDisabled(),
@@ -104,7 +106,7 @@ const desativarEu = linhaEu.locator('button[aria-label^="Desativar"]');
 ok('botão de desativar a própria conta fica desabilitado', await desativarEu.isDisabled());
 
 // --- desativação ------------------------------------------------------------
-const linhaDiego = page.locator('tbody tr', { hasText: 'diego@agencia.com.br' });
+const linhaDiego = page.locator('tbody tr', { hasText: 'diego@focus.ai' });
 await linhaDiego.locator('button[aria-label^="Desativar"]').click();
 await page.waitForSelector('[role="alertdialog"]');
 ok('desativar pede confirmação', true);
@@ -133,7 +135,7 @@ const vazio = await page
 ok('estado vazio aparece quando o filtro não retorna nada', vazio === 1);
 
 // --- limpeza ----------------------------------------------------------------
-await page.evaluate(() => localStorage.removeItem('crm.usuarios.v1'));
+await page.evaluate(() => localStorage.removeItem('focus.usuarios.v1'));
 await browser.close();
 
 console.log(resultados.join('\n'));

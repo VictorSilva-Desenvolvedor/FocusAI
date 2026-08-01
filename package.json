@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "shot": "node scripts/screenshot.mjs",
-    "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-crm.mjs"
+    "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-advogados.mjs && node scripts/smoke-leads.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.28.0",
