@@ -1,67 +1,75 @@
 /**
- * Tipos de domínio do CRM.
+ * Tipos de domínio da Focus AI.
  *
- * Negócio: agência de tráfego pago para profissionais de captação regulada —
- * advogados (OAB), contadores (CFC), médicos (CFM), dentistas (CFO) e
- * psicólogos (CFP). O que a agência vende é lead qualificado; o que a limita é
- * que **a publicidade desses profissionais é regulada**, e anúncio fora da
- * norma expõe o cliente a processo ético no conselho dele.
+ * Negócio: a Focus AI não vende serviço de marketing jurídico — vende o produto
+ * final pronto. Ela roda o tráfego, uma IA de voz qualifica o cliente final e
+ * agenda a consulta; o **lead qualificado com reunião marcada** vira um produto
+ * que advogados compram num aplicativo, por unidade ou consumindo crédito.
  *
- * Isso define o sistema inteiro. São quatro máquinas encadeadas:
- *   1. Captar o cliente        → CRM, proposta, contrato
- *   2. Aprovar a conformidade  → parecer sobre criativo e página de destino
- *   3. Distribuir a verba      → orçamento entre contas, campanhas e plataformas
- *   4. Entregar e cobrar       → fee da agência + repasse de mídia, cobrança
+ * São quatro máquinas encadeadas:
+ *   1. Captar o lead        → anúncio e formulário, por tese
+ *   2. Qualificar com a IA  → filtros de elegibilidade da tese
+ *   3. Agendar a reunião    → é o agendamento que transforma o lead em produto
+ *   4. Entregar ao advogado → compra, revelação do contato, consulta
  *
- * A entidade que atravessa tudo é a **Conta de Anúncio**: é ela que a plataforma
- * reconhece, é nela que a verba entra, é sobre ela que a fatura de mídia chega e
- * é dela que sai a cobrança.
+ * A entidade que atravessa tudo é o **Lead**: é ele que a campanha produz, que a
+ * IA qualifica, que carrega a reunião, que consome crédito ao ser comprado e que
+ * responde, perante a OAB, como aquele cliente chegou àquele advogado.
+ *
+ * Cuidado de vocabulário, porque as duas pontas usam a mesma palavra no dia a
+ * dia: **lead** é sempre o cliente final (a pessoa com o problema jurídico).
+ * **Advogado** é sempre o comprador. O advogado também entra por um funil de
+ * captação, mas ali ele é `Advogado`, nunca `Lead`.
  */
 
 // ---------------------------------------------------------------------------
 // Acessos
 // ---------------------------------------------------------------------------
 
-/** Os 12 papéis. Um único valor por usuário. */
+/**
+ * Os 11 papéis. Um único valor por usuário.
+ *
+ * `advogado` é o único papel externo: é o cliente pagante, e enxerga o produto
+ * pelo mesmo shell da operação, em modo restrito.
+ */
 export type UserRole =
   | 'adm'
   | 'gerente'
   | 'gestor_trafego'
-  | 'analista_conformidade'
   | 'criativo'
+  | 'analista_conformidade'
+  | 'operador_ia'
   | 'closer'
   | 'sdr'
   | 'cs'
   | 'financeiro'
-  | 'parceiro'
-  | 'cliente'
-  | 'white_label_admin';
+  | 'advogado';
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   adm: 'ADM / Administrador',
   gerente: 'Gerente de Operações',
   gestor_trafego: 'Gestor de Tráfego',
-  analista_conformidade: 'Analista de Conformidade',
   criativo: 'Criativo (design e copy)',
+  analista_conformidade: 'Analista de Conformidade',
+  operador_ia: 'Operador da SDR de IA',
   closer: 'Closer',
   sdr: 'SDR',
   cs: 'Customer Success',
   financeiro: 'Financeiro',
-  parceiro: 'Parceiro / Indicador',
-  cliente: 'Cliente (Portal)',
-  white_label_admin: 'White Label — Administrador',
+  advogado: 'Advogado (painel)',
 };
 
 /** Permissões nomeadas: marcações extras, independentes do papel. */
 export type NamedPermission =
   | 'modulo:campanhas'
   | 'modulo:conformidade'
-  | 'modulo:plataformas'
-  | 'verba:aprovar_realocacao'
+  | 'modulo:qualificacao'
+  | 'modulo:integracoes'
+  | 'tese:definir_preco'
+  | 'advogado:liberar_acesso'
+  | 'lead:aprovar_devolucao'
   | 'conformidade:liberar_com_ressalva'
-  | 'cobranca:receber_pendentes'
-  | 'cobranca:receber_aviso_inadimplencia'
-  | 'auditoria:repasse_midia'
+  | 'credito:conciliar_pagamento'
   | 'assistente:financeiro';
 
 export interface Profile {
@@ -72,15 +80,18 @@ export interface Profile {
   /** Texto livre. Poucas regras usam, mas as que usam são pesadas (CNF-R21). */
   departamento: string | null;
   permissoes: NamedPermission[];
-  /** Agência white label dona do registro. Nulo = carteira própria. */
-  white_label_id: string | null;
+  /**
+   * Preenchido só para o papel `advogado`. É a chave de isolamento do sistema:
+   * um advogado nunca pode ver a carteira de leads de outro (LED-R06).
+   */
+  advogado_id: string | null;
   avatar_iniciais: string;
 }
 
 /**
- * ACC-R21 — usuário nunca é excluído, é desativado. O histórico de quem
- * aprovou verba, emitiu parecer e deu baixa em fatura precisa continuar
- * apontando para alguém.
+ * ACC-R21 — usuário nunca é excluído, é desativado. O histórico de quem emitiu
+ * parecer, liberou acesso e comprou lead precisa continuar apontando para
+ * alguém — inclusive porque é ele que responde como o cliente foi direcionado.
  */
 export type UserStatus = 'ativo' | 'convite_pendente' | 'inativo';
 
@@ -115,101 +126,327 @@ export interface UsuarioFormData {
 
 export type ModuleId =
   | 'dashboard'
-  | 'crm'
+  | 'leads'
+  | 'advogados'
+  | 'teses'
+  | 'qualificacao'
   | 'campanhas'
   | 'conformidade'
-  | 'financeiro'
-  | 'tarefas'
-  | 'plataformas'
-  | 'academy'
-  | 'config'
-  | 'portal-cliente';
+  | 'creditos'
+  | 'integracoes'
+  | 'config';
 
 /** ✅ acesso · 🔎 leitura restrita · ⛔ bloqueado */
 export type AccessLevel = 'full' | 'restricted' | 'blocked';
 
 // ---------------------------------------------------------------------------
-// CRM — o funil de aquisição da própria agência
+// Teses — as linhas de produto
 // ---------------------------------------------------------------------------
 
 /**
- * Os 10 status da negociação. É a máquina de estados do negócio — não é
- * configurável, diferente da etapa (stage) do funil, que é livre.
+ * Cada tese tem público, oferta e roteiro de qualificação próprios. Não é
+ * rótulo de categoria: é o que determina quais perguntas a IA faz, quem é
+ * elegível e quanto o lead custa em crédito.
  */
-export type NegociacaoStatus =
-  | 'em_andamento'
-  | 'diagnostico_realizado'
-  | 'proposta_enviada'
-  | 'contrato_assinado'
-  | 'em_conformidade'
-  | 'conta_ativa'
-  | 'reprovado'
-  | 'ganho'
+export type TeseId = 'polo_passivo' | 'vinculo_empregaticio' | 'juros_abusivos';
+
+export const TESE_LABEL: Record<TeseId, string> = {
+  polo_passivo: 'Consultoria em polo passivo',
+  vinculo_empregaticio: 'Reconhecimento de vínculo',
+  juros_abusivos: 'Juros abusivos',
+};
+
+/** Rótulo curto, para caber em etiqueta de cartão e coluna de tabela. */
+export const TESE_CURTA: Record<TeseId, string> = {
+  polo_passivo: 'Polo passivo',
+  vinculo_empregaticio: 'Vínculo',
+  juros_abusivos: 'Juros abusivos',
+};
+
+/** Um filtro de elegibilidade da tese, avaliado durante a qualificação. */
+export interface FiltroElegibilidade {
+  id: string;
+  /** O que a IA precisa apurar. */
+  rotulo: string;
+  /** Por que o filtro existe — vira texto de tela, não fica só no comentário. */
+  motivo: string;
+  /** ID da regra que sustenta o filtro (`TES-R01`…). */
+  regra: string;
+}
+
+export interface Tese {
+  id: TeseId;
+  nome: string;
+  /** Área do direito. Serve ao advogado, que escolhe onde atua. */
+  area: string;
+  publico: string;
+  oferta: string;
+  /**
+   * Consulta paga com valor simbólico, quando existe. Nulo = consulta gratuita.
+   * A taxa filtra curiosos e já gera receita na primeira interação.
+   */
+  consultaPaga: { min: number; max: number } | null;
+  filtros: FiltroElegibilidade[];
+  /**
+   * Urgência real do caso — prazo prescricional, por exemplo. Sai da lei, não
+   * do roteiro de vendas: urgência fabricada é o que transforma qualificação em
+   * pressão indevida sobre quem já está vulnerável.
+   */
+  urgencia: string | null;
+  /** Cuidados de abordagem: ritmo, linguagem e o que nunca perguntar. */
+  cuidados: string[];
+  /** Preço vigente. CRE-R03 — congela no lead no momento da publicação. */
+  custoCreditos: number;
+  precoAvulso: number;
+}
+
+// ---------------------------------------------------------------------------
+// Lead — o produto
+// ---------------------------------------------------------------------------
+
+/**
+ * Os 10 status do lead. É a máquina de estados do produto e não é
+ * configurável.
+ *
+ * `reservado` não está aqui de propósito: reserva é trava temporária sobre um
+ * lead `agendado`, com prazo de expiração, e não um estado do produto
+ * (`LED-R04`). Modelar como status faria uma trava vencida virar lead perdido.
+ */
+export type LeadStatus =
+  | 'novo'
+  | 'em_qualificacao'
+  | 'qualificado'
+  | 'agendado'
+  | 'vendido'
+  | 'atendido'
+  | 'desqualificado'
+  | 'nao_atendeu'
+  | 'no_show'
+  | 'expirado';
+
+export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
+  novo: 'Novo',
+  em_qualificacao: 'Em qualificação',
+  qualificado: 'Qualificado',
+  agendado: 'Agendado',
+  vendido: 'Vendido',
+  atendido: 'Atendido',
+  desqualificado: 'Desqualificado',
+  nao_atendeu: 'Não atendeu',
+  no_show: 'Faltou à reunião',
+  expirado: 'Expirado',
+};
+
+/** Como o lead chegou. Hoje só há uma origem de verdade; o tipo antecipa mais. */
+export type OrigemLead = 'meta_ads' | 'google_ads' | 'indicacao' | 'organico';
+
+export const ORIGEM_LEAD_LABEL: Record<OrigemLead, string> = {
+  meta_ads: 'Meta Ads',
+  google_ads: 'Google Ads',
+  indicacao: 'Indicação',
+  organico: 'Orgânico',
+};
+
+/**
+ * O lead qualificado.
+ *
+ * `INV-11` — o telefone é o produto. Ele existe no registro, mas a tela só o
+ * revela depois da compra; toda listagem de catálogo passa por
+ * `mascararContato` antes de renderizar.
+ *
+ * `INV-17` — não há campo para senha, cartão, número de contrato ou qualquer
+ * dado bancário do cliente final. A ausência do campo é o que sustenta a regra:
+ * o que não se pode gravar não vaza.
+ */
+export interface Lead {
+  id: string;
+  /** Nome do cliente final. */
+  nome: string;
+  /** LED-R05 — só é revelado depois da compra. */
+  telefone: string;
+  tese: TeseId;
+  uf: string;
+  cidade: string;
+  status: LeadStatus;
+  origem: OrigemLead;
+  /** Resumo da qualificação feita pela IA. É o que o advogado lê para decidir. */
+  resumoQualificacao: string;
+  /** Respostas aos filtros de elegibilidade da tese, por id do filtro. */
+  elegibilidade: Record<string, boolean>;
+  /** ISO. Nulo enquanto a reunião não for marcada. */
+  reuniaoEm: string | null;
+  /**
+   * CRE-R03 — preço congelado na publicação. Mexer na tabela da tese depois não
+   * pode reescrever o que já foi vendido nem o que já está anunciado.
+   */
+  custoCreditos: number;
+  precoAvulso: number;
+  /** LED-R03 — no máximo um comprador, para sempre. Nulo = ainda no catálogo. */
+  compradoPor: string | null;
+  /** ISO. Imutável — é o carimbo que prova quando e para quem o lead saiu. */
+  compradoEm: string | null;
+  /** LED-R04 — trava de checkout. Id do advogado e o instante em que vence. */
+  reservadoPor: string | null;
+  reservadoAte: string | null;
+  /** QUA-R03 — sem isso não há como provar como o cliente foi direcionado. */
+  temGravacao: boolean;
+  criadoEm: string;
+  ultimaAtividade: string;
+  /** Obrigatório ao desqualificar. */
+  motivoDesqualificacao: string | null;
+  /** CRE-R05 — devolução registrada. O lead não volta ao catálogo mesmo assim. */
+  devolucao: { motivo: string; em: string } | null;
+}
+
+// ---------------------------------------------------------------------------
+// Advogado — o comprador, e o funil que o traz
+// ---------------------------------------------------------------------------
+
+/**
+ * Os status do funil de aquisição do advogado, na ordem do fluxo real: ele vê
+ * o anúncio, preenche formulário, passa por qualificação, recebe acesso,
+ * escolhe o modelo de pagamento e faz a primeira compra.
+ */
+export type AdvogadoStatus =
+  | 'novo'
+  | 'em_qualificacao'
+  | 'qualificado'
+  | 'acesso_liberado'
+  | 'modelo_definido'
+  | 'ativo'
+  | 'recusado'
   | 'perdido'
   | 'em_pausa';
 
-export const NEGOCIACAO_STATUS_LABEL: Record<NegociacaoStatus, string> = {
-  em_andamento: 'Em andamento',
-  diagnostico_realizado: 'Diagnóstico realizado',
-  proposta_enviada: 'Proposta enviada',
-  contrato_assinado: 'Contrato assinado',
-  em_conformidade: 'Em conformidade',
-  conta_ativa: 'Conta ativa',
-  reprovado: 'Reprovado',
-  ganho: 'Ganho',
+export const ADVOGADO_STATUS_LABEL: Record<AdvogadoStatus, string> = {
+  novo: 'Novo',
+  em_qualificacao: 'Em qualificação',
+  qualificado: 'Qualificado',
+  acesso_liberado: 'Acesso liberado',
+  modelo_definido: 'Modelo definido',
+  ativo: 'Ativo',
+  recusado: 'Recusado',
   perdido: 'Perdido',
   em_pausa: 'Em pausa',
 };
 
+/** Os dois modelos de pagamento. */
+export type ModeloPagamento = 'avulso' | 'creditos';
+
+export const MODELO_PAGAMENTO_LABEL: Record<ModeloPagamento, string> = {
+  avulso: 'Por lead (avulso)',
+  creditos: 'Pacote de créditos',
+};
+
+/** Porte do escritório. A Focus filtra por ele para manter a base coerente. */
+export type PorteEscritorio = 'solo' | 'pequeno' | 'medio' | 'grande';
+
+export const PORTE_LABEL: Record<PorteEscritorio, string> = {
+  solo: 'Advogado solo',
+  pequeno: 'Escritório pequeno',
+  medio: 'Escritório médio',
+  grande: 'Escritório grande',
+};
+
+/** Prioridade automática do quadro (ADV-R04). */
+export type PrioridadeAdvogado = 'P1' | 'P2' | 'P3';
+
 /**
- * Conselho profissional que regula a publicidade do cliente. Determina qual
- * régua de conformidade o criativo enfrenta antes de subir.
- */
-export type ConselhoRegulador = 'OAB' | 'CFC' | 'CFM' | 'CFO' | 'CFP' | 'nenhum';
-
-/** Faixa de verba mensal. Atenção: A é a MAIOR, C a menor. */
-export type FaixaVerba = 'A' | 'B' | 'C';
-
-/** Prioridade automática do Kanban (CRM-R17). */
-export type PrioridadeLead = 'P1' | 'P2' | 'P3';
-
-/**
- * A negociação: o registro de venda da própria agência, do primeiro contato ao
- * contrato assinado e à conta no ar.
+ * O advogado: o registro que vai do anúncio à primeira compra e continua sendo
+ * a ficha do cliente depois disso.
  *
- * CRM-R01 — o título é sempre o nome do cliente. Não existe título
- * independente: Kanban, tabela e tarefas exibiam nome desatualizado quando o
- * cliente era corrigido.
+ * `ADV-R01` — o título é sempre o nome do escritório ou do profissional. Não
+ * existe título independente: quadro, tabela e notificações exibiam nome
+ * desatualizado quando o cadastro era corrigido.
  */
-export interface Negociacao {
+export interface Advogado {
   id: string;
-  /** Escritório, clínica ou profissional. É o título do registro. */
-  cliente: string;
+  /** Escritório ou nome do profissional. É o título do registro. */
+  nome: string;
+  /** Inscrição na OAB. INV-12 — sem ela conferida não se libera acesso. */
+  oab: string;
+  /** Nulo enquanto a inscrição não foi conferida por alguém do time. */
+  oabConferidaEm: string | null;
+  email: string;
   whatsapp: string;
-  /** Define a régua de conformidade. Nulo enquanto não qualificado. */
-  conselho: ConselhoRegulador | null;
-  nicho: string;
-  /** Verba de mídia mensal prevista, em reais. */
-  verbaMensal: number;
-  status: NegociacaoStatus;
+  uf: string;
+  /** Teses em que atua. LED-R06 — define o que ele enxerga no catálogo. */
+  teses: TeseId[];
+  /** Regiões que acompanha. Vazio = o estado inteiro. */
+  cidades: string[];
+  porte: PorteEscritorio;
+  status: AdvogadoStatus;
+  modeloPagamento: ModeloPagamento | null;
+  /** Leads/mês que ele diz conseguir absorver. Dirige a prioridade (ADV-R04). */
+  potencialMensal: number;
+  /** CRE-R04 — nunca negativo. */
+  saldoCreditos: number;
+  /** Conta de acesso, criada só na liberação (INV-12). */
+  usuarioId: string | null;
   /** Sobrescreve a prioridade automática quando o gestor decide. */
-  prioridadeManual: PrioridadeLead | null;
-  origem: string;
+  prioridadeManual: PrioridadeAdvogado | null;
   responsavelId: string;
   criadoPor: string;
   /** ISO. Imutável. */
-  criadaEm: string;
-  /** ISO. CRM-R04 — toda ação relevante atualiza este marcador. */
+  criadoEm: string;
+  /** ISO. ADV-R06 — toda ação relevante atualiza este marcador. */
   ultimaAtividade: string;
-  /** CRM-R10 — obrigatório ao marcar como perdido. */
+  /** ADV-R05 — obrigatório ao marcar como perdido. */
   motivoPerda: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Créditos
+// ---------------------------------------------------------------------------
+
+/**
+ * Movimento do extrato de crédito. O saldo do advogado é a soma disto — nunca
+ * um número editável à mão, senão `INV-15` (consumido fecha com comprado) não
+ * tem como ser verificado.
+ */
+export type TipoMovimento = 'compra' | 'consumo' | 'devolucao' | 'ajuste';
+
+export const TIPO_MOVIMENTO_LABEL: Record<TipoMovimento, string> = {
+  compra: 'Compra de pacote',
+  consumo: 'Lead adquirido',
+  devolucao: 'Devolução de lead',
+  ajuste: 'Ajuste manual',
+};
+
+export interface MovimentoCredito {
+  id: string;
+  advogadoId: string;
+  tipo: TipoMovimento;
+  /** Positivo entra, negativo sai. */
+  creditos: number;
+  /** Em reais. Zero quando o movimento não envolve dinheiro. */
+  valor: number;
+  /** Preenchido em consumo e devolução. */
+  leadId: string | null;
+  descricao: string;
+  /** ISO. Imutável. */
+  em: string;
+}
+
+/** Pacote de créditos à venda. Desconto por volume é o incentivo do modelo B. */
+export interface PacoteCredito {
+  id: string;
+  nome: string;
+  creditos: number;
+  valor: number;
+  destaque: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Conformidade publicitária
 // ---------------------------------------------------------------------------
 
-/** As cinco decisões do parecer. */
+/**
+ * As cinco decisões do parecer.
+ *
+ * `INV-16` — a Focus AI anuncia captando clientela para advogado, então o
+ * Provimento 205 incide sobre o anúncio dela, não sobre o do cliente.
+ */
 export type DecisaoConformidade =
   | 'aprovado'
   | 'aprovado_com_ressalva'
@@ -217,54 +454,141 @@ export type DecisaoConformidade =
   | 'pendencia_documental'
   | 'reprovado';
 
+export const DECISAO_LABEL: Record<DecisaoConformidade, string> = {
+  aprovado: 'Aprovado',
+  aprovado_com_ressalva: 'Aprovado com ressalva',
+  exigir_ajuste: 'Exigir ajuste',
+  pendencia_documental: 'Pendência documental',
+  reprovado: 'Reprovado',
+};
+
+export interface Parecer {
+  id: string;
+  /** Nome do criativo avaliado. */
+  criativo: string;
+  tese: TeseId;
+  plataforma: PlataformaAnuncio;
+  decisao: DecisaoConformidade | null;
+  /** ISO. INV-13 — imutável. É o carimbo que prova quando a peça foi avaliada. */
+  emitidoEm: string | null;
+  emitidoPor: string | null;
+  /** ISO. O cronômetro do SLA corre a partir daqui (CNF-R01). */
+  enviadoEm: string;
+  observacao: string | null;
+}
+
 // ---------------------------------------------------------------------------
-// Campanhas e verba
+// Campanhas
 // ---------------------------------------------------------------------------
 
-export type PlataformaAnuncio = 'meta' | 'google' | 'tiktok' | 'linkedin';
+export type PlataformaAnuncio = 'meta' | 'google';
 
 export const PLATAFORMA_LABEL: Record<PlataformaAnuncio, string> = {
   meta: 'Meta Ads',
   google: 'Google Ads',
-  tiktok: 'TikTok Ads',
-  linkedin: 'LinkedIn Ads',
 };
 
-/** Situação da conta de anúncio dentro do ciclo. */
-export type SituacaoConta =
-  | 'ativa'
-  | 'ativa_sem_verba'
-  | 'primeiro_ciclo'
-  | 'pausada'
-  | 'reativacao'
-  | 'encerrada';
+export type SituacaoCampanha = 'ativa' | 'pausada' | 'aprendizado' | 'encerrada';
 
-export type DistribuicaoVerbaStatus =
-  | 'rascunho'
-  | 'aguardando_aprovacao'
-  | 'aplicada'
-  | 'conciliada';
+export const SITUACAO_CAMPANHA_LABEL: Record<SituacaoCampanha, string> = {
+  ativa: 'Ativa',
+  pausada: 'Pausada',
+  aprendizado: 'Em aprendizado',
+  encerrada: 'Encerrada',
+};
+
+/**
+ * Uma campanha por tese e plataforma. O número que importa não é o custo por
+ * lead bruto: é o **custo por lead qualificado**, porque lead que a IA
+ * desqualifica não vira produto e não gera receita nenhuma.
+ */
+export interface Campanha {
+  id: string;
+  nome: string;
+  tese: TeseId;
+  plataforma: PlataformaAnuncio;
+  situacao: SituacaoCampanha;
+  /** Verba diária, em reais. */
+  verbaDiaria: number;
+  gastoMes: number;
+  leadsMes: number;
+  leadsQualificadosMes: number;
+  /** Criativos no ar. INV-16 — nenhum sobe sem parecer aprovado. */
+  criativosNoAr: number;
+  criativosSemParecer: number;
+}
 
 // ---------------------------------------------------------------------------
-// Financeiro
+// Qualificação por IA
 // ---------------------------------------------------------------------------
 
-/** Situação de pagamento da fatura da agência. */
-export type StatusFatura =
-  | 'em_aberto'
-  | 'pago'
-  | 'vencido'
-  | 'cancelado'
-  | 'parcelado'
-  | 'quitado';
+export type ResultadoLigacao =
+  | 'qualificado'
+  | 'desqualificado'
+  | 'nao_atendeu'
+  | 'reagendar'
+  | 'em_andamento';
+
+export const RESULTADO_LIGACAO_LABEL: Record<ResultadoLigacao, string> = {
+  qualificado: 'Qualificado',
+  desqualificado: 'Desqualificado',
+  nao_atendeu: 'Não atendeu',
+  reagendar: 'Reagendar',
+  em_andamento: 'Em andamento',
+};
+
+/** Uma tentativa de ligação da SDR de voz. */
+export interface Ligacao {
+  id: string;
+  leadId: string;
+  /** Nome do lead, desnormalizado para a fila não precisar cruzar. */
+  leadNome: string;
+  tese: TeseId;
+  tentativa: number;
+  resultado: ResultadoLigacao;
+  /** Segundos. Zero quando não atendeu. */
+  duracao: number;
+  /** QUA-R03 — sem gravação não há prova de como o cliente foi direcionado. */
+  temGravacao: boolean;
+  em: string;
+}
+
+// ---------------------------------------------------------------------------
+// Integrações
+// ---------------------------------------------------------------------------
+
+export type EstadoIntegracao = 'ok' | 'atencao' | 'erro' | 'nao_configurada';
+
+export const ESTADO_INTEGRACAO_LABEL: Record<EstadoIntegracao, string> = {
+  ok: 'Operando',
+  atencao: 'Instável',
+  erro: 'Falhando',
+  nao_configurada: 'Não configurada',
+};
+
+export interface Integracao {
+  id: string;
+  nome: string;
+  papel: string;
+  estado: EstadoIntegracao;
+  /** ISO ou nulo se nunca houve evento. */
+  ultimoEvento: string | null;
+  /**
+   * API-R12 — provedor que não reenvia em falha precisa de rotina que confira o
+   * que ficou para trás. Sem isso, evento perdido é dado perdido.
+   */
+  temReconciliacao: boolean;
+  /** API-R10 — etapa pulada por falta de configuração tem que aparecer. */
+  detalhe: string;
+}
 
 // ---------------------------------------------------------------------------
 // Painel de entrada
 // ---------------------------------------------------------------------------
 
-/** Um estágio da cadeia: captar → aprovar → distribuir → cobrar. */
+/** Um estágio da cadeia: captar → qualificar → agendar → entregar. */
 export interface EtapaCadeia {
-  id: 'captar' | 'aprovar' | 'distribuir' | 'cobrar';
+  id: 'captar' | 'qualificar' | 'agendar' | 'entregar';
   titulo: string;
   descricao: string;
   valor: string;
@@ -297,11 +621,13 @@ export interface AlertaOperacional {
   modulo: ModuleId;
 }
 
-/** Recorte da carteira por nicho de atuação do cliente. */
-export interface NichoCarteira {
-  nicho: string;
-  conselho: ConselhoRegulador;
-  contas: number;
-  verbaMes: number;
-  cpl: number;
+/** Recorte do catálogo por tese, para o painel. */
+export interface EstoquePorTese {
+  tese: TeseId;
+  /** Agendados e ainda sem comprador. */
+  disponiveis: number;
+  vendidosMes: number;
+  /** Custo médio por lead qualificado, em reais. */
+  custoPorQualificado: number;
+  receitaMes: number;
 }

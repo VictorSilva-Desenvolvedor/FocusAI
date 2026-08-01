@@ -15,6 +15,14 @@ interface AuthValue {
    * hierárquico.
    */
   ehConformidade: boolean;
+  /** O único papel externo. Toda tela que mostra dado de lead consulta isto. */
+  ehAdvogado: boolean;
+  /**
+   * LED-R06 — a chave de isolamento entre carteiras. Nulo para o time interno.
+   * Filtrar por ela no cliente é ergonomia; quando o backend entrar, quem
+   * segura o isolamento é a política de acesso da tabela (`API-R02`).
+   */
+  advogadoId: string | null;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -45,6 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       perfisDisponiveis: disponiveis,
       temPermissao: (p) => perfil.permissoes.includes(p),
       ehConformidade: normalizarDepartamento(perfil.departamento) === 'conformidade',
+      ehAdvogado: perfil.role === 'advogado',
+      advogadoId: perfil.advogado_id,
     };
   }, [usuarios, perfilId]);
 

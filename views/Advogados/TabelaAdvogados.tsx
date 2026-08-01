@@ -1,55 +1,44 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, MoreHorizontal, Snowflake } from 'lucide-react';
-import {
-  ESTILO_PRIORIDADE,
-  diasSemInteracao,
-  estaCongelada,
-  prioridade,
-} from '@/src/lib/negociacoes';
-import { ESTILO_ETIQUETA } from '@/src/lib/estilo';
-import { NEGOCIACAO_STATUS_LABEL, type Negociacao } from '@/types';
+import { ArrowDown, ArrowUp, BadgeCheck, MoreHorizontal, ShieldAlert, Snowflake } from 'lucide-react';
+import { ESTILO_PRIORIDADE, diasSemInteracao, estaCongelado, prioridade } from '@/src/lib/advogados';
+import { ESTILO_TESE } from '@/src/lib/leads';
+import { ADVOGADO_STATUS_LABEL, PORTE_LABEL, TESE_CURTA, type Advogado } from '@/types';
 
-type Coluna = 'cliente' | 'status' | 'verbaMensal' | 'ultimaAtividade' | 'prioridade';
+type Coluna = 'nome' | 'status' | 'potencialMensal' | 'ultimaAtividade' | 'prioridade';
 type Direcao = 'asc' | 'desc';
 
-const brl = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-  maximumFractionDigits: 0,
-});
-
-export function TabelaNegociacoes({
-  negociacoes,
+export function TabelaAdvogados({
+  advogados,
   nomePorId,
   aoAbrirMenu,
 }: {
-  negociacoes: Negociacao[];
+  advogados: Advogado[];
   nomePorId: Record<string, string>;
-  aoAbrirMenu: (n: Negociacao, e: React.MouseEvent) => void;
+  aoAbrirMenu: (a: Advogado, e: React.MouseEvent) => void;
 }) {
   const [ordem, setOrdem] = useState<{ coluna: Coluna; direcao: Direcao }>({
     coluna: 'ultimaAtividade',
     direcao: 'asc',
   });
 
-  const ordenadas = useMemo(() => {
+  const ordenados = useMemo(() => {
     const sinal = ordem.direcao === 'asc' ? 1 : -1;
     const peso = { P1: 0, P2: 1, P3: 2 };
-    return [...negociacoes].sort((a, b) => {
+    return [...advogados].sort((a, b) => {
       switch (ordem.coluna) {
-        case 'cliente':
-          return sinal * a.cliente.localeCompare(b.cliente, 'pt-BR');
+        case 'nome':
+          return sinal * a.nome.localeCompare(b.nome, 'pt-BR');
         case 'status':
           return sinal * a.status.localeCompare(b.status);
-        case 'verbaMensal':
-          return sinal * (a.verbaMensal - b.verbaMensal);
+        case 'potencialMensal':
+          return sinal * (a.potencialMensal - b.potencialMensal);
         case 'prioridade':
           return sinal * (peso[prioridade(a)] - peso[prioridade(b)]);
         case 'ultimaAtividade':
           return sinal * (Date.parse(a.ultimaAtividade) - Date.parse(b.ultimaAtividade));
       }
     });
-  }, [negociacoes, ordem]);
+  }, [advogados, ordem]);
 
   function ordenarPor(coluna: Coluna) {
     setOrdem((o) =>
@@ -59,10 +48,10 @@ export function TabelaNegociacoes({
     );
   }
 
-  if (negociacoes.length === 0) {
+  if (advogados.length === 0) {
     return (
       <div className="card py-16 text-center">
-        <p className="text-[14px] font-medium text-roxo-900">Nenhuma negociação com esses filtros</p>
+        <p className="text-[14px] font-medium text-roxo-900">Nenhum advogado com esses filtros</p>
       </div>
     );
   }
@@ -70,18 +59,21 @@ export function TabelaNegociacoes({
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[54rem] text-[13px]">
+        <table className="w-full min-w-[58rem] text-[13px]">
           <thead>
             <tr className="border-b border-stone-200 bg-stone-50/60">
-              <Cabecalho coluna="cliente" ordem={ordem} aoOrdenar={ordenarPor}>
-                Cliente
+              <Cabecalho coluna="nome" ordem={ordem} aoOrdenar={ordenarPor}>
+                Escritório
               </Cabecalho>
-              <th className="text-left font-medium text-[11px] text-stone-500 px-3 py-2.5">Nicho</th>
+              <th className="text-left font-medium text-[11px] text-stone-500 px-3 py-2.5">
+                Inscrição
+              </th>
+              <th className="text-left font-medium text-[11px] text-stone-500 px-3 py-2.5">Teses</th>
               <Cabecalho coluna="status" ordem={ordem} aoOrdenar={ordenarPor}>
                 Etapa
               </Cabecalho>
-              <Cabecalho coluna="verbaMensal" ordem={ordem} aoOrdenar={ordenarPor}>
-                Verba/mês
+              <Cabecalho coluna="potencialMensal" ordem={ordem} aoOrdenar={ordenarPor}>
+                Potencial
               </Cabecalho>
               <Cabecalho coluna="prioridade" ordem={ordem} aoOrdenar={ordenarPor}>
                 Prio.
@@ -97,54 +89,71 @@ export function TabelaNegociacoes({
           </thead>
 
           <tbody>
-            {ordenadas.map((n) => {
-              const p = prioridade(n);
-              const dias = diasSemInteracao(n);
+            {ordenados.map((a) => {
+              const p = prioridade(a);
+              const dias = diasSemInteracao(a);
               return (
                 <tr
-                  key={n.id}
+                  key={a.id}
                   className="border-b border-stone-100 last:border-0 hover:bg-stone-50/60 transition-colors"
                 >
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-roxo-900">{n.cliente}</span>
-                      {estaCongelada(n) && (
-                        <Snowflake
-                          className="size-3.5 text-info-500 shrink-0"
-                          aria-label="Congelada"
-                        />
+                      <span className="font-medium text-roxo-900">{a.nome}</span>
+                      {estaCongelado(a) && (
+                        <Snowflake className="size-3.5 text-info-500 shrink-0" aria-label="Congelado" />
                       )}
                     </div>
-                    <div className="nota">{n.origem}</div>
+                    <div className="nota">
+                      {PORTE_LABEL[a.porte]} · {a.uf}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    {a.oabConferidaEm ? (
+                      <span className="flex items-center gap-1 text-sucesso-700 tabular text-[12px]">
+                        <BadgeCheck className="size-3.5" />
+                        {a.oab}
+                      </span>
+                    ) : (
+                      <span
+                        title="Inscrição não conferida — não libera acesso (INV-12)."
+                        className="flex items-center gap-1 text-atencao-800 tabular text-[12px]"
+                      >
+                        <ShieldAlert className="size-3.5" />
+                        {a.oab}
+                      </span>
+                    )}
                   </td>
 
                   <td className="px-3 py-3">
-                    {n.conselho ? (
-                      <span className={`etiqueta ${ESTILO_ETIQUETA.marca}`}>{n.conselho}</span>
-                    ) : (
-                      <span className={`etiqueta ${ESTILO_ETIQUETA.atencao}`}>sem conselho</span>
-                    )}
-                    <div className="nota mt-0.5">{n.nicho || '—'}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {a.teses.length > 0 ? (
+                        a.teses.map((t) => (
+                          <span key={t} className={`etiqueta ${ESTILO_TESE[t]}`}>
+                            {TESE_CURTA[t]}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="etiqueta bg-atencao-100 text-atencao-800">sem tese</span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="px-3 py-3 text-stone-700 whitespace-nowrap">
-                    {NEGOCIACAO_STATUS_LABEL[n.status]}
+                    {ADVOGADO_STATUS_LABEL[a.status]}
                   </td>
 
                   <td className="px-3 py-3 tabular text-stone-700 whitespace-nowrap">
-                    {brl.format(n.verbaMensal)}
+                    {a.potencialMensal} leads/mês
                   </td>
 
                   <td className="px-3 py-3">
-                    <span
-                      className={`etiqueta ${ESTILO_PRIORIDADE[p]}`}
-                    >
-                      {p}
-                    </span>
+                    <span className={`etiqueta ${ESTILO_PRIORIDADE[p]}`}>{p}</span>
                   </td>
 
                   <td className="px-3 py-3 text-stone-600 whitespace-nowrap">
-                    {nomePorId[n.responsavelId] ?? '—'}
+                    {nomePorId[a.responsavelId] ?? '—'}
                   </td>
 
                   <td className="px-3 py-3 text-stone-600 whitespace-nowrap tabular">
@@ -154,8 +163,8 @@ export function TabelaNegociacoes({
                   <td className="px-3 py-3">
                     <button
                       type="button"
-                      onClick={(e) => aoAbrirMenu(n, e)}
-                      aria-label={`Ações de ${n.cliente}`}
+                      onClick={(e) => aoAbrirMenu(a, e)}
+                      aria-label={`Ações de ${a.nome}`}
                       className="btn-icone"
                     >
                       <MoreHorizontal className="size-4" />
@@ -197,11 +206,7 @@ function Cabecalho({
       >
         {children}
         {ativa &&
-          (ordem.direcao === 'asc' ? (
-            <ArrowUp className="size-3" />
-          ) : (
-            <ArrowDown className="size-3" />
-          ))}
+          (ordem.direcao === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
       </button>
     </th>
   );

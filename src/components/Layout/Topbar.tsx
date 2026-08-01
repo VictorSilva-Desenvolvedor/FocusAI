@@ -55,13 +55,14 @@ export function Topbar() {
         </NavLink>
 
         {/*
-          Navegação horizontal a partir de lg. Abaixo disso os 9 módulos não
+          Navegação horizontal a partir de xl. Abaixo disso os 10 módulos não
           cabem e o último ficava cortado no meio da palavra, o que parece
-          defeito — nessa faixa o menu compacto é mais honesto.
+          defeito — nessa faixa o menu compacto é mais honesto. O ponto de
+          virada subiu de lg para xl quando o décimo módulo entrou.
         */}
         <nav
           aria-label="Módulos"
-          className="hidden lg:flex items-center gap-0.5 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="hidden xl:flex items-center gap-0.5 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {modulos.map((modulo) => (
             <NavLink
@@ -82,11 +83,13 @@ export function Topbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
-          <div className="relative hidden xl:block w-60">
+          {/* A busca cede o espaço para a navegação: com 10 módulos, os dois
+              não cabem juntos antes de uma tela bem larga. */}
+          <div className="relative hidden 2xl:block w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-roxo-300" />
             <input
               type="search"
-              placeholder="Buscar cliente, conta, campanha…"
+              placeholder="Buscar lead, advogado, tese…"
               className="campo pl-9 bg-white/8 border-white/10 text-white placeholder:text-roxo-300 focus:bg-white/12 focus:border-white/25 focus:ring-0"
             />
           </div>
@@ -133,18 +136,18 @@ export function Topbar() {
             onClick={() => setMenuAberto((v) => !v)}
             aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
             aria-expanded={menuAberto}
-            className="btn-icone lg:hidden size-9 text-roxo-200 hover:bg-white/8 hover:text-white"
+            className="btn-icone xl:hidden size-9 text-roxo-200 hover:bg-white/8 hover:text-white"
           >
             {menuAberto ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
       </div>
 
-      {/* Menu compacto: única navegação disponível abaixo de lg. */}
+      {/* Menu compacto: única navegação disponível abaixo de xl. */}
       {menuAberto && (
         <nav
           aria-label="Módulos"
-          className="lg:hidden border-t border-white/8 px-3 py-2 animate-entrada-suave"
+          className="xl:hidden border-t border-white/8 px-3 py-2 animate-entrada-suave"
         >
           <ul className="grid grid-cols-2 gap-1">
             {modulos.map((modulo) => (

@@ -16,24 +16,37 @@ import type {
  * Contas nunca são autocriadas: sempre criadas por alguém acima.
  *
  * Papel que não aparece como chave aqui não cria ninguém. Papel que não aparece
- * em nenhuma lista de valores só pode ser criado por `adm` — é o caso de
- * `white_label_admin`, que envolve contrato e divisão de receita.
+ * em nenhuma lista de valores só pode ser criado por `adm`.
+ *
+ * `advogado` está de fora de propósito, e é o ponto mais importante desta
+ * tabela: conta de advogado não nasce daqui. Ela nasce da liberação de acesso
+ * no funil, depois da inscrição da OAB conferida (`INV-12`). Criar advogado
+ * pelo painel de usuários seria o cadastro livre que o modelo recusa — e
+ * entregaria dado pessoal de cliente final a quem ninguém checou.
  */
 export const PODE_CRIAR: Partial<Record<UserRole, UserRole[]>> = {
   adm: [
     'gerente',
     'gestor_trafego',
-    'analista_conformidade',
     'criativo',
+    'analista_conformidade',
+    'operador_ia',
     'closer',
     'sdr',
     'cs',
     'financeiro',
-    'parceiro',
-    'white_label_admin',
     'adm',
   ],
-  gerente: ['gestor_trafego', 'analista_conformidade', 'criativo', 'closer', 'sdr', 'cs', 'financeiro'],
+  gerente: [
+    'gestor_trafego',
+    'criativo',
+    'analista_conformidade',
+    'operador_ia',
+    'closer',
+    'sdr',
+    'cs',
+    'financeiro',
+  ],
   gestor_trafego: ['criativo'],
 };
 
@@ -56,6 +69,9 @@ export function motivoParaNaoGerenciar(ator: Profile, alvo: Usuario): string | n
   if (ator.id === alvo.id) {
     return 'Ninguém edita a própria conta por aqui (ACC-R03). Use a tela de perfil.';
   }
+  if (alvo.role === 'advogado') {
+    return 'Conta de advogado é gerenciada no funil de Advogados, onde a inscrição da OAB é conferida (INV-12).';
+  }
   if (!papeisQuePodeCriar(ator).includes(alvo.role)) {
     return `Seu papel não gerencia contas de ${ROLE_CURTO[alvo.role]}.`;
   }
@@ -71,15 +87,14 @@ export const ROLE_CURTO: Record<UserRole, string> = {
   adm: 'Administrador',
   gerente: 'Gerente',
   gestor_trafego: 'Gestor de Tráfego',
-  analista_conformidade: 'Analista de Conformidade',
   criativo: 'Criativo',
+  analista_conformidade: 'Analista de Conformidade',
+  operador_ia: 'Operador da IA',
   closer: 'Closer',
   sdr: 'SDR',
   cs: 'Customer Success',
   financeiro: 'Financeiro',
-  parceiro: 'Parceiro',
-  cliente: 'Cliente',
-  white_label_admin: 'White Label',
+  advogado: 'Advogado',
 };
 
 // ---------------------------------------------------------------------------
@@ -94,16 +109,26 @@ export const PERMISSOES_PADRAO: Partial<Record<UserRole, NamedPermission[]>> = {
   adm: [
     'modulo:campanhas',
     'modulo:conformidade',
-    'modulo:plataformas',
-    'verba:aprovar_realocacao',
-    'auditoria:repasse_midia',
-    'cobranca:receber_aviso_inadimplencia',
+    'modulo:qualificacao',
+    'modulo:integracoes',
+    'tese:definir_preco',
+    'advogado:liberar_acesso',
+    'lead:aprovar_devolucao',
+    'credito:conciliar_pagamento',
     'assistente:financeiro',
   ],
-  gerente: ['modulo:plataformas', 'verba:aprovar_realocacao'],
-  gestor_trafego: ['modulo:campanhas', 'modulo:plataformas'],
+  gerente: [
+    'modulo:integracoes',
+    'tese:definir_preco',
+    'advogado:liberar_acesso',
+    'lead:aprovar_devolucao',
+  ],
+  gestor_trafego: ['modulo:campanhas', 'modulo:integracoes'],
   analista_conformidade: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
-  financeiro: ['cobranca:receber_pendentes', 'cobranca:receber_aviso_inadimplencia'],
+  operador_ia: ['modulo:qualificacao'],
+  closer: ['advogado:liberar_acesso'],
+  cs: ['lead:aprovar_devolucao'],
+  financeiro: ['credito:conciliar_pagamento', 'lead:aprovar_devolucao'],
 };
 
 export function permissoesPadrao(role: UserRole): NamedPermission[] {
@@ -113,35 +138,39 @@ export function permissoesPadrao(role: UserRole): NamedPermission[] {
 export const PERMISSAO_LABEL: Record<NamedPermission, { rotulo: string; efeito: string }> = {
   'modulo:campanhas': {
     rotulo: 'Módulo Campanhas',
-    efeito: 'Libera contas de anúncio, campanhas e distribuição de verba',
+    efeito: 'Libera os anúncios por tese e o custo por lead qualificado',
   },
   'modulo:conformidade': {
     rotulo: 'Módulo Conformidade',
-    efeito: 'Libera a fila de pareceres sobre criativo e página de destino',
+    efeito: 'Libera a fila de pareceres sobre criativo',
   },
-  'modulo:plataformas': {
-    rotulo: 'Módulo Plataformas',
-    efeito: 'Libera a saúde das integrações Meta, Google, TikTok e LinkedIn',
+  'modulo:qualificacao': {
+    rotulo: 'Módulo Qualificação',
+    efeito: 'Libera a fila de ligações da SDR de voz e as gravações',
   },
-  'verba:aprovar_realocacao': {
-    rotulo: 'Aprovar realocação de verba',
-    efeito: 'Pode mover orçamento entre contas depois do ciclo aplicado',
+  'modulo:integracoes': {
+    rotulo: 'Módulo Integrações',
+    efeito: 'Libera a saúde das integrações de voz, anúncio, pagamento e WhatsApp',
+  },
+  'tese:definir_preco': {
+    rotulo: 'Definir preço da tese',
+    efeito: 'Altera o custo em créditos e o preço avulso — não reescreve o que já foi publicado (CRE-R03)',
+  },
+  'advogado:liberar_acesso': {
+    rotulo: 'Liberar acesso de advogado',
+    efeito: 'Cria a conta do advogado depois da inscrição da OAB conferida (INV-12)',
+  },
+  'lead:aprovar_devolucao': {
+    rotulo: 'Aprovar devolução de lead',
+    efeito: 'Devolve o crédito ao advogado. O lead não volta ao catálogo (CRE-R05)',
   },
   'conformidade:liberar_com_ressalva': {
     rotulo: 'Liberar com ressalva',
     efeito: 'Só tem efeito para quem está no departamento Conformidade (CNF-R21)',
   },
-  'cobranca:receber_pendentes': {
-    rotulo: 'Receber cobranças pendentes',
-    efeito: 'Entra na fila de atribuição de cobrança',
-  },
-  'cobranca:receber_aviso_inadimplencia': {
-    rotulo: 'Receber aviso de inadimplência',
-    efeito: 'Recebe a notificação D+15 — sem ninguém marcado, ninguém é avisado',
-  },
-  'auditoria:repasse_midia': {
-    rotulo: 'Auditoria de repasse de mídia',
-    efeito: 'Acesso à tela de auditoria, que não aparece no menu',
+  'credito:conciliar_pagamento': {
+    rotulo: 'Conciliar pagamento de crédito',
+    efeito: 'Confere o extrato. Não credita: só a confirmação bancária credita (INV-14)',
   },
   'assistente:financeiro': {
     rotulo: 'Assistente — dados financeiros',
@@ -158,6 +187,7 @@ export const DEPARTAMENTOS = [
   'Customer Success',
   'Financeiro',
   'Operações',
+  'Qualificação',
   'Tecnologia',
   'Tráfego',
 ] as const;
@@ -188,7 +218,7 @@ export function acessoDoPapel(
     role,
     departamento: null,
     permissoes,
-    white_label_id: null,
+    advogado_id: null,
     avatar_iniciais: '',
   };
 
@@ -213,8 +243,9 @@ const EXIGE_DEPARTAMENTO = new Set<UserRole>([
   'adm',
   'gerente',
   'gestor_trafego',
-  'analista_conformidade',
   'criativo',
+  'analista_conformidade',
+  'operador_ia',
   'closer',
   'sdr',
   'cs',
@@ -254,6 +285,10 @@ export function validarUsuario(
   const permitidos = papeisQuePodeCriar(ator);
   if (!dados.role) {
     erros.role = 'Escolha um papel.';
+  } else if (dados.role === 'advogado') {
+    // INV-12 — a única porta de entrada do advogado é o funil.
+    erros.role =
+      'Conta de advogado só nasce da liberação de acesso no funil, com a inscrição da OAB conferida (INV-12).';
   } else if (!permitidos.includes(dados.role)) {
     erros.role = `Seu papel não pode ${editandoId ? 'atribuir' : 'criar'} contas de ${ROLE_CURTO[dados.role]}.`;
   }

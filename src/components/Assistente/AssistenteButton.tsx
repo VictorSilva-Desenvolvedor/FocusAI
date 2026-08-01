@@ -2,10 +2,11 @@ import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 /**
- * ASS-R02 — parceiros, clientes e agências white label não têm acesso ao
- * assistente. São públicos externos ao time.
+ * ASS-R02 — o advogado não tem acesso ao assistente. É público externo: o
+ * assistente responde sobre a operação da Focus, e boa parte do que ele
+ * agregaria cruza carteiras de advogados diferentes.
  */
-const PAPEIS_SEM_ASSISTENTE = new Set(['parceiro', 'cliente', 'white_label_admin']);
+const PAPEIS_SEM_ASSISTENTE = new Set(['advogado']);
 
 export function AssistenteButton() {
   const { perfil } = useAuth();

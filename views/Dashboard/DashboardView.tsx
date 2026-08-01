@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -7,34 +8,36 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
-import { useMemo } from 'react';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { useNegociacoes } from '@/src/contexts/NegociacoesContext';
-import { COLUNAS, DESFECHOS, visiveisPara } from '@/src/lib/negociacoes';
+import { useLeads } from '@/src/contexts/LeadsContext';
+import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { podeAcessar } from '@/src/lib/navigation';
 import {
-  ALERTAS,
-  CADEIA,
-  CARTEIRA_POR_NICHO,
-  REGUA_COBRANCA,
-  ROTINAS,
-  TRABALHO_HOJE,
-} from '@/src/lib/mockData';
+  COLUNAS,
+  DESFECHOS,
+  ESTILO_TESE,
+  estaNoCatalogo,
+  venceEmBreve,
+  visiveisPara,
+} from '@/src/lib/leads';
+import { TESES } from '@/src/lib/teses';
+import { ALERTAS, CADEIA, TRABALHO_HOJE } from '@/src/lib/mockData';
 import {
   ESTILO_BLOCO,
   ESTILO_CHIP,
-  ESTILO_ETIQUETA,
   ESTILO_PONTO,
   ESTILO_TEXTO,
   type Tom,
 } from '@/src/lib/estilo';
 import {
-  NEGOCIACAO_STATUS_LABEL,
+  LEAD_STATUS_LABEL,
+  TESE_CURTA,
   type ChipTrabalhoHoje,
-  type NegociacaoStatus,
+  type LeadStatus,
   type Profile,
   type SeveridadeAlerta,
 } from '@/types';
+import { PainelDoAdvogado } from './PainelDoAdvogado';
 
 const brl = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -48,6 +51,9 @@ const HOJE = new Intl.DateTimeFormat('pt-BR', {
   month: 'long',
 }).format(new Date());
 
+/** Janela dos indicadores do painel. Ver o porquê em `numeros`. */
+const JANELA_DIAS = 30;
+
 function saudacao(): string {
   const h = new Date().getHours();
   if (h < 12) return 'Bom dia';
@@ -56,73 +62,151 @@ function saudacao(): string {
 }
 
 export function DashboardView() {
-  const { perfil } = useAuth();
-  const { negociacoes } = useNegociacoes();
+  const { perfil, ehAdvogado, advogadoId } = useAuth();
+  const { leads } = useLeads();
+  const { advogados } = useAdvogados();
   const primeiroNome = perfil.nome.split(' ')[0];
 
+  const advogadoDoPerfil = useMemo(
+    () => advogados.find((a) => a.id === advogadoId) ?? null,
+    [advogados, advogadoId],
+  );
+
   /*
-   * O funil sai do mesmo store que o CRM, não de um mock paralelo. Painel
-   * dizendo 284 enquanto o quadro mostra 24 é o tipo de divergência que faz
-   * gestão parar de confiar nos dois números.
+   * Os números saem do mesmo store que as telas de leads e advogados, não de um
+   * mock paralelo. Painel dizendo um número enquanto o catálogo mostra outro é
+   * o tipo de divergência que faz gestão parar de confiar nos dois.
    */
-  const { funil, totalFunil, resumoCaptar } = useMemo(() => {
-    const minhas = visiveisPara(negociacoes, perfil);
-    const linhas = [...COLUNAS, 'reprovado' as NegociacaoStatus].map((status) => ({
+  const numeros = useMemo(() => {
+    const meus = visiveisPara(leads, perfil, advogadoDoPerfil);
+    /*
+     * Janela móvel de 30 dias, não mês corrente. Mês corrente zera todo dia 1º
+     * e o painel abre dizendo que nada foi captado nem vendido — o que parece
+     * defeito, não começo de ciclo.
+     */
+    const desde = Date.now() - JANELA_DIAS * 86_400_000;
+
+    const naFila = meus.filter((l) => l.status === 'novo' || l.status === 'em_qualificacao').length;
+    const catalogo = meus.filter(estaNoCatalogo).length;
+    const vencendo = meus.filter(venceEmBreve).length;
+    const semGravacao = meus.filter((l) => l.compradoPor && !l.temGravacao).length;
+    const vendidosMes = meus.filter(
+      (l) => l.compradoEm && Date.parse(l.compradoEm) >= desde,
+    ).length;
+    const captadosMes = meus.filter((l) => Date.parse(l.criadoEm) >= desde).length;
+
+    const funil = [...COLUNAS, 'desqualificado' as LeadStatus].map((status) => ({
       status,
-      total: minhas.filter((n) => n.status === status).length,
+      total: meus.filter((l) => l.status === status).length,
     }));
-    const ativas = minhas.filter((n) => !DESFECHOS.includes(n.status));
-    const propostas = minhas.filter((n) => n.status === 'proposta_enviada').length;
-    return {
-      funil: linhas,
-      totalFunil: ativas.length,
-      resumoCaptar: {
-        valor: String(ativas.length),
-        detalhe: `${propostas} com proposta enviada aguardando assinatura`,
-      },
-    };
-  }, [negociacoes, perfil]);
+    const ativos = meus.filter((l) => !DESFECHOS.includes(l.status)).length;
+
+    return { naFila, catalogo, vencendo, semGravacao, vendidosMes, captadosMes, funil, ativos };
+  }, [leads, perfil, advogadoDoPerfil]);
+
+  const estoquePorTese = useMemo(
+    () =>
+      TESES.map((tese) => {
+        const daTese = leads.filter((l) => l.tese === tese.id);
+        const vendidos = daTese.filter((l) => l.compradoPor).length;
+        return {
+          tese: tese.id,
+          catalogo: daTese.filter(estaNoCatalogo).length,
+          vendidos,
+          receita: vendidos * tese.precoAvulso,
+          preco: tese.precoAvulso,
+        };
+      }),
+    [leads],
+  );
+
+  // O painel do advogado é outra tela: ele não opera a máquina, consome o
+  // produto dela. Misturar as duas obrigaria a esconder metade dos blocos.
+  if (ehAdvogado) {
+    return (
+      <PainelDoAdvogado
+        advogado={advogadoDoPerfil}
+        leads={visiveisPara(leads, perfil, advogadoDoPerfil)}
+        saudacao={`${saudacao()}, ${primeiroNome}`}
+        hoje={HOJE}
+      />
+    );
+  }
 
   /*
    * ACC-R01 — permissivo por padrão é o comportamento natural, e é justamente
    * o que precisa ser contido aqui. Cada bloco abaixo fala de um módulo; quem
    * não acessa o módulo não vê o número. Some do menu E some do painel.
    */
-  const veCrm = podeAcessar('crm', perfil);
-  const veFinanceiro = podeAcessar('financeiro', perfil);
-  const veCampanhas = podeAcessar('campanhas', perfil);
-  const cadeiaVisivel = CADEIA.filter((e) => podeAcessar(e.modulo, perfil)).map((e) =>
-    e.id === 'captar' ? { ...e, ...resumoCaptar } : e,
-  );
+  const veLeads = podeAcessar('leads', perfil);
+  const veAdvogados = podeAcessar('advogados', perfil);
+  const veCreditos = podeAcessar('creditos', perfil);
+
+  const valores: Record<string, { valor: string; detalhe: string }> = {
+    captar: {
+      valor: String(numeros.captadosMes),
+      detalhe: `${numeros.naFila} ainda na fila da qualificação`,
+    },
+    qualificar: {
+      valor: String(numeros.naFila),
+      detalhe: 'Filtros de elegibilidade por tese',
+    },
+    agendar: {
+      valor: String(numeros.catalogo),
+      detalhe:
+        numeros.vencendo > 0
+          ? `${numeros.vencendo} com reunião em menos de 48h e sem comprador`
+          : 'Nenhum vencendo nas próximas 48h',
+    },
+    entregar: {
+      valor: String(numeros.vendidosMes),
+      detalhe: `${numeros.semGravacao} vendidos sem gravação da qualificação`,
+    },
+  };
+
+  const cadeiaVisivel = CADEIA.filter((e) => podeAcessar(e.modulo, perfil)).map((e) => ({
+    ...e,
+    ...(valores[e.id] ?? {}),
+  }));
+
   const alertasVisiveis = ALERTAS.filter((a) => podeAcessar(a.modulo, perfil));
+
+  const chips: ChipTrabalhoHoje[] = TRABALHO_HOJE.map((chip) => ({
+    ...chip,
+    valor:
+      chip.id === 'fila-ia'
+        ? numeros.naFila
+        : chip.id === 'catalogo'
+          ? numeros.catalogo
+          : chip.id === 'reuniao-amanha'
+            ? numeros.vencendo
+            : chip.id === 'sem-gravacao'
+              ? numeros.semGravacao
+              : numeros.vendidosMes,
+  }));
 
   return (
     // pb generoso: o botão flutuante do assistente fica por cima do conteúdo
-    // no canto inferior direito e engolia a última linha da tabela de nichos.
+    // no canto inferior direito e engolia a última linha da tabela.
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24 space-y-6 animate-entrada-suave">
       <Cabecalho saudacao={`${saudacao()}, ${primeiroNome}`} perfil={perfil} />
-      {veCrm && <TrabalhoHoje />}
+
+      {veLeads && <TrabalhoHoje chips={chips} />}
       {cadeiaVisivel.length > 0 && <Cadeia etapas={cadeiaVisivel} />}
 
-      {(veCrm || alertasVisiveis.length > 0) && (
+      {(veLeads || alertasVisiveis.length > 0) && (
         <div
           className={`grid gap-6 items-start ${
-            veCrm && alertasVisiveis.length > 0 ? 'lg:grid-cols-[1.35fr_1fr]' : 'grid-cols-1'
+            veLeads && alertasVisiveis.length > 0 ? 'lg:grid-cols-[1.35fr_1fr]' : 'grid-cols-1'
           }`}
         >
-          {veCrm && <Funil linhas={funil} total={totalFunil} />}
+          {veLeads && <Funil linhas={numeros.funil} total={numeros.ativos} />}
           {alertasVisiveis.length > 0 && <Alertas alertas={alertasVisiveis} />}
         </div>
       )}
 
-      {veFinanceiro && (
-        <div className="grid gap-6 lg:grid-cols-2 items-start">
-          <ReguaCobranca />
-          <Rotinas />
-        </div>
-      )}
-
-      {veCampanhas && <CarteiraPorNicho />}
+      {veLeads && <EstoquePorTese linhas={estoquePorTese} />}
+      {veAdvogados && veCreditos && <Carteira advogados={advogados} />}
     </div>
   );
 }
@@ -136,10 +220,11 @@ function Cabecalho({ saudacao, perfil }: { saudacao: string; perfil: Profile }) 
         <h1 className="titulo-pagina">{saudacao}</h1>
         <p className="subtitulo-pagina mt-1 first-letter:uppercase">{HOJE}</p>
       </div>
-      {podeAcessar('financeiro', perfil) && (
+      {podeAcessar('conformidade', perfil) && (
         <div className="flex items-center gap-2 text-[11px] text-stone-500 bg-white border border-stone-200 rounded-lg px-3 py-2">
-          <span className={`ponto-estado ${ESTILO_PONTO.sucesso}`} />
-          Ciclo <strong className="font-semibold text-roxo-800">AGO/2026</strong> em faturamento
+          <span className={`ponto-estado ${ESTILO_PONTO.atencao}`} />
+          Validação do <strong className="font-semibold text-roxo-800">Provimento 205</strong>{' '}
+          pendente
         </div>
       )}
     </div>
@@ -156,12 +241,12 @@ const TOM_TRABALHO: Record<ChipTrabalhoHoje['tom'], Tom> = {
   critico: 'erro',
 };
 
-function TrabalhoHoje() {
+function TrabalhoHoje({ chips }: { chips: ChipTrabalhoHoje[] }) {
   return (
     <section>
       <h2 className="label-eyebrow mb-2">Meu trabalho hoje</h2>
       <div className="flex flex-wrap gap-2">
-        {TRABALHO_HOJE.map((chip) => (
+        {chips.map((chip) => (
           <div
             key={chip.id}
             title={chip.criterio}
@@ -189,21 +274,17 @@ function Cadeia({ etapas }: { etapas: typeof CADEIA }) {
     <section>
       <div className="flex items-baseline justify-between mb-2">
         <h2 className="label-eyebrow">A cadeia do negócio</h2>
-        <span className="nota">captar → aprovar → distribuir → cobrar</span>
+        <span className="nota">captar → qualificar → agendar → entregar</span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {etapas.map((etapa) => (
-          <Link
-            key={etapa.id}
-            to={etapa.rota}
-            className="card card-interativo p-4 group"
-          >
+          <Link key={etapa.id} to={etapa.rota} className="card card-interativo p-4 group">
             <div className="flex items-center gap-2 mb-3">
-              {/* Numeração é a posição na cadeia completa, não no que sobrou
-                  do filtro — quem vê só conformidade precisa saber que ela é o
+              {/* Numeração é a posição na cadeia completa, não no que sobrou do
+                  filtro — quem vê só qualificação precisa saber que ela é o
                   passo 2, não o passo 1. */}
-              <span className="size-5 rounded-full grid place-items-center bg-roxo-800 text-white text-[10px] font-semibold tabular">
+              <span className="size-5 rounded-full grid place-items-center bg-grafite-800 text-white text-[10px] font-semibold tabular">
                 {CADEIA.findIndex((e) => e.id === etapa.id) + 1}
               </span>
               <span className="card-title">{etapa.titulo}</span>
@@ -249,7 +330,7 @@ function Funil({
   linhas,
   total,
 }: {
-  linhas: Array<{ status: NegociacaoStatus; total: number }>;
+  linhas: Array<{ status: LeadStatus; total: number }>;
   total: number;
 }) {
   const maior = Math.max(...linhas.map((f) => f.total), 1);
@@ -257,31 +338,31 @@ function Funil({
   return (
     <section className="card p-5">
       <div className="flex items-baseline justify-between mb-4">
-        <h2 className="card-title">Funil por status</h2>
+        <h2 className="card-title">Funil do lead</h2>
         <span className="text-[11px] text-stone-500 tabular">
-          {total.toLocaleString('pt-BR')} ativas
+          {total.toLocaleString('pt-BR')} ativos
         </span>
       </div>
 
       <ul className="space-y-2.5">
         {linhas.map((linha) => {
           const pct = (linha.total / maior) * 100;
-          const reprovado = linha.status === 'reprovado';
-          const ativo = linha.status === 'conta_ativa';
+          const desqualificado = linha.status === 'desqualificado';
+          const vendido = linha.status === 'vendido' || linha.status === 'atendido';
 
           return (
-            <li key={linha.status} className="grid grid-cols-[11rem_1fr_2.5rem] items-center gap-3">
+            <li key={linha.status} className="grid grid-cols-[9rem_1fr_2.5rem] items-center gap-3">
               <span className="text-[12px] text-stone-600 truncate">
-                {NEGOCIACAO_STATUS_LABEL[linha.status]}
+                {LEAD_STATUS_LABEL[linha.status]}
               </span>
               <div className="h-5 rounded-lg bg-stone-100 overflow-hidden">
                 {/* Só a largura anima: `transition-all` aqui pegaria layout
                     também, e esta é uma lista que remonta a cada filtro. */}
                 <div
                   className={`h-full rounded-lg transition-[width] duration-300 ${
-                    reprovado
+                    desqualificado
                       ? ESTILO_PONTO.erro
-                      : ativo
+                      : vendido
                         ? ESTILO_PONTO.sucesso
                         : ESTILO_PONTO.marca
                   }`}
@@ -297,8 +378,8 @@ function Funil({
       </ul>
 
       <p className="nota mt-4">
-        Status é a máquina de estados do negócio e não é configurável. A etapa do Kanban é outra
-        dimensão, essa sim livre — as duas convivem.
+        É o agendamento que transforma o lead em produto: antes dele há um contato, depois dele há
+        uma reunião que alguém compra.
       </p>
     </section>
   );
@@ -355,135 +436,73 @@ function Alertas({ alertas }: { alertas: typeof ALERTAS }) {
 
 // ---------------------------------------------------------------------------
 
-function ReguaCobranca() {
-  const maior = Math.max(...REGUA_COBRANCA.map((r) => r.enviados));
-
-  return (
-    <section className="card p-5">
-      <h2 className="card-title mb-1">Régua de cobrança</h2>
-      <p className="nota mb-4">
-        Disparos do ciclo. O alerta interno D+15 só ocorre se os três avisos ao cliente saíram.
-      </p>
-
-      <div className="grid grid-cols-4 gap-3">
-        {REGUA_COBRANCA.map((marco) => (
-          <div key={marco.marco} className="text-center">
-            <div className="h-24 flex items-end justify-center mb-2">
-              <div
-                className={`w-full rounded-t-lg transition-[height] duration-300 ${
-                  marco.marco === 'D+15' ? ESTILO_PONTO.erro : 'bg-roxo-400'
-                }`}
-                style={{ height: `${Math.max((marco.enviados / maior) * 100, 6)}%` }}
-              />
-            </div>
-            <div className="text-[13px] font-semibold text-roxo-900 tabular">{marco.enviados}</div>
-            <div className="text-[11px] font-medium text-roxo-700">{marco.marco}</div>
-            <div className="nota text-[10px] mt-0.5">{marco.canal}</div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-const ESTADO_ROTINA = {
-  ok: { tom: 'sucesso', rotulo: 'Rodando' },
-  atencao: { tom: 'atencao', rotulo: 'Atrasada' },
-  erro: { tom: 'erro', rotulo: 'Falhou' },
-} as const satisfies Record<string, { tom: Tom; rotulo: string }>;
-
-function Rotinas() {
-  return (
-    <section className="card p-5">
-      <div className="flex items-baseline justify-between mb-1">
-        <h2 className="card-title">A agenda invisível</h2>
-        <span className="text-[11px] text-stone-500">6 de 15 rotinas</span>
-      </div>
-      <p className="nota mb-4">Rodam sozinhas, sem ninguém acionar.</p>
-
-      <ul className="divide-y divide-stone-100">
-        {ROTINAS.map((rotina) => {
-          const estado = ESTADO_ROTINA[rotina.estado];
-          return (
-            <li key={rotina.nome} className="flex items-center gap-3 py-2.5">
-              <span className={`ponto-estado ${ESTILO_PONTO[estado.tom]}`} title={estado.rotulo} />
-              <span className="text-[13px] text-roxo-900 truncate">{rotina.nome}</span>
-              <span className="nota ml-auto tabular shrink-0">
-                {rotina.horario}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-/**
- * O conselho não é rótulo decorativo: ele define qual régua de conformidade o
- * criativo enfrenta antes de subir. Um mesmo anúncio passa para contador e
- * reprova para advogado.
- */
-function CarteiraPorNicho() {
-  const totalContas = CARTEIRA_POR_NICHO.reduce((s, n) => s + n.contas, 0);
-  const totalVerba = CARTEIRA_POR_NICHO.reduce((s, n) => s + n.verbaMes, 0);
-  const maiorVerba = Math.max(...CARTEIRA_POR_NICHO.map((n) => n.verbaMes));
+function EstoquePorTese({
+  linhas,
+}: {
+  linhas: Array<{
+    tese: (typeof TESES)[number]['id'];
+    catalogo: number;
+    vendidos: number;
+    receita: number;
+    preco: number;
+  }>;
+}) {
+  const totalCatalogo = linhas.reduce((s, l) => s + l.catalogo, 0);
+  const totalReceita = linhas.reduce((s, l) => s + l.receita, 0);
+  const maiorReceita = Math.max(...linhas.map((l) => l.receita), 1);
 
   return (
     <section className="card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-        <h2 className="card-title">Carteira por nicho</h2>
+        <h2 className="card-title">Estoque por tese</h2>
         <span className="text-[11px] text-stone-500 tabular">
-          {totalContas} contas · {brl.format(totalVerba)}/mês
+          {totalCatalogo} no catálogo · {brl.format(totalReceita)} entregues
         </span>
       </div>
-      <p className="nota mb-4">O conselho regulador define a régua de conformidade do criativo.</p>
+      <p className="nota mb-4">
+        O produto é perecível: passada a hora marcada, o lead não vale mais nada.
+      </p>
 
       <div className="overflow-x-auto -mx-1 px-1">
-        <table className="w-full min-w-[38rem] text-[13px] border-separate border-spacing-0">
+        <table className="w-full min-w-[36rem] text-[13px] border-separate border-spacing-0">
           <thead>
             <tr className="text-left text-[11px] text-stone-500">
-              <th className="font-medium pb-2 pr-4">Nicho</th>
-              <th className="font-medium pb-2 pr-4 w-20">Conselho</th>
-              <th className="font-medium pb-2 pr-6 w-16 text-right">Contas</th>
-              <th className="font-medium pb-2 pr-6 w-64">Verba/mês</th>
-              <th className="font-medium pb-2 w-24 text-right">CPL médio</th>
+              <th className="font-medium pb-2 pr-4">Tese</th>
+              <th className="font-medium pb-2 pr-6 w-24 text-right">No catálogo</th>
+              <th className="font-medium pb-2 pr-6 w-20 text-right">Vendidos</th>
+              <th className="font-medium pb-2 pr-6 w-56">Entregue</th>
+              <th className="font-medium pb-2 w-24 text-right">Preço</th>
             </tr>
           </thead>
           <tbody>
-            {CARTEIRA_POR_NICHO.map((n) => (
-              <tr key={n.nicho} className="border-t border-stone-100">
-                <td className="py-2.5 pr-4 border-t border-stone-100 text-roxo-900 whitespace-nowrap">
-                  {n.nicho}
-                </td>
+            {linhas.map((linha) => (
+              <tr key={linha.tese} className="border-t border-stone-100">
                 <td className="py-2.5 pr-4 border-t border-stone-100">
-                  <span className={`etiqueta ${ESTILO_ETIQUETA.marca}`}>{n.conselho}</span>
+                  <span className={`etiqueta ${ESTILO_TESE[linha.tese]}`}>
+                    {TESE_CURTA[linha.tese]}
+                  </span>
                 </td>
                 <td className="py-2.5 pr-6 border-t border-stone-100 text-right tabular text-stone-600">
-                  {n.contas}
+                  {linha.catalogo}
+                </td>
+                <td className="py-2.5 pr-6 border-t border-stone-100 text-right tabular text-stone-600">
+                  {linha.vendidos}
                 </td>
                 <td className="py-2.5 pr-6 border-t border-stone-100">
                   <div className="flex items-center gap-3">
                     <div className="h-1.5 flex-1 rounded-full bg-stone-100 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${ESTILO_PONTO.marca}`}
-                        style={{ width: `${(n.verbaMes / maiorVerba) * 100}%` }}
+                        style={{ width: `${(linha.receita / maiorReceita) * 100}%` }}
                       />
                     </div>
-                    <span className="tabular text-stone-600 text-[12px] w-[5.5rem] text-right shrink-0">
-                      {brl.format(n.verbaMes)}
+                    <span className="tabular text-stone-600 text-[12px] w-20 text-right shrink-0">
+                      {brl.format(linha.receita)}
                     </span>
                   </div>
                 </td>
                 <td className="py-2.5 border-t border-stone-100 text-right tabular text-stone-600">
-                  {n.cpl.toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  })}
+                  {brl.format(linha.preco)}
                 </td>
               </tr>
             ))}
@@ -491,5 +510,53 @@ function CarteiraPorNicho() {
         </table>
       </div>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function Carteira({ advogados }: { advogados: ReturnType<typeof useAdvogados>['advogados'] }) {
+  const ativos = advogados.filter((a) => a.status === 'ativo');
+  const semSaldo = ativos.filter((a) => a.saldoCreditos === 0);
+  const semTese = advogados.filter((a) => a.status === 'ativo' && a.teses.length === 0);
+  const porConferir = advogados.filter(
+    (a) => !a.oabConferidaEm && a.status !== 'perdido' && a.status !== 'recusado',
+  );
+
+  return (
+    <section className="card p-5">
+      <h2 className="card-title mb-1">A carteira de advogados</h2>
+      <p className="nota mb-4">
+        Quem compra o produto. Advogado sem tese ou sem saldo paga pelo acesso e não recebe nada.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Numero valor={ativos.length} rotulo="ativos" tom="sucesso" />
+        <Numero
+          valor={porConferir.length}
+          rotulo="inscrição por conferir"
+          tom={porConferir.length > 0 ? 'atencao' : 'neutro'}
+        />
+        <Numero
+          valor={semTese.length}
+          rotulo="ativos sem tese"
+          tom={semTese.length > 0 ? 'erro' : 'neutro'}
+        />
+        <Numero
+          valor={semSaldo.length}
+          rotulo="ativos sem saldo"
+          tom={semSaldo.length > 0 ? 'atencao' : 'neutro'}
+        />
+      </div>
+    </section>
+  );
+}
+
+function Numero({ valor, rotulo, tom }: { valor: number; rotulo: string; tom: Tom }) {
+  return (
+    <div className={`rounded-lg border p-3 ${ESTILO_BLOCO[tom]}`}>
+      <div className={`text-2xl font-semibold tabular ${ESTILO_TEXTO[tom]}`}>{valor}</div>
+      <div className="text-[12px] text-stone-600 mt-0.5">{rotulo}</div>
+    </div>
   );
 }
