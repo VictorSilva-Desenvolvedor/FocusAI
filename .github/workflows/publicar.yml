@@ -1,0 +1,49 @@
+# O projeto no Cloudflare Pages é do tipo Direct Upload, e projeto Direct Upload
+# não aceita conexão com Git depois de criado. Por isso a publicação passa por
+# este workflow em vez da integração do painel — que, além do mais, deixaria a
+# configuração de build fora do repositório (API-R16).
+
+name: Publicar no Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  # Permite republicar sem precisar de um commit novo.
+  workflow_dispatch:
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lê a versão de .node-version — a mesma da máquina de desenvolvimento.
+      # Node antigo quebra no `tsc -b` com erro de sintaxe difícil de ler.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+        env:
+          # O pacote `playwright` é devDependency (npm run shot / npm run smoke) e
+          # o postinstall baixa ~400 MB de navegador que a publicação não usa.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+      # Portão mínimo: erro de tipo não deve chegar ao ar.
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Construir
+        run: npm run build
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=focus-ai --branch=main
