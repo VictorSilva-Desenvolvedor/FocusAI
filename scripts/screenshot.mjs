@@ -47,8 +47,9 @@ await page.goto(alvo, { waitUntil: 'networkidle', timeout: 30_000 });
 await page.waitForSelector('#root > *', { timeout: 15_000 });
 
 if (perfil) {
-  await page.selectOption('select[aria-label="Trocar perfil de demonstração"]', perfil);
-  await page.waitForTimeout(150);
+  await page.click('button[aria-label="Trocar perfil de demonstração"]');
+  await page.click(`[data-perfil="${perfil}"]`);
+  await page.waitForTimeout(200);
 }
 
 // --click aceita seletor CSS ou texto ("text=Novo usuário"), repetível.

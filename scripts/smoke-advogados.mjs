@@ -28,6 +28,11 @@ const fecharMenu = async () => {
 };
 // O aviso de recusa fica 7s na tela de propósito: é texto que precisa ser lido.
 const esperarAvisoSumir = () => page.waitForTimeout(7200);
+const trocarPerfil = async (id) => {
+  await page.click('button[aria-label="Trocar perfil de demonstração"]');
+  await page.click(`[data-perfil="${id}"]`);
+  await page.waitForTimeout(400);
+};
 
 const totalCartoes = await page.locator('article').count();
 ok('quadro carrega os cartões', totalCartoes === 21, `${totalCartoes} cartões`);
@@ -140,16 +145,14 @@ const linhas = await page.locator('tbody tr').count();
 ok('visão de tabela lista os mesmos advogados', linhas === 20, `${linhas} linhas`);
 
 // --- carteira própria ---------------------------------------------------------
-await page.selectOption('select[aria-label="Trocar perfil de demonstração"]', 'u-sdr');
-await page.waitForTimeout(400);
+await trocarPerfil('u-sdr');
 const linhasSdr = await page.locator('tbody tr').count();
 ok('SDR vê apenas a própria carteira', linhasSdr > 0 && linhasSdr < 20, `${linhasSdr} linhas`);
 const temFiltroResp = await page.locator('select[aria-label="Filtrar por responsável"]').count();
 ok('filtro de responsável some para quem só vê a própria carteira', temFiltroResp === 0);
 
 // --- cadastro ------------------------------------------------------------------
-await page.selectOption('select[aria-label="Trocar perfil de demonstração"]', 'u-adm');
-await page.waitForTimeout(300);
+await trocarPerfil('u-adm');
 await page.click('button:has-text("Kanban")');
 await page.waitForTimeout(200);
 await page.click('text=Novo advogado');

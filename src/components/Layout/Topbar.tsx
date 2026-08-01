@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, ChevronDown, Menu, Search, X, Zap } from 'lucide-react';
+import { Bell, Menu, Search, X, Zap } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { modulosVisiveis } from '@/src/lib/navigation';
-import { ROLE_CURTO } from '@/src/lib/usuarios';
+import { SeletorDePerfil } from './SeletorDePerfil';
 
 export function Topbar() {
-  const { perfil, perfisDisponiveis, trocarPerfil } = useAuth();
+  const { perfil } = useAuth();
   const modulos = modulosVisiveis(perfil);
   const [menuAberto, setMenuAberto] = useState(false);
   const { pathname } = useLocation();
@@ -104,32 +104,7 @@ export function Topbar() {
             <span className="ponto-estado absolute top-2 right-2 bg-roxo-400 ring-2 ring-grafite-900 animate-pulso-marca" />
           </button>
 
-          {/*
-            Seletor de perfil: existe só na maquete, para demonstrar a matriz de
-            acesso sem precisar de autenticação real.
-          */}
-          <div className="relative flex items-center gap-2 rounded-lg pl-1.5 pr-1 py-1 hover:bg-white/8 transition-colors">
-            <div className="size-7 shrink-0 rounded-full bg-roxo-600 text-white grid place-items-center text-[11px] font-semibold">
-              {perfil.avatar_iniciais}
-            </div>
-            <div className="hidden xl:block leading-tight min-w-0 max-w-36">
-              <div className="text-[12px] font-medium text-white truncate">{perfil.nome}</div>
-              <div className="text-[10px] text-roxo-300 truncate">{ROLE_CURTO[perfil.role]}</div>
-            </div>
-            <ChevronDown className="size-4 text-roxo-300 shrink-0" />
-            <select
-              aria-label="Trocar perfil de demonstração"
-              value={perfil.id}
-              onChange={(e) => trocarPerfil(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            >
-              {perfisDisponiveis.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome} — {ROLE_CURTO[p.role]}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SeletorDePerfil />
 
           <button
             type="button"
