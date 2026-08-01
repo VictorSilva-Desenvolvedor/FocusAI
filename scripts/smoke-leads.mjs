@@ -27,7 +27,8 @@ const limpar = () =>
   });
 
 const trocarPerfil = async (id) => {
-  await page.selectOption('select[aria-label="Trocar perfil de demonstração"]', id);
+  await page.click('button[aria-label="Trocar perfil de demonstração"]');
+  await page.click(`[data-perfil="${id}"]`);
   await page.waitForTimeout(400);
 };
 

@@ -12,6 +12,12 @@ const erros = [];
 page.on('pageerror', (e) => erros.push(String(e)));
 page.on('console', (m) => m.type() === 'error' && erros.push(m.text()));
 
+const trocarPerfil = async (id) => {
+  await page.click('button[aria-label="Trocar perfil de demonstração"]');
+  await page.click(`[data-perfil="${id}"]`);
+  await page.waitForTimeout(400);
+};
+
 await page.goto(URL, { waitUntil: 'networkidle' });
 await page.evaluate(() => localStorage.removeItem('focus.usuarios.v1'));
 await page.reload({ waitUntil: 'networkidle' });
@@ -80,8 +86,7 @@ const editarEu = linhaEu.locator('button[aria-label^="Editar"]');
 ok('botão de editar a própria conta fica desabilitado', await editarEu.isDisabled());
 
 // --- hierarquia de criação --------------------------------------------------
-await page.selectOption('select[aria-label="Trocar perfil de demonstração"]', 'u-gestor');
-await page.waitForTimeout(250);
+await trocarPerfil('u-gestor');
 await page.click('text=Novo usuário');
 await page.waitForSelector('[role="dialog"]');
 const opcoes = await page.locator('[role="dialog"] select option').allTextContents();
@@ -100,8 +105,7 @@ ok(
 );
 
 // --- último administrador ---------------------------------------------------
-await page.selectOption('select[aria-label="Trocar perfil de demonstração"]', 'u-adm');
-await page.waitForTimeout(250);
+await trocarPerfil('u-adm');
 const desativarEu = linhaEu.locator('button[aria-label^="Desativar"]');
 ok('botão de desativar a própria conta fica desabilitado', await desativarEu.isDisabled());
 
