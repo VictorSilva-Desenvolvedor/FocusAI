@@ -2,10 +2,11 @@ import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 /**
- * ASS-R02 — parceiros, clientes e agências white label não têm acesso ao
- * assistente. São públicos externos ao time.
+ * ASS-R02 — o advogado não tem acesso ao assistente. É público externo: o
+ * assistente responde sobre a operação da Focus, e boa parte do que ele
+ * agregaria cruza carteiras de advogados diferentes.
  */
-const PAPEIS_SEM_ASSISTENTE = new Set(['parceiro', 'cliente', 'white_label_admin']);
+const PAPEIS_SEM_ASSISTENTE = new Set(['advogado']);
 
 export function AssistenteButton() {
   const { perfil } = useAuth();
@@ -14,9 +15,9 @@ export function AssistenteButton() {
   return (
     <button
       type="button"
-      className="btn fixed bottom-6 right-6 z-40 h-11 pl-3.5 pr-4 rounded-full bg-roxo-950 text-white shadow-flutuante hover:bg-roxo-900"
+      className="btn fixed bottom-6 right-6 z-40 h-11 pl-3.5 pr-4 rounded-full bg-grafite-900 text-white shadow-flutuante hover:bg-grafite-800"
     >
-      <Sparkles className="size-4 text-magenta-400" />
+      <Sparkles className="size-4 text-roxo-400" />
       <span className="text-[13px] font-medium">Assistente</span>
     </button>
   );

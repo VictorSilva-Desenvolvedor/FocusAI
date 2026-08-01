@@ -1,19 +1,20 @@
-# CRM
+# Focus AI
 
-CRM de agência de **tráfego pago para profissionais de captação regulada** —
-advogados (OAB), contadores (CFC), médicos (CFM), dentistas (CFO) e psicólogos
-(CFP).
+Plataforma de aquisição de clientes qualificados por IA para advogados.
 
-O que a agência vende é lead qualificado. O que a limita é que a publicidade
-desses profissionais é regulada: anúncio fora da norma expõe o cliente a
-processo ético no conselho dele. Por isso a conformidade é um portão de verdade
-no fluxo, não uma revisão opcional.
+A Focus AI não vende serviço de marketing jurídico — vende o **produto final
+pronto**: o lead qualificado com reunião já agendada. Ela roda o tráfego, uma IA
+de voz qualifica o cliente final e marca a consulta; advogados compram esse lead
+num aplicativo, por unidade ou consumindo crédito.
 
-**captar o cliente → aprovar a conformidade → distribuir a verba → cobrar o entregue**
+**captar o lead → qualificar com a IA → agendar a reunião → entregar ao advogado**
 
-Estado atual: **maquete**. Sem backend — o que existe persiste em `localStorage`.
-Telas construídas: Dashboard, CRM (funil) e Configurações → Usuários. Os demais
-módulos são placeholders.
+A entidade que atravessa tudo é o **Lead**: é ele que a campanha produz, que a
+IA qualifica, que carrega a reunião, que consome crédito ao ser comprado e que
+responde, perante a OAB, como aquele cliente chegou àquele advogado.
+
+Estado atual: **maquete**. Sem backend e sem autenticação — o que existe persiste
+em `localStorage`.
 
 ## Rodando
 
@@ -29,131 +30,183 @@ npm run dev      # http://localhost:5173
 | `npm run typecheck` | Só a verificação de tipos |
 | `npm run preview` | Serve o build |
 | `npm run shot` | Captura a tela num Chromium headless |
-| `npm run smoke` | Testes de fluxo de CRM e Usuários (precisa do `dev` rodando) |
+| `npm run smoke` | Fluxos de usuários, advogados e leads (precisa do `dev` rodando) |
 
 ### Visualizar
 
 Com `npm run dev` rodando, abra <http://localhost:5173>.
 
-Para capturar a tela sem abrir navegador (útil para conferir mudança de layout
-ou o painel sob outro papel):
+Para capturar a tela sem abrir navegador:
 
 ```bash
-npm run shot                                   # / no viewport desktop
-npm run shot -- --mobile                       # viewport estreito
-npm run shot -- --largura 1100                 # largura específica
-npm run shot -- --perfil u-gestor              # painel como gestor de tráfego
-npm run shot -- /config/usuarios --out u.png   # outra rota
-npm run shot -- /config/usuarios --click "text=Novo usuário"   # abre o drawer
+npm run shot                                     # / no viewport desktop
+npm run shot -- --mobile                         # viewport estreito
+npm run shot -- --largura 1600                   # largura específica
+npm run shot -- /leads --out leads.png           # outra rota
+npm run shot -- --perfil u-advogado              # painel sob outro papel
+npm run shot -- /advogados --click "text=Novo advogado"
 ```
 
-As imagens vão para `.screenshots/` (fora do versionamento). O script também
-falha se algo escrever erro no console — vale como smoke test.
+As imagens vão para `.screenshots/` (fora do versionamento). O script **falha se
+algo escrever erro no console** — vale como smoke test de qualquer tela.
 
 O seletor de perfil no canto superior direito troca o papel ativo em tempo real.
 É a maneira de conferir a matriz de acesso: o menu **e o conteúdo do painel**
-mudam junto.
+mudam junto. Trocar para `u-advogado` mostra o outro lado do produto — o painel
+do comprador, com catálogo mascarado e saldo de créditos.
 
 ## Stack
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · react-router-dom v7 (`HashRouter`)
 
 Alias de caminho: `@/*` → raiz do repositório.
-Paleta: roxo (`roxo-*`) com acento magenta (`magenta-*`), definida em
-`src/index.css`. Cores semânticas (verde, âmbar, vermelho) usam a escala padrão
-do Tailwind — status não é cor de marca.
+Paleta: roxo (`roxo-*`) com preto (`grafite-*`), definida em `src/index.css`.
+Cores de estado (`sucesso-*`, `atencao-*`, `erro-*`, `info-*`) usam a escala
+padrão do Tailwind sob nome de significado — status não é cor de marca.
 
 ## Estrutura
 
 ```
-App.tsx                        Rotas
-main.tsx                       Entrada
-types.ts                       Tipos de domínio (vocabulário canônico)
+FOCUS-AI.md                      Especificação do produto
+App.tsx                          Rotas
+main.tsx                         Entrada
+types.ts                         Tipos de domínio (vocabulário canônico)
 src/
-  components/Layout/           Topbar (navegação) e shell
-  components/Assistente/       Assistente interno
-  contexts/UsuariosContext.tsx Cadastro de usuários (persiste em localStorage)
-  contexts/AuthContext.tsx     Perfil ativo, permissões, departamento
-  lib/navigation.ts            Mapa de módulos × matriz de acesso
-  lib/usuarios.ts              Hierarquia de criação, validação, prévia de acesso
-  lib/format.ts                Datas e tempo relativo
-  lib/mockData.ts              Contas semeadas e dados de maquete
-  index.css                    Tema Tailwind
-views/
-  Dashboard/                   Tela inicial
-  CRM/                         Negociações (Kanban + tabela + cadastro)
-  Config/                      Usuários (lista + drawer de cadastro)
-  Placeholder/                 Módulos ainda não construídos
+  components/Layout/             Topbar (navegação) e shell
+  components/ui/                 Toast, MenuCartao, Campo
+  components/Assistente/         Assistente interno
+  contexts/AuthContext.tsx       Perfil ativo, permissões, departamento
+  contexts/UsuariosContext.tsx   Cadastro de usuários
+  contexts/AdvogadosContext.tsx  Funil de aquisição do advogado
+  contexts/LeadsContext.tsx      Catálogo de leads
+  contexts/CreditosContext.tsx   Extrato de créditos
+  lib/navigation.ts              Mapa de módulos × matriz de acesso
+  lib/usuarios.ts                Hierarquia de criação, validação, prévia de acesso
+  lib/leads.ts                   Exclusividade, máscara de contato, reserva, compra
+  lib/advogados.ts               Funil, liberação de acesso, prioridade
+  lib/teses.ts                   As três teses e seus filtros de elegibilidade
+  lib/creditos.ts                Pacotes, saldo, devolução, receita
+  lib/qualificacao.ts            SDR de voz: taxa, gravação, deduplicação
+  lib/estilo.ts                  Tom → classe completa
+  lib/identificador.ts           Slug estável para os dados semeados
+  lib/format.ts                  Datas e tempo relativo
+  index.css                      Tema Tailwind
+views/                           Uma pasta por módulo
 scripts/
-  screenshot.mjs               Captura headless
-  smoke-usuarios.mjs           Teste de fluxo do cadastro de usuários
-  smoke-crm.mjs                Teste de fluxo do funil
+  screenshot.mjs                 Captura headless
+  smoke-usuarios.mjs             Cadastro de usuários
+  smoke-advogados.mjs            Funil de advogados
+  smoke-leads.mjs                Catálogo, compra, exclusividade e devolução
 ```
 
-## Módulo CRM
+## Módulos
 
-`/#/crm`. Kanban do funil com arrastar-e-soltar, mais visão em tabela pelo mesmo
-filtro. Persiste em `localStorage` (`crm.negociacoes.v1`).
+| Módulo | Rota | O que faz |
+| --- | --- | --- |
+| Painel | `/` | Cadeia do negócio, funil, estoque por tese, alertas |
+| Leads | `/leads` | Catálogo do produto: quadro e tabela para a operação, catálogo mascarado para o advogado |
+| Advogados | `/advogados` | Funil de aquisição do advogado até a primeira compra |
+| Teses | `/teses` | Público, oferta, filtros de elegibilidade e preço de cada tese |
+| Qualificação | `/qualificacao` | Fila da SDR de voz, taxa por tese, pendências de gravação |
+| Campanhas | `/campanhas` | Anúncios por tese e custo por lead qualificado |
+| Conformidade | `/conformidade` | Parecer sobre criativo e a pendência do Provimento 205 |
+| Créditos | `/creditos` | Pacotes, saldo, consumo e conferência do extrato |
+| Integrações | `/integracoes` | Saúde da voz, do anúncio, do pagamento e do WhatsApp |
+| Configurações | `/config/usuarios` | Usuários, papéis e permissões |
 
-| Regra | O que faz |
-| --- | --- |
-| `CRM-R01` | O título é sempre o nome do cliente — não existe título independente |
-| `CRM-R04` | Toda mudança de etapa conta como atividade e tira do congelamento |
-| `CRM-R05` | 12 dias sem interação exibe a negociação como congelada. É visual: não muda status nem responsável |
-| `CRM-R10` | Marcar como perdida exige motivo escrito |
-| `CRM-R17` | Prioridade P1/P2/P3 automática, sobrescrevível pelo gestor |
-| `CRM-R20` | Sem conselho regulador não avança para contrato assinado, e conta não é ativada pulando conformidade |
-| — | Closer, SDR e parceiro veem apenas a própria carteira |
-| — | Cliente duplicado é recusado enquanto houver negociação ativa com o mesmo nome |
-| — | Trocar o conselho limpa o nicho, que é derivado dele |
+Estado em `localStorage`: `focus.leads.v1`, `focus.advogados.v1`,
+`focus.usuarios.v1`, `focus.creditos.v1`. Limpar a chave restaura os dados
+semeados — que são fictícios.
 
-O funil do Dashboard lê **o mesmo store** — não há mock paralelo.
+## As regras que o sistema impõe
 
-## Módulo de Usuários
-
-`Configurações → Usuários` (`/#/config/usuarios`). Estado persiste em
-`localStorage` (`crm.usuarios.v1`) — limpar essa chave restaura as contas
-semeadas.
-
-As regras que o módulo impõe:
+### Leads — o produto
 
 | Regra | O que faz |
 | --- | --- |
-| `ACC-R02` | Criação é hierárquica. ADM cria todos; gerente cria o time de operação; gestor de tráfego cria só criativo |
-| `ACC-R03` | Ninguém edita nem desativa a própria conta por aqui, nem administrador |
-| `ACC-R21` | Conta nunca é excluída, só desativada — o histórico precisa continuar apontando para alguém |
+| `INV-10` | Nenhum lead é vendido duas vezes. Devolução não recoloca no catálogo |
+| `INV-11` | O telefone do cliente final só aparece depois da compra |
+| `LED-R01` | Não publica no catálogo sem os filtros da tese confirmados |
+| `LED-R02` | Não vende sem reunião agendada — é a hora marcada que o advogado compra |
+| `LED-R04` | Reserva é trava com prazo; expira sozinha e o lead volta ao catálogo |
+| `LED-R06` | O advogado só enxerga as próprias teses e região, mais o que comprou |
+
+### Advogados — quem compra
+
+| Regra | O que faz |
+| --- | --- |
+| `INV-12` | Advogado não se cadastra sozinho; acesso só depois da inscrição conferida |
+| `ADV-R02` | Não se libera acesso pulando a qualificação |
+| `ADV-R03` | Sem tese e região definidas o painel abre vazio e o aviso nunca dispara |
+| `ADV-R04` | Prioridade P1/P2/P3 automática, sobrescrevível pelo gestor |
+| `ADV-R05` | Marcar como perdido ou recusado exige motivo escrito |
+
+### Teses — o que a IA apura
+
+| Regra | O que faz |
+| --- | --- |
+| `TES-R01` | Vínculo: mínimo de 3 meses trabalhados |
+| `TES-R02` | Vínculo: saída nos últimos 2 anos — a urgência sai do prazo, não do roteiro |
+| `TES-R03` | Juros abusivos: não há campo para senha, cartão ou dado bancário (`INV-17`) |
+| `TES-R04` | Polo passivo: precisa ser parte no processo e estar sem advogado atuante |
+| `TES-R05` | Juros abusivos: registrar que é o advogado quem liga na hora marcada |
+
+### Créditos
+
+| Regra | O que faz |
+| --- | --- |
+| `INV-14` | Crédito só entra com confirmação de pagamento; baixa manual não credita |
+| `INV-15` | Consumido fecha com comprado — o saldo é a soma do extrato |
+| `CRE-R02` | Comprar é transacional: carimba o comprador e debita no mesmo passo |
+| `CRE-R03` | O preço é congelado no lead ao publicar |
+| `CRE-R04` | Sem saldo o botão de comprar não é desenhado |
+| `CRE-R05` | Devolução exige motivo, repõe o crédito e não devolve o lead ao catálogo |
+
+### Acesso
+
+| Regra | O que faz |
+| --- | --- |
+| `ACC-R02` | Criação é hierárquica. Conta de advogado nunca nasce por aqui |
+| `ACC-R03` | Ninguém edita nem desativa a própria conta pelo painel |
+| `ACC-R21` | Conta nunca é excluída, só desativada |
 | `ACC-R22` | Conta nasce como convite pendente e vira ativa no primeiro acesso |
-| `CNF-R21` | Marca com alerta quem tem "liberar com ressalva" fora do departamento Conformidade, onde a permissão não tem efeito |
-| `INV-05` | O formulário mostra a prévia de acesso do papel — papel novo não herda nada |
-| — | E-mail único, inclusive contra contas desativadas |
-| — | Não é possível desativar nem rebaixar o último administrador ativo |
-| — | Trocar o papel repõe as permissões padrão dele, em vez de manter as do papel anterior |
+| `INV-05` | Papel novo não herda acesso — o formulário mostra a prévia |
 
 ## Convenções
 
 O código usa o **vocabulário canônico**, não o rótulo da tela — `types.ts`
-desambigua. "Cliente" é o escritório contratante; **Conta de Anúncio** é a
-entidade operacional que atravessa todos os módulos.
+desambigua. **Lead** é sempre o cliente final; **advogado** é sempre o comprador.
 
-Regras de negócio são citadas pelo ID estável (`CNF-R04`, `VRB-R01`, `FIN-R25`)
-nos comentários. Quem for mexer numa regra procura pelo ID. IDs não são
-renumerados: regra removida deixa o ID vago e aposentado.
+Regras de negócio são citadas pelo ID estável (`LED-R03`, `TES-R02`, `CRE-R05`)
+nos comentários, junto do motivo. Quem for mexer numa regra procura pelo ID. IDs
+não são renumerados: regra removida deixa o ID aposentado.
 
 | Prefixo | Domínio |
 | --- | --- |
 | `ACC` | Papéis, permissões e acesso |
-| `CRM` | Funil comercial, diagnóstico, proposta |
-| `CNF` | Conformidade publicitária (OAB, CFC, CFM, CFO, CFP) |
-| `VRB` | Verba, distribuição de orçamento, contas de anúncio |
+| `LED` | Lead qualificado: catálogo, exclusividade, contato |
+| `ADV` | Funil do advogado e liberação de acesso |
+| `TES` | Teses, elegibilidade e roteiro |
+| `QUA` | Qualificação por IA |
+| `CRE` | Créditos, preço e devolução |
+| `CNF` | Conformidade publicitária (Provimento 205) |
 | `CMP` | Campanhas e criativos |
-| `FIN` | Fee, repasse de mídia, cobrança, inadimplência |
-| `PLT` | Plataformas de anúncio |
-| `TAR` | Tarefas e solicitações |
 | `INT` | Integrações externas |
 | `AUT` | Automações agendadas |
 | `ASS` | Assistente de IA |
 | `EST` | Estilização — tokens, camadas, padrões de componente |
 | `API` | Camada de dados, integrações e eventos |
 
-A navegação e o conteúdo do painel filtram por papel, mas **esconder não é
-bloquear a rota** — falta o guard.
+## Pendências conhecidas
+
+- **Validação jurídica do Provimento 205.** Um intermediário que dá a múltiplos
+  advogados acesso a dados de possíveis clientes levanta questão de captação de
+  clientela. Precisa de revisão por especialista em ética profissional **antes do
+  lançamento comercial**. Não impede construir; impede lançar.
+- **Sem guard de rota** (`ACC-R07`): menu e painel filtram, a rota não. Pesa mais
+  agora que `advogado` é papel externo.
+- **Sem autenticação.** O seletor de perfil não é login.
+- **Convite não sai de verdade.** Falta o serviço de envio.
+- **Sem paginação** nas listas de leads e advogados.
+- **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
+  devolução de crédito.

@@ -1,11 +1,11 @@
 /**
- * Captura a tela do CRM rodando no dev server.
+ * Captura a tela da Focus AI rodando no dev server.
  *
- *   npm run dev                              # em outro terminal
- *   npm run shot                             # / no viewport desktop
- *   npm run shot -- /crm --out crm.png       # outra rota
- *   npm run shot -- --mobile                 # viewport estreito
- *   npm run shot -- --perfil u-vendedor      # troca o papel ativo
+ *   npm run dev                                # em outro terminal
+ *   npm run shot                               # / no viewport desktop
+ *   npm run shot -- /leads --out leads.png     # outra rota
+ *   npm run shot -- --mobile                   # viewport estreito
+ *   npm run shot -- --perfil u-advogado        # troca o papel ativo
  *
  * As imagens caem em .screenshots/ (fora do versionamento).
  */

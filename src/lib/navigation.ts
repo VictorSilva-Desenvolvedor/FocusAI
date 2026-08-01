@@ -7,7 +7,7 @@ export interface ModuleDef {
   descricao: string;
   /** Papéis com acesso pleno ao módulo. */
   papeis: UserRole[];
-  /** Papéis com leitura restrita (ex.: criativo só vê a fila de criativos). */
+  /** Papéis com leitura restrita (ex.: advogado só vê o próprio recorte). */
   papeisRestritos?: UserRole[];
   /** Permissão nomeada que libera o módulo a quem o papel bloqueia. */
   liberadoPor?: NamedPermission;
@@ -19,131 +19,126 @@ export interface ModuleDef {
  *
  * ACC-R01 — o sistema é permissivo por padrão e restritivo por exceção. Esta
  * lista é a exceção: papel novo NÃO herda acesso automaticamente, precisa ser
- * adicionado aqui conscientemente.
+ * adicionado aqui conscientemente (`INV-05`).
  *
  * ACC-R07 — esconder do menu não é bloquear a rota. O que está aqui controla
- * apenas a navegação; bloqueio real de rota é responsabilidade do guard.
+ * apenas a navegação; bloqueio real de rota é responsabilidade do guard, que
+ * ainda não existe. A dívida ficou mais cara desde que `advogado` entrou: é
+ * papel externo, e quem digita `/creditos` na barra de endereço chega lá.
  */
 export const MODULOS: ModuleDef[] = [
   {
     id: 'dashboard',
-    rotulo: 'Dashboard',
+    rotulo: 'Painel',
     rota: '/',
     descricao: 'Painel de entrada',
     papeis: [
       'adm',
       'gerente',
       'gestor_trafego',
-      'analista_conformidade',
       'criativo',
+      'analista_conformidade',
+      'operador_ia',
       'closer',
       'sdr',
       'cs',
       'financeiro',
-      'parceiro',
-      'white_label_admin',
     ],
+    papeisRestritos: ['advogado'],
     grupo: 'operacao',
   },
   {
-    id: 'crm',
-    rotulo: 'CRM',
-    rota: '/crm',
-    descricao: 'Funil comercial, diagnóstico, proposta e contrato',
-    papeis: ['adm', 'gerente', 'closer', 'sdr', 'cs', 'parceiro'],
-    papeisRestritos: ['gestor_trafego'],
+    id: 'leads',
+    rotulo: 'Leads',
+    rota: '/leads',
+    descricao: 'Catálogo de leads qualificados com reunião agendada',
+    papeis: ['adm', 'gerente', 'operador_ia', 'cs'],
+    // O advogado entra aqui pelo catálogo mascarado e pelos leads que comprou;
+    // closer e SDR precisam saber o que há em estoque para vender o acesso.
+    papeisRestritos: ['advogado', 'closer', 'sdr'],
     grupo: 'operacao',
   },
   {
-    id: 'conformidade',
-    rotulo: 'Conformidade',
-    rota: '/conformidade',
-    descricao: 'Parecer sobre criativo e página de destino (OAB, CFC, CFM, CFO, CFP)',
-    papeis: ['adm', 'analista_conformidade'],
-    papeisRestritos: ['criativo', 'gestor_trafego'],
-    liberadoPor: 'modulo:conformidade',
+    id: 'advogados',
+    rotulo: 'Advogados',
+    rota: '/advogados',
+    descricao: 'Funil de aquisição do advogado e liberação de acesso',
+    papeis: ['adm', 'gerente', 'closer', 'sdr', 'cs'],
+    grupo: 'operacao',
+  },
+  {
+    id: 'teses',
+    rotulo: 'Teses',
+    rota: '/teses',
+    descricao: 'Público, oferta, filtros de elegibilidade e preço de cada tese',
+    papeis: ['adm', 'gerente', 'operador_ia', 'analista_conformidade'],
+    papeisRestritos: ['criativo', 'gestor_trafego', 'advogado'],
+    grupo: 'operacao',
+  },
+  {
+    id: 'qualificacao',
+    rotulo: 'Qualificação',
+    rota: '/qualificacao',
+    descricao: 'Fila da SDR de voz: ligações, resultado e gravação',
+    papeis: ['adm', 'gerente', 'operador_ia'],
+    papeisRestritos: ['closer', 'sdr', 'analista_conformidade'],
+    liberadoPor: 'modulo:qualificacao',
     grupo: 'operacao',
   },
   {
     id: 'campanhas',
     rotulo: 'Campanhas',
     rota: '/campanhas',
-    descricao: 'Contas de anúncio, campanhas, criativos e distribuição de verba',
+    descricao: 'Anúncios por tese e custo por lead qualificado',
     papeis: ['adm', 'gerente', 'gestor_trafego'],
-    papeisRestritos: ['criativo', 'cs'],
+    papeisRestritos: ['criativo'],
     liberadoPor: 'modulo:campanhas',
     grupo: 'operacao',
   },
   {
-    id: 'financeiro',
-    rotulo: 'Financeiro',
-    rota: '/financeiro',
-    descricao: 'Contratos, fee, repasse de mídia, cobrança e inadimplência',
-    papeis: ['adm', 'gerente', 'financeiro', 'white_label_admin'],
+    id: 'conformidade',
+    rotulo: 'Conformidade',
+    rota: '/conformidade',
+    descricao: 'Parecer sobre criativo à luz do Provimento 205 da OAB',
+    papeis: ['adm', 'analista_conformidade'],
+    papeisRestritos: ['criativo', 'gestor_trafego'],
+    liberadoPor: 'modulo:conformidade',
     grupo: 'operacao',
   },
   {
-    id: 'tarefas',
-    rotulo: 'Tarefas',
-    rota: '/tarefas',
-    descricao: 'Tarefas, reuniões e solicitações de TI',
-    papeis: [
-      'adm',
-      'gerente',
-      'gestor_trafego',
-      'analista_conformidade',
-      'criativo',
-      'closer',
-      'sdr',
-      'cs',
-      'financeiro',
-    ],
+    id: 'creditos',
+    rotulo: 'Créditos',
+    rota: '/creditos',
+    descricao: 'Pacotes, saldo, consumo por tese e receita',
+    papeis: ['adm', 'gerente', 'financeiro'],
+    papeisRestritos: ['advogado'],
     grupo: 'operacao',
   },
   {
-    id: 'plataformas',
-    rotulo: 'Plataformas',
-    rota: '/plataformas',
-    descricao: 'Saúde das integrações Meta, Google, TikTok e LinkedIn',
+    id: 'integracoes',
+    rotulo: 'Integrações',
+    rota: '/integracoes',
+    descricao: 'Saúde da SDR de voz, dos anúncios, do pagamento e do WhatsApp',
     papeis: ['adm', 'gerente', 'gestor_trafego'],
-    liberadoPor: 'modulo:plataformas',
-    grupo: 'apoio',
-  },
-  {
-    id: 'academy',
-    rotulo: 'Academy',
-    rota: '/academy',
-    descricao: 'Trilha de treinamento',
-    papeis: [
-      'adm',
-      'gerente',
-      'gestor_trafego',
-      'analista_conformidade',
-      'criativo',
-      'closer',
-      'sdr',
-      'cs',
-      'financeiro',
-      'parceiro',
-    ],
+    papeisRestritos: ['operador_ia'],
+    liberadoPor: 'modulo:integracoes',
     grupo: 'apoio',
   },
   {
     id: 'config',
     rotulo: 'Configurações',
     rota: '/config',
-    descricao: 'Usuários, funis, SLAs, integrações, contas bancárias',
+    descricao: 'Usuários, papéis e permissões',
     papeis: ['adm', 'gerente'],
     papeisRestritos: [
       'gestor_trafego',
-      'analista_conformidade',
       'criativo',
+      'analista_conformidade',
+      'operador_ia',
       'closer',
       'sdr',
       'cs',
       'financeiro',
-      'parceiro',
-      'white_label_admin',
     ],
     grupo: 'sistema',
   },
@@ -166,11 +161,21 @@ export function modulosVisiveis(perfil: Profile): Array<ModuleDef & { nivel: Acc
  * Vale para conteúdo, não só para navegação.
  *
  * Um painel que some do menu mas continua expondo os números do módulo pela
- * tela inicial não restringe nada — só esconde o caminho. Todo bloco do
- * dashboard que fala de um módulo passa por aqui.
+ * tela inicial não restringe nada — só esconde o caminho. Todo bloco do painel
+ * que fala de um módulo passa por aqui.
  */
 export function podeAcessar(moduloId: ModuleId, perfil: Profile): boolean {
   const modulo = MODULOS.find((m) => m.id === moduloId);
   if (!modulo) return false;
   return nivelDeAcesso(modulo, perfil) === 'full';
+}
+
+/**
+ * Verdadeiro quando o papel só enxerga o próprio recorte do módulo. É o caso do
+ * advogado no catálogo e no extrato: a tela existe, o conteúdo é filtrado.
+ */
+export function temAcessoRestrito(moduloId: ModuleId, perfil: Profile): boolean {
+  const modulo = MODULOS.find((m) => m.id === moduloId);
+  if (!modulo) return false;
+  return nivelDeAcesso(modulo, perfil) === 'restricted';
 }

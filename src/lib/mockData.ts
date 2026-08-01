@@ -1,14 +1,17 @@
 import type {
   AlertaOperacional,
   ChipTrabalhoHoje,
+  EstoquePorTese,
   EtapaCadeia,
-  NichoCarteira,
   Usuario,
 } from '@/types';
 
 /**
- * Dados de maquete. Nenhuma chamada de rede ainda — quando o backend entrar,
- * este arquivo some e as consultas passam a viver em src/services/api.ts.
+ * Dados de maquete. Nenhuma chamada de rede ainda — quando o backend entrar,
+ * este arquivo some e as consultas passam a viver na camada de serviço
+ * (`API-R06`: a regra de leitura é do módulo, não da view).
+ *
+ * Todo dado aqui é fictício e continua fictício.
  */
 
 /** Datas relativas a hoje, para o "último acesso" não envelhecer na maquete. */
@@ -19,19 +22,21 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-adm',
     nome: 'Victor Paulo',
-    email: 'victor@agencia.com.br',
+    email: 'victor@focus.ai',
     role: 'adm',
     departamento: 'Tecnologia',
     permissoes: [
       'modulo:campanhas',
       'modulo:conformidade',
-      'modulo:plataformas',
-      'verba:aprovar_realocacao',
-      'auditoria:repasse_midia',
-      'cobranca:receber_aviso_inadimplencia',
+      'modulo:qualificacao',
+      'modulo:integracoes',
+      'tese:definir_preco',
+      'advogado:liberar_acesso',
+      'lead:aprovar_devolucao',
+      'credito:conciliar_pagamento',
       'assistente:financeiro',
     ],
-    white_label_id: null,
+    advogado_id: null,
     avatar_iniciais: 'VP',
     status: 'ativo',
     criado_em: diasAtras(420),
@@ -41,11 +46,16 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-gerente',
     nome: 'Marina Alencar',
-    email: 'marina@agencia.com.br',
+    email: 'marina@focus.ai',
     role: 'gerente',
     departamento: 'Operações',
-    permissoes: ['modulo:plataformas', 'verba:aprovar_realocacao'],
-    white_label_id: null,
+    permissoes: [
+      'modulo:integracoes',
+      'tese:definir_preco',
+      'advogado:liberar_acesso',
+      'lead:aprovar_devolucao',
+    ],
+    advogado_id: null,
     avatar_iniciais: 'MA',
     status: 'ativo',
     criado_em: diasAtras(390),
@@ -55,11 +65,11 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-gestor',
     nome: 'Bruno Tavares',
-    email: 'bruno@agencia.com.br',
+    email: 'bruno@focus.ai',
     role: 'gestor_trafego',
     departamento: 'Tráfego',
-    permissoes: ['modulo:campanhas', 'modulo:plataformas'],
-    white_label_id: null,
+    permissoes: ['modulo:campanhas', 'modulo:integracoes'],
+    advogado_id: null,
     avatar_iniciais: 'BT',
     status: 'ativo',
     criado_em: diasAtras(310),
@@ -67,57 +77,13 @@ export const USUARIOS_SEED: Usuario[] = [
     ultimo_acesso: horasAtras(2),
   },
   {
-    id: 'u-gestor-2',
-    nome: 'Helena Braga',
-    email: 'helena@agencia.com.br',
-    role: 'gestor_trafego',
-    departamento: 'Tráfego',
-    permissoes: ['modulo:campanhas', 'modulo:plataformas'],
-    white_label_id: null,
-    avatar_iniciais: 'HB',
-    status: 'ativo',
-    criado_em: diasAtras(88),
-    criado_por: 'u-gerente',
-    ultimo_acesso: diasAtras(1),
-  },
-  {
-    id: 'u-conformidade',
-    nome: 'Rafaela Costa',
-    email: 'rafaela@agencia.com.br',
-    role: 'analista_conformidade',
-    departamento: 'Conformidade',
-    permissoes: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
-    white_label_id: null,
-    avatar_iniciais: 'RC',
-    status: 'ativo',
-    criado_em: diasAtras(275),
-    criado_por: 'u-adm',
-    ultimo_acesso: horasAtras(6),
-  },
-  {
-    id: 'u-conformidade-2',
-    nome: 'Otávio Lins',
-    email: 'otavio@agencia.com.br',
-    role: 'analista_conformidade',
-    // Fora do departamento Conformidade de propósito: a permissão de liberar
-    // com ressalva está marcada mas não tem efeito (CNF-R21). A tela avisa.
-    departamento: 'Operações',
-    permissoes: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
-    white_label_id: null,
-    avatar_iniciais: 'OL',
-    status: 'ativo',
-    criado_em: diasAtras(42),
-    criado_por: 'u-gerente',
-    ultimo_acesso: diasAtras(3),
-  },
-  {
     id: 'u-criativo',
     nome: 'Lia Fontes',
-    email: 'lia@agencia.com.br',
+    email: 'lia@focus.ai',
     role: 'criativo',
     departamento: 'Criação',
     permissoes: [],
-    white_label_id: null,
+    advogado_id: null,
     avatar_iniciais: 'LF',
     status: 'ativo',
     criado_em: diasAtras(198),
@@ -127,11 +93,11 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-criativo-2',
     nome: 'Caio Werneck',
-    email: 'caio@agencia.com.br',
+    email: 'caio@focus.ai',
     role: 'criativo',
     departamento: 'Criação',
     permissoes: [],
-    white_label_id: null,
+    advogado_id: null,
     avatar_iniciais: 'CW',
     status: 'convite_pendente',
     criado_em: diasAtras(4),
@@ -139,13 +105,71 @@ export const USUARIOS_SEED: Usuario[] = [
     ultimo_acesso: null,
   },
   {
+    id: 'u-conformidade',
+    nome: 'Rafaela Costa',
+    email: 'rafaela@focus.ai',
+    role: 'analista_conformidade',
+    departamento: 'Conformidade',
+    permissoes: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
+    advogado_id: null,
+    avatar_iniciais: 'RC',
+    status: 'ativo',
+    criado_em: diasAtras(275),
+    criado_por: 'u-adm',
+    ultimo_acesso: horasAtras(6),
+  },
+  {
+    id: 'u-conformidade-2',
+    nome: 'Otávio Lins',
+    email: 'otavio@focus.ai',
+    role: 'analista_conformidade',
+    // Fora do departamento Conformidade de propósito: a permissão de liberar
+    // com ressalva está marcada mas não tem efeito (CNF-R21). A tela avisa.
+    departamento: 'Operações',
+    permissoes: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
+    advogado_id: null,
+    avatar_iniciais: 'OL',
+    status: 'ativo',
+    criado_em: diasAtras(42),
+    criado_por: 'u-gerente',
+    ultimo_acesso: diasAtras(3),
+  },
+  {
+    id: 'u-operador-ia',
+    nome: 'Tiago Bezerra',
+    email: 'tiago@focus.ai',
+    role: 'operador_ia',
+    departamento: 'Qualificação',
+    permissoes: ['modulo:qualificacao'],
+    advogado_id: null,
+    avatar_iniciais: 'TB',
+    status: 'ativo',
+    criado_em: diasAtras(150),
+    criado_por: 'u-gerente',
+    ultimo_acesso: horasAtras(1),
+  },
+  {
+    id: 'u-operador-ia-2',
+    nome: 'Rita Camargo',
+    email: 'rita@focus.ai',
+    role: 'operador_ia',
+    departamento: 'Qualificação',
+    permissoes: ['modulo:qualificacao'],
+    advogado_id: null,
+    avatar_iniciais: 'RC',
+    status: 'ativo',
+    criado_em: diasAtras(64),
+    criado_por: 'u-gerente',
+    ultimo_acesso: horasAtras(8),
+  },
+  {
     id: 'u-closer',
     nome: 'Diego Martins',
-    email: 'diego@agencia.com.br',
+    email: 'diego@focus.ai',
     role: 'closer',
     departamento: 'Comercial',
-    permissoes: [],
-    white_label_id: null,
+    permissoes: ['advogado:liberar_acesso'],
+    advogado_id: null,
     avatar_iniciais: 'DM',
     status: 'ativo',
     criado_em: diasAtras(240),
@@ -155,11 +179,11 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-sdr',
     nome: 'Tainá Moreira',
-    email: 'taina@agencia.com.br',
+    email: 'taina@focus.ai',
     role: 'sdr',
     departamento: 'Comercial',
     permissoes: [],
-    white_label_id: null,
+    advogado_id: null,
     avatar_iniciais: 'TM',
     status: 'ativo',
     criado_em: diasAtras(120),
@@ -169,11 +193,11 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-cs',
     nome: 'Júlia Andrade',
-    email: 'julia@agencia.com.br',
+    email: 'julia@focus.ai',
     role: 'cs',
     departamento: 'Customer Success',
-    permissoes: [],
-    white_label_id: null,
+    permissoes: ['lead:aprovar_devolucao'],
+    advogado_id: null,
     avatar_iniciais: 'JA',
     status: 'ativo',
     criado_em: diasAtras(165),
@@ -183,39 +207,76 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-financeiro',
     nome: 'Paula Reis',
-    email: 'paula@agencia.com.br',
+    email: 'paula@focus.ai',
     role: 'financeiro',
     departamento: 'Financeiro',
-    permissoes: ['cobranca:receber_pendentes', 'cobranca:receber_aviso_inadimplencia'],
-    white_label_id: null,
+    permissoes: ['credito:conciliar_pagamento', 'lead:aprovar_devolucao'],
+    advogado_id: null,
     avatar_iniciais: 'PR',
     status: 'ativo',
     criado_em: diasAtras(300),
     criado_por: 'u-adm',
     ultimo_acesso: horasAtras(7),
   },
+
+  /*
+   * Contas de advogado. Não nascem do painel de usuários (INV-12): cada uma
+   * corresponde a um registro do funil que teve a inscrição conferida e o
+   * acesso liberado. `advogado_id` é a chave de isolamento — é ela que impede
+   * um advogado de enxergar a carteira do outro (LED-R06).
+   */
   {
-    id: 'u-parceiro',
-    nome: 'Sérgio Bastos',
-    email: 'sergio@indicaparceiros.com.br',
-    role: 'parceiro',
+    id: 'u-advogado',
+    nome: 'Prev Fácil Advogados',
+    email: 'contato@prevfacil.adv.br',
+    role: 'advogado',
     departamento: null,
     permissoes: [],
-    white_label_id: null,
-    avatar_iniciais: 'SB',
+    advogado_id: 'adv-prev-facil-advogados',
+    avatar_iniciais: 'PA',
     status: 'ativo',
-    criado_em: diasAtras(75),
-    criado_por: 'u-adm',
-    ultimo_acesso: diasAtras(11),
+    criado_em: diasAtras(185),
+    criado_por: 'u-closer',
+    ultimo_acesso: horasAtras(3),
+  },
+  {
+    id: 'u-advogado-2',
+    nome: 'Gomes & Cia',
+    email: 'contato@gomescia.adv.br',
+    role: 'advogado',
+    departamento: null,
+    permissoes: [],
+    advogado_id: 'adv-gomes-cia',
+    avatar_iniciais: 'GC',
+    status: 'ativo',
+    criado_em: diasAtras(140),
+    criado_por: 'u-closer',
+    ultimo_acesso: diasAtras(1),
+  },
+  {
+    // Saldo zerado de propósito: é o caso que prova CRE-R04 — sem saldo o botão
+    // de comprar não existe, em vez de existir e falhar no clique.
+    id: 'u-advogado-3',
+    nome: 'Teixeira Bancário',
+    email: 'contato@teixeirabancario.adv.br',
+    role: 'advogado',
+    departamento: null,
+    permissoes: [],
+    advogado_id: 'adv-teixeira-bancario',
+    avatar_iniciais: 'TB',
+    status: 'ativo',
+    criado_em: diasAtras(116),
+    criado_por: 'u-cs',
+    ultimo_acesso: horasAtras(20),
   },
   {
     id: 'u-inativo',
     nome: 'Renata Vilela',
-    email: 'renata@agencia.com.br',
+    email: 'renata@focus.ai',
     role: 'closer',
     departamento: 'Comercial',
     permissoes: [],
-    white_label_id: null,
+    advogado_id: null,
     avatar_iniciais: 'RV',
     status: 'inativo',
     criado_em: diasAtras(380),
@@ -224,179 +285,197 @@ export const USUARIOS_SEED: Usuario[] = [
   },
 ];
 
-/** As quatro máquinas encadeadas do negócio. */
+/**
+ * As quatro máquinas encadeadas do negócio.
+ *
+ * Os números de captar, agendar e entregar são recalculados na tela a partir do
+ * store real de leads — o que está aqui é a moldura e o texto. Painel dizendo
+ * um número enquanto o catálogo mostra outro é o tipo de divergência que faz
+ * gestão parar de confiar nos dois.
+ */
 export const CADEIA: EtapaCadeia[] = [
   {
     id: 'captar',
-    titulo: 'Captar o cliente',
-    descricao: 'Negociações ativas no funil',
-    valor: '284',
-    unidade: 'negociações',
-    detalhe: '41 com proposta enviada aguardando assinatura',
-    variacao: 12.4,
-    rota: '/crm',
-    modulo: 'crm',
-  },
-  {
-    id: 'aprovar',
-    titulo: 'Aprovar a conformidade',
-    descricao: 'Fila de parecer publicitário',
-    valor: '17',
-    unidade: 'na fila',
-    detalhe: '3 fora do SLA de 24h · 5 aguardando ajuste do criativo',
-    variacao: -8.1,
-    rota: '/conformidade',
-    modulo: 'conformidade',
-  },
-  {
-    id: 'distribuir',
-    titulo: 'Distribuir a verba',
-    descricao: 'Ciclo AGO/2026',
-    valor: '38 / 44',
-    unidade: 'contas com verba aplicada',
-    detalhe: '4 aguardando aprovação · 2 em rascunho',
-    variacao: null,
+    titulo: 'Captar o lead',
+    descricao: 'Anúncio e formulário, por tese',
+    valor: '—',
+    unidade: 'leads em 30 dias',
+    detalhe: 'Meta Ads em três teses',
+    variacao: 14.2,
     rota: '/campanhas',
     modulo: 'campanhas',
   },
   {
-    id: 'cobrar',
-    titulo: 'Cobrar o entregue',
-    descricao: 'Fee + repasse de mídia',
-    valor: 'R$ 412,8 mil',
-    unidade: 'emitido',
-    detalhe: '9,2% inadimplente · limite declarado 8%',
-    variacao: 5.6,
-    rota: '/financeiro',
-    modulo: 'financeiro',
+    id: 'qualificar',
+    titulo: 'Qualificar com a IA',
+    descricao: 'Fila da SDR de voz',
+    valor: '—',
+    unidade: 'na fila',
+    detalhe: 'Filtros de elegibilidade por tese',
+    variacao: -6.4,
+    rota: '/qualificacao',
+    modulo: 'qualificacao',
+  },
+  {
+    id: 'agendar',
+    titulo: 'Agendar a reunião',
+    descricao: 'É o agendamento que vira produto',
+    valor: '—',
+    unidade: 'no catálogo',
+    detalhe: 'Disponíveis para compra agora',
+    variacao: null,
+    rota: '/leads',
+    modulo: 'leads',
+  },
+  {
+    id: 'entregar',
+    titulo: 'Entregar ao advogado',
+    descricao: 'Compra, contato liberado, consulta',
+    valor: '—',
+    unidade: 'vendidos em 30 dias',
+    detalhe: 'Crédito consumido e venda avulsa',
+    variacao: 22.8,
+    rota: '/creditos',
+    modulo: 'creditos',
   },
 ];
 
 /**
- * "Meu Trabalho Hoje" — barra de contadores calculada ao vivo na tela.
+ * "Meu Trabalho Hoje" — barra de contadores calculada ao vivo na tela.
  * Nada disso existe gravado no banco.
  */
 export const TRABALHO_HOJE: ChipTrabalhoHoje[] = [
   {
-    id: 'propostas',
-    rotulo: 'Propostas pendentes',
-    valor: 41,
-    criterio: 'Status proposta_enviada',
-    tom: 'atencao',
+    id: 'fila-ia',
+    rotulo: 'Na fila da IA',
+    valor: 0,
+    criterio: 'Leads em novo ou em_qualificacao',
+    tom: 'neutro',
   },
   {
-    id: 'criativos',
-    rotulo: 'Criativos reprovados',
-    valor: 12,
-    criterio: 'Último parecer com decisão "Exigir ajuste" ou "Reprovado"',
-    tom: 'critico',
-  },
-  {
-    id: 'sem-interacao',
-    rotulo: 'Sem interação',
-    valor: 23,
-    criterio: '14 dias ou mais sem atividade (exceto encerrados)',
-    tom: 'atencao',
-  },
-  {
-    id: 'diagnosticos',
-    rotulo: 'Diagnósticos hoje',
-    valor: 7,
-    criterio: 'Diagnóstico criado hoje ou entrada em diagnostico_realizado',
+    id: 'catalogo',
+    rotulo: 'No catálogo',
+    valor: 0,
+    criterio: 'Agendados, sem comprador e com reserva livre',
     tom: 'positivo',
   },
   {
-    id: 'meta',
-    rotulo: 'Meta do dia',
-    valor: 8,
-    meta: 10,
-    criterio: 'Reuniões concluídas hoje',
+    id: 'reuniao-amanha',
+    rotulo: 'Reunião em 48h sem comprador',
+    valor: 0,
+    criterio: 'Agendado, reunião nas próximas 48h e ninguém comprou — o produto vence',
+    tom: 'critico',
+  },
+  {
+    id: 'sem-gravacao',
+    rotulo: 'Vendidos sem gravação',
+    valor: 0,
+    criterio: 'QUA-R03 — sem gravação não há como provar como o cliente foi direcionado',
+    tom: 'atencao',
+  },
+  {
+    id: 'vendidos-mes',
+    rotulo: 'Vendidos em 30 dias',
+    valor: 0,
+    criterio: 'Leads com comprador carimbado nos últimos 30 dias',
     tom: 'neutro',
   },
 ];
 
-/*
- * O funil por status não vive mais aqui: sai do NegociacoesContext, que é o
- * mesmo store do quadro do CRM. Dois números divergentes para a mesma pergunta
- * fazem gestão parar de confiar nos dois.
- */
-
-/** Régua de cobrança (FIN-R32 / FIN-R34). */
-export const REGUA_COBRANCA = [
-  { marco: 'D-1', descricao: 'Vence amanhã', enviados: 96, canal: 'WhatsApp' },
-  { marco: 'D+3', descricao: 'Venceu há 3 dias', enviados: 34, canal: 'WhatsApp' },
-  { marco: 'D+10', descricao: 'Venceu há 10 dias', enviados: 18, canal: 'WhatsApp' },
-  { marco: 'D+15', descricao: 'Alerta interno', enviados: 7, canal: 'Notificação' },
-];
-
-/** Situação das rotinas automáticas. */
+/** Pareceres de conformidade sob o Provimento 205. */
 export const ROTINAS = [
-  { horario: 'a cada 1 min', nome: 'Fila de lembretes', estado: 'ok' as const },
-  { horario: 'a cada 2 min', nome: 'Repasse de mídia às plataformas', estado: 'ok' as const },
-  { horario: 'a cada 10 min', nome: 'Cache de métricas de campanha', estado: 'atencao' as const },
-  { horario: 'a cada 15 min', nome: 'Contas estourando a verba do dia', estado: 'ok' as const },
-  { horario: '06h00', nome: 'Sincronização do gasto de ontem', estado: 'ok' as const },
-  { horario: '12h00', nome: 'Inadimplência D+15', estado: 'ok' as const },
-];
-
-/**
- * Carteira por nicho. O conselho regulador define qual régua de conformidade o
- * criativo enfrenta — não é rótulo decorativo.
- */
-export const CARTEIRA_POR_NICHO: NichoCarteira[] = [
-  { nicho: 'Previdenciário', conselho: 'OAB', contas: 14, verbaMes: 128_400, cpl: 18.4 },
-  { nicho: 'Trabalhista', conselho: 'OAB', contas: 9, verbaMes: 76_200, cpl: 24.1 },
-  { nicho: 'Família e Sucessões', conselho: 'OAB', contas: 7, verbaMes: 54_800, cpl: 31.7 },
-  { nicho: 'Tributário', conselho: 'OAB', contas: 4, verbaMes: 61_500, cpl: 96.3 },
-  { nicho: 'Contabilidade', conselho: 'CFC', contas: 5, verbaMes: 38_900, cpl: 27.5 },
-  { nicho: 'Odontologia', conselho: 'CFO', contas: 3, verbaMes: 29_600, cpl: 42.8 },
-  { nicho: 'Psicologia', conselho: 'CFP', contas: 2, verbaMes: 14_300, cpl: 36.2 },
+  { horario: 'a cada 1 min', nome: 'Fila de ligações da SDR de voz', estado: 'ok' as const },
+  { horario: 'a cada 2 min', nome: 'Expiração de reserva de lead', estado: 'ok' as const },
+  { horario: 'a cada 10 min', nome: 'Aviso de lead novo por tese e região', estado: 'atencao' as const },
+  { horario: 'a cada 15 min', nome: 'Reconciliação de eventos da ferramenta de voz', estado: 'ok' as const },
+  { horario: '06h00', nome: 'Sincronização do gasto de anúncio de ontem', estado: 'ok' as const },
+  { horario: '12h00', nome: 'Leads agendados sem comprador em 48h', estado: 'ok' as const },
 ];
 
 export const ALERTAS: AlertaOperacional[] = [
   {
     id: 'a1',
     severidade: 'critico',
-    titulo: '2 baixas manuais em faturas com repasse de mídia',
+    titulo: 'Validação jurídica do Provimento 205 ainda pendente',
     descricao:
-      'O repasse à plataforma não foi disparado — o gatilho é exclusivamente a confirmação bancária. As contas seguem sem saldo e as campanhas param no meio do ciclo.',
-    regra: 'FIN-R25',
-    modulo: 'financeiro',
+      'Um intermediário que dá a múltiplos advogados acesso a dados de possíveis clientes levanta questão de captação de clientela. A revisão por especialista em ética profissional não impede construir — impede lançar comercialmente.',
+    regra: 'INV-16',
+    modulo: 'conformidade',
   },
   {
     id: 'a2',
     severidade: 'critico',
-    titulo: '1 criativo no ar com promessa de resultado',
+    titulo: '1 criativo no ar prometendo resultado',
     descricao:
-      'Anúncio de cliente OAB veiculando "garantimos seu benefício". Captação indevida de clientela expõe o cliente a processo ético — derrubar antes de qualquer outra coisa.',
+      'Anúncio veiculando "garantimos seu benefício". Quem anuncia captando clientela para advogado responde pela peça — derrubar antes de qualquer outra coisa.',
     regra: 'CNF-R04',
     modulo: 'conformidade',
   },
   {
     id: 'a3',
     severidade: 'alto',
-    titulo: '3 pareceres fora do SLA de 24 horas',
+    titulo: 'Reuniões nas próximas 48h ainda sem comprador',
     descricao:
-      'O cronômetro corre desde o envio do criativo e só para quando o parecer é registrado.',
-    regra: 'CNF-R01',
-    modulo: 'conformidade',
+      'O produto é perecível: passada a hora marcada, o lead não vale mais nada e o custo de aquisição vira prejuízo direto.',
+    regra: 'LED-R02',
+    modulo: 'leads',
   },
   {
     id: 'a4',
     severidade: 'alto',
-    titulo: '1 conta gastando acima da verba contratada',
+    titulo: 'Leads vendidos sem gravação da qualificação',
     descricao:
-      'A soma distribuída não fecha com o contratado. Excesso de gasto é prejuízo direto da agência, não do cliente.',
-    regra: 'VRB-R01',
-    modulo: 'campanhas',
+      'Sem a gravação não há como demonstrar, perante o conselho, como aquele cliente foi direcionado àquele advogado. A prova é do momento da ligação e não se produz depois.',
+    regra: 'QUA-R03',
+    modulo: 'qualificacao',
   },
   {
     id: 'a5',
     severidade: 'medio',
-    titulo: '14 clientes em aberto sem WhatsApp cadastrado',
+    titulo: 'Advogados ativos sem tese ou região definidas',
     descricao:
-      'São cobranças que nunca serão avisadas — a régua inteira falha em silêncio, e sem os três avisos o alerta interno D+15 também não dispara.',
-    regra: 'FIN-R36',
-    modulo: 'financeiro',
+      'O painel deles abre vazio e o aviso de lead novo nunca dispara. Pagam pelo acesso e não recebem produto — a conta cancela sozinha no mês seguinte.',
+    regra: 'ADV-R03',
+    modulo: 'advogados',
+  },
+  {
+    id: 'a6',
+    severidade: 'medio',
+    titulo: 'Advogados ativos com saldo zerado',
+    descricao:
+      'Continuam recebendo aviso de lead novo e não conseguem comprar nenhum. É frustração de quem já pagou pelo acesso.',
+    regra: 'CRE-R04',
+    modulo: 'creditos',
+  },
+];
+
+/**
+ * Recorte do catálogo por tese, para o painel.
+ *
+ * O número que importa não é o custo por lead bruto e sim o **custo por lead
+ * qualificado**: lead que a IA desqualifica não vira produto e não gera receita
+ * nenhuma, mas custou anúncio igual.
+ */
+export const ESTOQUE_POR_TESE: EstoquePorTese[] = [
+  {
+    tese: 'polo_passivo',
+    disponiveis: 0,
+    vendidosMes: 84,
+    custoPorQualificado: 61.4,
+    receitaMes: 25_200,
+  },
+  {
+    tese: 'vinculo_empregaticio',
+    disponiveis: 0,
+    vendidosMes: 62,
+    custoPorQualificado: 48.9,
+    receitaMes: 15_500,
+  },
+  {
+    tese: 'juros_abusivos',
+    disponiveis: 0,
+    vendidosMes: 71,
+    custoPorQualificado: 73.2,
+    receitaMes: 24_850,
   },
 ];

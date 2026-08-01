@@ -11,7 +11,7 @@
  */
 
 /**
- * Tom, não pigmento. `marca` é o roxo do produto e serve a destaque neutro;
+ * Tom, não pigmento. `marca` é o roxo da Focus e serve a destaque neutro;
  * os quatro seguintes são significado — e significado não vira cor de marca,
  * senão "positivo" e "em destaque" passam a ser a mesma coisa na tela.
  */
@@ -27,7 +27,7 @@ export const ESTILO_CHIP: Record<Tom, string> = {
   info: 'bg-info-50 border-info-200 text-info-800',
 };
 
-/** Etiqueta compacta — conselho regulador, prioridade, status de conta. */
+/** Etiqueta compacta — tese, prioridade, resultado de ligação, tipo de movimento. */
 export const ESTILO_ETIQUETA: Record<Tom, string> = {
   neutro: 'bg-stone-100 text-stone-600',
   marca: 'bg-roxo-100 text-roxo-700',

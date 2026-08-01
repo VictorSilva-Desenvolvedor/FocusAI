@@ -3,7 +3,7 @@ import { USUARIOS_SEED } from '@/src/lib/mockData';
 import { iniciais } from '@/src/lib/usuarios';
 import type { UserStatus, Usuario, UsuarioFormData } from '@/types';
 
-const CHAVE = 'crm.usuarios.v1';
+const CHAVE = 'focus.usuarios.v1';
 
 interface UsuariosValue {
   usuarios: Usuario[];
@@ -57,7 +57,10 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
         role: dados.role,
         departamento: dados.departamento.trim() || null,
         permissoes: [...dados.permissoes],
-        white_label_id: null,
+        // INV-12 — conta criada por aqui é sempre do time interno. Advogado
+        // não passa por este caminho; a conta dele nasce da liberação de
+        // acesso no funil, e é lá que `advogado_id` é preenchido.
+        advogado_id: null,
         avatar_iniciais: iniciais(dados.nome),
         // ACC-R22 — conta nasce como convite pendente, nunca ativa. Só vira
         // ativa quando a pessoa entra pela primeira vez.

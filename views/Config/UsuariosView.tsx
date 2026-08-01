@@ -470,8 +470,8 @@ export function UsuariosView() {
       )}
 
       {toast && (
-        <div role="status" className="toast bg-roxo-950 max-w-[calc(100vw-2rem)]">
-          <CheckCircle2 className="size-4 shrink-0 text-magenta-400" />
+        <div role="status" className="toast bg-grafite-900 max-w-[calc(100vw-2rem)]">
+          <CheckCircle2 className="size-4 shrink-0 text-roxo-400" />
           <span className="text-[13px]">{toast}</span>
         </div>
       )}
@@ -599,7 +599,7 @@ function Linha({
             className={`size-8 shrink-0 rounded-full grid place-items-center text-[11px] font-semibold ${
               usuario.status === 'inativo'
                 ? 'bg-stone-200 text-stone-500'
-                : 'bg-magenta-600 text-white'
+                : 'bg-roxo-600 text-white'
             }`}
           >
             {usuario.avatar_iniciais}

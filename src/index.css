@@ -1,9 +1,10 @@
 @import 'tailwindcss';
 
 /*
- * Identidade: roxo profundo + magenta de destaque.
- * Roxo carrega a leitura "premium / serviço profissional" que o público
- * (advogados, contadores, médicos) espera; o magenta é o acento de mídia paga.
+ * Identidade: roxo + preto.
+ * O roxo carrega a leitura "premium / serviço profissional" que o público
+ * (advogados) espera; o preto é o que dá o peso de produto de tecnologia e
+ * separa a moldura do conteúdo sem introduzir uma terceira cor.
  */
 @theme {
   --color-roxo-50: #f7f4ff;
@@ -18,11 +19,15 @@
   --color-roxo-900: #331068;
   --color-roxo-950: #1f0a45;
 
-  --color-magenta-300: #f4a8e0;
-  --color-magenta-400: #ec72cd;
-  --color-magenta-500: #df46b6;
-  --color-magenta-600: #c22e9a;
-  --color-magenta-700: #9a2379;
+  /*
+   * O preto da marca. Não é `black` puro: um traço de roxo no neutro impede o
+   * corte seco entre a moldura escura e o roxo ao lado dela, que é o que faz
+   * preto absoluto parecer buraco na tela em vez de superfície.
+   */
+  --color-grafite-700: #26262b;
+  --color-grafite-800: #17171a;
+  --color-grafite-900: #0d0d10;
+  --color-grafite-950: #08080a;
 
   /*
    * Fundo da aplicação: cinza levemente arroxeado, não cinza puro. Um neutro
@@ -82,9 +87,9 @@
    * camada flutuante. Sem essa separação, cada diálogo novo escolhe um
    * `shadow-*` diferente e o sistema perde a noção de profundidade.
    */
-  --shadow-card: 0 1px 2px rgba(31, 10, 69, 0.05);
+  --shadow-card: 0 1px 2px rgba(8, 8, 10, 0.06);
   --shadow-flutuante:
-    0 16px 40px -12px rgba(31, 10, 69, 0.3), 0 2px 8px rgba(31, 10, 69, 0.08);
+    0 16px 40px -12px rgba(8, 8, 10, 0.32), 0 2px 8px rgba(8, 8, 10, 0.1);
 
   /*
    * EST-R12 — animação declarada é animação usada.
@@ -148,11 +153,11 @@
   @keyframes pulso-marca {
     0%,
     100% {
-      outline: 0 solid rgba(223, 70, 182, 0.5);
+      outline: 0 solid rgba(166, 132, 245, 0.6);
       outline-offset: 0;
     }
     50% {
-      outline: 4px solid rgba(223, 70, 182, 0);
+      outline: 4px solid rgba(166, 132, 245, 0);
     }
   }
 }
@@ -338,7 +343,7 @@
   }
 
   .veu {
-    @apply absolute inset-0 bg-roxo-950/40 backdrop-blur-[1px] animate-surgir;
+    @apply absolute inset-0 bg-grafite-950/45 backdrop-blur-[1px] animate-surgir;
   }
 
   .dialogo {

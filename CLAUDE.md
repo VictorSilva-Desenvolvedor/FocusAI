@@ -7,39 +7,42 @@ variáveis e de tipos. Só o vocabulário do framework fica em inglês.
 
 ## O que é o sistema
 
-CRM de agência de tráfego pago para **profissionais de captação regulada** —
-advogados (OAB), contadores (CFC), médicos (CFM), dentistas (CFO) e psicólogos
-(CFP).
+**Focus AI** — plataforma de aquisição de clientes qualificados por IA para
+advogados.
 
-A agência vende lead qualificado. O que a limita é que a publicidade desses
-profissionais é regulada: anúncio fora da norma expõe o cliente a processo ético
-no conselho dele. **A conformidade é um portão de verdade no fluxo, não uma
-revisão opcional** — qualquer atalho que permita subir criativo sem parecer está
-errado, mesmo que a tela fique mais simples.
+A Focus AI não vende serviço de marketing jurídico. Vende o **produto final
+pronto**: o lead qualificado com a reunião já agendada. Ela roda o tráfego, uma
+IA de voz qualifica o cliente final e marca a consulta; advogados compram esse
+lead num aplicativo, por unidade ou consumindo crédito.
 
 Quatro máquinas encadeadas:
 
-**captar o cliente → aprovar a conformidade → distribuir a verba → cobrar o entregue**
+**captar o lead → qualificar com a IA → agendar a reunião → entregar ao advogado**
 
-A entidade que atravessa tudo é a **Conta de Anúncio**: é ela que a plataforma
-reconhece, é nela que a verba entra, é sobre ela que a fatura de mídia chega e é
-dela que sai a cobrança.
+A entidade que atravessa tudo é o **Lead**: é ele que a campanha produz, que a IA
+qualifica, que carrega a reunião, que consome crédito ao ser comprado e que
+responde, perante a OAB, como aquele cliente chegou àquele advogado.
+
+**Cuidado de vocabulário**, porque as duas pontas usam a mesma palavra no dia a
+dia: **lead** é sempre o cliente final (a pessoa com o problema jurídico).
+**Advogado** é sempre o comprador. O advogado também entra por um funil de
+captação, mas ali ele é `Advogado`, nunca `Lead`.
+
+O que limita o negócio é que ele é um intermediário entre cliente e advogado, e
+**intermediação de clientela é matéria regulada** (Provimento 205 da OAB). Duas
+consequências entram no código como invariante, não como recomendação: um lead
+nunca é vendido duas vezes, e o contato do cliente final não aparece antes da
+compra.
 
 ## Estado atual
 
 Maquete de front-end. **Sem backend e sem autenticação.** O estado vive em
-`localStorage` (`crm.usuarios.v1`, `crm.negociacoes.v1`); limpar a chave restaura
-os dados semeados.
+`localStorage` (`focus.leads.v1`, `focus.advogados.v1`, `focus.usuarios.v1`,
+`focus.creditos.v1`); limpar a chave restaura os dados semeados.
 
-| Módulo | Situação |
-| --- | --- |
-| Dashboard (`/`) | Implementado — cards da cadeia, chips, funil, alertas |
-| CRM (`/crm`) | Implementado — Kanban + tabela de negociações, drawer de cadastro |
-| Configurações → Usuários (`/config/usuarios`) | Implementado — lista + drawer, matriz de acesso |
-| Conformidade, Campanhas, Financeiro, Tarefas, Plataformas, Academy | `ModuloEmConstrucao` |
-
-Fora de usuários e negociações, tudo vem de `src/lib/mockData.ts`. Os números são
-plausíveis, não reais.
+Todos os dez módulos têm tela construída. Os números que não saem dos stores
+reais vêm de seeds em `src/lib/*Seed.ts` — plausíveis, não reais, e fictícios por
+princípio.
 
 ## Comandos
 
@@ -49,7 +52,7 @@ npm run dev        # http://localhost:5173
 npm run build      # tsc -b && vite build
 npm run typecheck  # só a verificação de tipos
 npm run shot       # captura headless (precisa do dev rodando)
-npm run smoke      # fluxo de usuários + funil (precisa do dev rodando)
+npm run smoke      # usuários + advogados + leads (precisa do dev rodando)
 ```
 
 `npm run typecheck` é o portão mínimo antes de encerrar qualquer mudança.
@@ -59,40 +62,49 @@ Para conferir mudança de layout sem abrir navegador:
 ```bash
 npm run shot                                   # / no viewport desktop
 npm run shot -- --mobile                       # viewport estreito
-npm run shot -- --perfil u-gestor              # painel sob outro papel
-npm run shot -- /crm --out crm.png             # outra rota
-npm run shot -- /config/usuarios --click "text=Novo usuário"
+npm run shot -- --largura 1600                 # largura específica
+npm run shot -- --perfil u-advogado            # painel sob outro papel
+npm run shot -- /leads --out leads.png         # outra rota
+npm run shot -- /advogados --click "text=Novo advogado"
 ```
 
 As imagens vão para `.screenshots/` (fora do Git). O script **falha se algo
 escrever erro no console** — vale como smoke test de qualquer tela.
 
-`npm run smoke` valida o fluxo de cadastro de usuários ponta a ponta. Rode depois
-de mexer em `src/lib/usuarios.ts`, `UsuariosContext` ou nas telas de `views/Config/`.
+`npm run smoke` valida três fluxos ponta a ponta. Rode depois de mexer em
+`src/lib/leads.ts`, `src/lib/advogados.ts`, `src/lib/usuarios.ts`, nos contextos
+ou nas views correspondentes.
 
 ## Estrutura
 
 ```
-App.tsx                        Rotas (HashRouter)
-main.tsx                       Entrada
-types.ts                       Tipos de domínio — vocabulário canônico
+App.tsx                          Rotas (HashRouter)
+main.tsx                         Entrada
+types.ts                         Tipos de domínio — vocabulário canônico
 src/
-  components/Layout/           Topbar e shell
-  components/Assistente/       Assistente interno
-  components/ui/               Toast
-  contexts/AuthContext.tsx     Perfil ativo, permissões, departamento
-  contexts/UsuariosContext.tsx Cadastro de usuários
-  contexts/NegociacoesContext.tsx  Funil comercial
-  lib/estilo.ts                Tom → classe completa (chip, etiqueta, bloco, ponto)
-  lib/navigation.ts            Mapa de módulos × matriz de acesso
-  lib/usuarios.ts              Hierarquia de criação, validação, prévia de acesso
-  lib/negociacoes.ts           Colunas, transições, prioridade, visibilidade
-  lib/negociacoesSeed.ts       Negociações semeadas
-  lib/mockData.ts              Dados de maquete dos módulos não construídos
-  lib/format.ts                Datas e tempo relativo
-  index.css                    Tema Tailwind
-views/                         Telas por módulo
-scripts/                       screenshot.mjs, smoke-usuarios.mjs
+  components/Layout/             Topbar e shell
+  components/ui/                 Toast, MenuCartao, Campo
+  components/Assistente/         Assistente interno
+  contexts/AuthContext.tsx       Perfil ativo, permissões, departamento
+  contexts/UsuariosContext.tsx   Cadastro de usuários
+  contexts/AdvogadosContext.tsx  Funil de aquisição do advogado
+  contexts/LeadsContext.tsx      Catálogo de leads
+  contexts/CreditosContext.tsx   Extrato de créditos
+  lib/estilo.ts                  Tom → classe completa (chip, etiqueta, bloco, ponto)
+  lib/navigation.ts              Mapa de módulos × matriz de acesso
+  lib/usuarios.ts                Hierarquia de criação, validação, prévia de acesso
+  lib/leads.ts                   Exclusividade, máscara, reserva, compra, visibilidade
+  lib/advogados.ts               Funil, liberação de acesso, prioridade
+  lib/teses.ts                   As três teses e os filtros de elegibilidade
+  lib/creditos.ts                Pacotes, saldo, devolução, receita
+  lib/qualificacao.ts            SDR de voz: taxa, gravação, deduplicação
+  lib/identificador.ts           Slug estável para os dados semeados
+  lib/format.ts                  Datas e tempo relativo
+  lib/*Seed.ts                   Dados semeados, fictícios
+  lib/mockData.ts                Usuários semeados e moldura do painel
+  index.css                      Tema Tailwind
+views/                           Uma pasta por módulo
+scripts/                         screenshot.mjs, smoke-*.mjs
 ```
 
 Alias: `@/*` → raiz do repositório. Importe `@/src/lib/...`, `@/views/...`,
@@ -100,29 +112,49 @@ Alias: `@/*` → raiz do repositório. Importe `@/src/lib/...`, `@/views/...`,
 
 ## Convenções
 
-**Vocabulário canônico, não rótulo de tela.** `types.ts` desambigua. "Cliente" é
-o escritório contratante; **Conta de Anúncio** é a entidade operacional. O rótulo
-que o usuário lê fica em mapas `*_LABEL`; o código usa a chave.
+**Vocabulário canônico, não rótulo de tela.** `types.ts` desambigua. O rótulo que
+o usuário lê fica em mapas `*_LABEL`; o código usa a chave.
 
-**Regras de negócio são citadas pelo ID estável** (`ACC-R02`, `CNF-R04`,
-`CRM-R17`, `VRB-R01`, `FIN-R25`) em comentário, junto do motivo. Quem for mexer
-numa regra procura pelo ID. Prefixos: `ACC` acesso · `CRM` funil · `CNF`
-conformidade · `VRB` verba · `CMP` campanhas · `FIN` financeiro · `PLT`
-plataformas · `TAR` tarefas · `INT` integrações · `AUT` automações · `ASS`
-assistente · `EST` estilização · `API` camada de dados. IDs não são renumerados —
-regra removida deixa o ID aposentado.
+**Regras de negócio são citadas pelo ID estável** (`LED-R03`, `ADV-R02`,
+`TES-R01`, `CRE-R05`) em comentário, junto do motivo. Quem for mexer numa regra
+procura pelo ID. Prefixos: `ACC` acesso · `LED` lead · `ADV` funil do advogado ·
+`TES` teses · `QUA` qualificação por IA · `CRE` créditos · `CNF` conformidade ·
+`CMP` campanhas · `INT` integrações · `AUT` automações · `ASS` assistente ·
+`EST` estilização · `API` camada de dados. IDs não são renumerados — regra
+removida deixa o ID aposentado.
+
+Os prefixos `CRM`, `VRB`, `FIN` e `PLT` estão **aposentados**, junto com
+`INV-01` a `INV-04` e `INV-08`: pertenciam a um domínio anterior que não existe
+mais. Não reaproveite esses números.
 
 **Comentário explica o porquê, não o quê.** O padrão do repositório é comentar a
-consequência de negócio ("descobrir isso depois de assinar significa reprecificar
-ou devolver o cliente"), não parafrasear a linha seguinte.
+consequência de negócio ("dois advogados com o mesmo contato disputam o mesmo
+cliente"), não parafrasear a linha seguinte.
 
 **Regra de negócio mora em `src/lib/`, não na view.** Validação, permissão,
-transição e prioridade são funções puras testáveis; a view chama e renderiza.
+transição, elegibilidade e preço são funções puras testáveis; a view chama e
+renderiza.
 
 **Acesso.** Nunca decida acesso na view por comparação de papel solta. Use
-`nivelDeAcesso`, `modulosVisiveis` e `podeAcessar` de `src/lib/navigation.ts`.
-Papel novo **não herda acesso** — precisa ser adicionado conscientemente às listas
-em `MODULOS` (`INV-05`).
+`nivelDeAcesso`, `modulosVisiveis`, `podeAcessar` e `temAcessoRestrito` de
+`src/lib/navigation.ts`. Papel novo **não herda acesso** — precisa ser adicionado
+conscientemente às listas em `MODULOS` (`INV-05`).
+
+**Dado do cliente final passa por um portão só.** Nenhuma tela lê
+`lead.telefone` direto: tudo passa por `contatoVisivel` em `src/lib/leads.ts`.
+Um lugar para a decisão significa que a próxima tela que listar lead não precisa
+lembrar da regra.
+
+**Seed é acoplada por id.** O lead aponta para o advogado que o comprou, o
+extrato aponta para o lead. Os ids saem de `identificador()`, que **remove o
+acento antes** de trocar o resto por hífen — sem isso "Prev Fácil" vira
+`prev-f-cil`, o elo quebra em silêncio e a tela aparece vazia sem erro nenhum.
+
+**Cuidado com a zona morta temporal nas seeds.** `LEADS_SEED` e `ADVOGADOS_SEED`
+são avaliados na carga do módulo e chamam funções auxiliares que leem tabelas
+`const`. Toda tabela que a auxiliar usa precisa estar declarada **antes** do
+bloco de dados; declarada depois, o app quebra na inicialização com
+`Cannot access before initialization`.
 
 ## Estilização
 
@@ -130,11 +162,15 @@ O mecanismo é Tailwind v4 pelo plugin do Vite (`@tailwindcss/vite`), com build
 real. O tema vive no `@theme` de `src/index.css` — não há `tailwind.config.js`,
 não há CDN, não há CSS de aplicação fora desse arquivo.
 
-**A marca deste produto é roxa.** `roxo-*` como cor primária, `magenta-*` como
-acento, definidos em `src/index.css`. Isso é decisão de marca, não acidente:
-roxo carrega a leitura "serviço profissional premium" que o público do sistema
-espera. Se você encontrar uma convenção de outro sistema da casa proibindo
-roxo/violeta na interface, **ela não vale aqui** — não "corrija" a paleta.
+**A marca é roxo e preto.** `roxo-*` como cor primária, `grafite-*` como o preto
+da moldura (barra superior, véu de diálogo, toast, botão do assistente). Isso é
+decisão de marca, não acidente: roxo carrega a leitura "serviço profissional
+premium" e o preto dá o peso de produto de tecnologia. Se você encontrar uma
+convenção de outro sistema da casa proibindo roxo/violeta na interface, **ela não
+vale aqui** — não "corrija" a paleta.
+
+O `grafite-*` não é preto absoluto: tem um traço de roxo. Preto puro ao lado do
+roxo corta seco e lê como buraco na tela em vez de superfície.
 
 Status usa a escala padrão do Tailwind (esmeralda, âmbar, vermelho, céu). Status
 não é cor de marca. Mas o código **não escreve o pigmento**: os mesmos valores
@@ -155,19 +191,19 @@ classe inteira em cada ramo, ou mapeie estado → classe completa num `Record`.
 ### `EST-R02` — a cor de um estado mora num mapa, não espalhada no JSX
 
 `src/lib/estilo.ts` é o lugar. Ele define o tipo `Tom` (`neutro`, `marca`,
-`sucesso`, `atencao`, `erro`, `info`) e quatro mapas de tom para classe completa,
+`sucesso`, `atencao`, `erro`, `info`) e cinco mapas de tom para classe completa,
 um por papel visual:
 
 | Mapa | Onde se usa |
 | --- | --- |
 | `ESTILO_CHIP` | contador do topo de tela — fundo claro, borda, texto |
-| `ESTILO_ETIQUETA` | etiqueta compacta: conselho, prioridade, status de conta |
+| `ESTILO_ETIQUETA` | etiqueta compacta: tese, prioridade, resultado de ligação |
 | `ESTILO_BLOCO` | caixa de aviso inteira tingida |
 | `ESTILO_PONTO` | bolinha de estado, cabeça de coluna, barra de gráfico |
 | `ESTILO_TEXTO` | ícone ou número solto sobre fundo claro |
 
 A view escolhe o **tom**; o pigmento é problema do mapa. Mapa de domínio para tom
-(`COR_COLUNA`, `ESTILO_PRIORIDADE` em `src/lib/negociacoes.ts`) fica na lib do
+(`COR_COLUNA`, `ESTILO_TESE`, `TOM_RESULTADO`, `TOM_MOVIMENTO`) fica na lib do
 módulo e aponta para estes.
 
 Escrever `bg-amber-50 text-amber-800` direto na view não é o caminho. O custo de
@@ -233,16 +269,19 @@ decisão registrada — e aí unificar já custa uma varredura.
 
 `.btn` é a base e não carrega cor: o uso é sempre `class="btn btn-primario"`.
 
-`.campo-mensagem-erro` é o gancho do `npm run smoke` para achar erro de
-validação — trocar essa classe quebra o smoke, e é de propósito: o teste passa a
-apontar o lugar único onde a mensagem de erro é estilizada.
+`.campo-mensagem-erro` é o gancho dos smoke tests para achar erro de validação —
+trocar essa classe quebra o smoke, e é de propósito: o teste passa a apontar o
+lugar único onde a mensagem de erro é estilizada. O componente `Campo` de
+`src/components/ui/Campo.tsx` já aplica.
 
 ### `EST-R07` — o ponto de virada aqui é `sm:`
 
-Medido: `sm:` 14 usos, `lg:` 6, `xl:` 3, **`md:` nenhum**. A adaptação é
-essencialmente binária — celular abaixo de 640px, desktop acima. Siga o que já
-existe em vez de introduzir um terceiro ponto de virada; e note que tela muito
-larga hoje não recebe tratamento nenhum, o conteúdo estica.
+A adaptação é essencialmente binária — celular abaixo de 640px, desktop acima.
+Siga o que já existe em vez de introduzir pontos de virada novos.
+
+A exceção é a barra superior: com dez módulos, a navegação horizontal só cabe a
+partir de `xl:`, e a busca só a partir de `2xl:`. Abaixo disso o menu compacto é
+mais honesto que uma lista cortada no meio da palavra, que parece defeito.
 
 ### `EST-R08` — ícones sempre de `lucide-react`
 
@@ -274,6 +313,13 @@ escreveu. **Se o último uso sumir, o keyframe sai junto.**
 `prefers-reduced-motion` já é tratado uma vez em `@layer base`, para todas — tela
 nova não precisa lembrar do caso.
 
+### `EST-R13` — menu flutuante fecha por clique fora, então tudo dele mora dentro dele
+
+`MenuCartao` escuta `mousedown` no documento e fecha quando o clique cai fora do
+próprio container. Um botão irmão, posicionado ao lado, **desmonta no mousedown e
+o clique nunca acontece** — o botão fica visível e simplesmente não funciona.
+Ação extra entra pela propriedade `acoes`, dentro do menu.
+
 ### `EST-R09` — se o tema escuro entrar um dia
 
 Ainda não existe. Quando entrar, duas armadilhas conhecidas, que custam caro
@@ -290,23 +336,36 @@ justamente por serem silenciosas:
 
 ## Invariantes — não negociáveis
 
-- `INV-01` Nenhum criativo sobe sem parecer aprovado. Nem provisoriamente, nem
-  "só para testar audiência". O risco é do cliente.
-- `INV-02` A verba distribuída fecha exatamente com a contratada. Excesso é
-  prejuízo da agência; falta é entrega a menos que o cliente pagou.
-- `INV-03` Repasse de mídia só dispara com confirmação bancária. Baixa manual não
-  dispara.
-- `INV-04` A data do parecer de conformidade é imutável — é o carimbo que prova,
-  perante o conselho, quando a agência avaliou a peça.
 - `INV-05` Papel novo não herda acesso.
 - `INV-06` O assistente nunca faz consulta livre ao banco. Só consultas
   pré-definidas e pré-agregadas.
+- `INV-10` **Nenhum lead é vendido duas vezes.** Devolução não recoloca no
+  catálogo. Dois advogados com o mesmo contato é concorrência pelo mesmo cliente
+  — exatamente o risco que o Provimento 205 levanta sobre intermediação.
+- `INV-11` **O telefone do cliente final só aparece depois da compra.** É o
+  produto e é dado pessoal. Antes da venda a tela mostra o suficiente para
+  decidir, nunca o contato.
+- `INV-12` **Advogado não se cadastra sozinho.** Login só nasce de um registro
+  que passou pelo funil, com a inscrição da OAB conferida por alguém do time.
+- `INV-13` **O registro da qualificação e do comprador é imutável.** É o que
+  responde, perante a OAB, como o cliente foi direcionado e para quem.
+- `INV-14` **Crédito só entra com confirmação de pagamento.** Baixa manual não
+  credita.
+- `INV-15` **Crédito consumido fecha com crédito comprado.** O saldo é a soma do
+  extrato, nunca um número guardado à parte.
+- `INV-16` **Nenhum criativo sobe sem parecer.** Quem anuncia captando clientela
+  para advogado responde pela peça.
+- `INV-17` **O sistema não guarda dado bancário do cliente final.** Nem senha,
+  nem cartão, nem número de contrato. Não existe o campo — é assim que a regra se
+  sustenta.
 
 Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `ACC-R21` e `ACC-R22` (`UsuariosContext`), `ACC-R01` e `ACC-R07`
-(`src/lib/navigation.ts`), `CNF-R21` (`AuthContext` + `views/Config/`),
-`CRM-R17`, `CRM-R18` e `CRM-R20` (`src/lib/negociacoes.ts`), `ASS-R02`
-(`AssistenteButton`).
+(`src/lib/navigation.ts`), `CNF-R21` (`AuthContext` + `views/Conformidade/`),
+`LED-R01` a `LED-R06` (`src/lib/leads.ts`), `ADV-R01` a `ADV-R08`
+(`src/lib/advogados.ts`), `TES-R01` a `TES-R06` (`src/lib/teses.ts`), `CRE-R01` a
+`CRE-R05` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
+(`src/lib/qualificacao.ts`), `ASS-R02` (`AssistenteButton`).
 
 ## Camada de dados — contrato para quando o backend entrar
 
@@ -326,11 +385,12 @@ Cada uma existe porque o custo dela já foi pago em produção em outro lugar.
   avaliado pela política de acesso da tabela.
 - `API-R02` — **Segurança é da tabela, nunca da consulta.** Como é o cliente que
   monta a consulta, nada impede pedir mais do que se deve. Filtro no frontend é
-  ergonomia, não controle de acesso. Isso vale em dobro aqui, onde `white_label_id`
-  separa carteiras de agências diferentes.
+  ergonomia, não controle de acesso. Isso vale em dobro aqui, onde `advogado_id`
+  separa a carteira de um advogado da do outro — e onde a coisa filtrada é o
+  telefone de uma pessoa real.
 - `API-R03` — **Privilégio elevado obriga a reimplementar o isolamento.** A chave
   de serviço ignora todas as políticas do banco. Toda função que a usa carrega
-  sozinha a responsabilidade de não vazar dado entre carteiras — é onde a falha é
+  sozinha a responsabilidade de não vazar dado entre advogados — é onde a falha é
   mais provável e mais silenciosa.
 - `API-R04` — **Função de banco nova revoga execução de `PUBLIC`, `anon` e
   `authenticated`, os três.** Revogar só de `PUBLIC` não tem efeito: a plataforma
@@ -345,20 +405,22 @@ Cada uma existe porque o custo dela já foi pago em produção em outro lugar.
 ### Consultas
 
 - `API-R06` — **A regra de leitura mora na camada de serviço.** Consulta solta
-  espalhada pelas telas é o antipadrão que mais custa: quando a camada exclui
-  registro cancelado, une modelo novo e legado ou preserva a data imutável da
-  decisão, quem consulta direto simplesmente não aplica nada disso — e o sintoma
-  é uma tela nova listando o que deveria estar fora. Vale a mesma lógica que já
-  governa `src/lib/`: a regra é do módulo, não da view.
+  espalhada pelas telas é o antipadrão que mais custa: quando a camada mascara o
+  contato de lead não comprado, exclui lead já vendido do catálogo ou preserva o
+  carimbo imutável da venda, quem consulta direto simplesmente não aplica nada
+  disso — e o sintoma é uma tela nova entregando telefone de graça. Vale a mesma
+  lógica que já governa `src/lib/`: a regra é do módulo, não da view.
 - `API-R07` — **Lista grande exige paginação explícita.** O corte padrão é 1.000
   linhas e o truncamento é **silencioso**: não vem erro, vem menos dado. Já custou
   filtro perdendo opção e janela de comparação virando um terço do período, com os
   comparativos zerando sem ninguém notar. Passou de 1.000, paginou.
 - `API-R08` — **Operação transacional ou validada é função no banco.** Tudo que
-  precisa gravar em conjunto — distribuição de verba, aprovação, conciliação —
-  passa por função com validação antes de gravar, não por escrita direta. Trava de
-  edição concorrente também: com expiração por falta de sinal de vida e limpeza de
-  travas órfãs.
+  precisa gravar em conjunto — comprar lead, debitar crédito, devolver — passa por
+  função com validação antes de gravar, não por escrita direta. A compra é o caso
+  crítico: carimbar o comprador e debitar o saldo em passos separados abre a
+  janela em que dois advogados compram o mesmo lead. Trava de edição concorrente
+  também: com expiração por falta de sinal de vida e limpeza de travas órfãs — é
+  exatamente o que `LED-R04` já modela na maquete.
 - `API-R09` — **Assinatura ao vivo com parcimônia.** O filtro de tempo real só
   aceita igualdade simples; filtro composto obriga a escutar a tabela inteira e
   refinar no cliente, com agrupamento de eventos para não recarregar a cada
@@ -370,34 +432,36 @@ Cada uma existe porque o custo dela já foi pago em produção em outro lugar.
 - `API-R10` — **Configuração ausente não pode virar silêncio.** O padrão fácil —
   se a chave do webhook está vazia, pula a chamada — faz a funcionalidade sumir
   sem erro, sem aviso ao usuário e sem registro de que a etapa foi ignorada.
-  Etapa pulada tem que aparecer em algum lugar.
+  Etapa pulada tem que aparecer em algum lugar; a tela de Integrações é onde.
 - `API-R11` — **O fluxo externo responde honestamente.** Sucesso só em sucesso.
   Fluxo que engole erro e responde 200 em falha faz o sistema nunca saber que
   precisa reenfileirar.
 - `API-R12` — **Evento de entrega única precisa de reconciliação.** Provedor que
   não reenvia em caso de falha exige rotina periódica que confira o que ficou
-  para trás. Sem isso, evento perdido é dado perdido — já houve descarte
-  silencioso por semanas. **Todo fluxo de terceiro nasce com a reconciliação
-  junto**, não depois.
+  para trás. Sem isso, evento perdido é dado perdido — e aqui o dado perdido é
+  uma reunião agendada que nunca aparece no painel de ninguém. **Todo fluxo de
+  terceiro nasce com a reconciliação junto**, não depois.
 - `API-R13` — **Webhook de entrada é idempotente.** Eventos chegam repetidos.
-  Deduplique por par (identificador, tipo de evento).
+  Deduplique por par (identificador, tipo de evento). Sem isso, uma ligação vira
+  duas tentativas e o lead é descartado por excesso (`QUA-R02`).
 - `API-R14` — **Evento é gatilho, não fonte da verdade.** Recebeu aviso? Consulte
-  o estado real antes de agir sobre ele.
+  o estado real antes de agir sobre ele (`QUA-R01`).
 - `API-R15` — **Balde público serve URL permanente.** Arquivo em balde público
-  fica acessível para sempre, sem expiração, para quem tiver o endereço. Parecer
-  de conformidade, documento de cliente e comprovante **não** vão para balde
-  público (`INV-04` depende de o parecer ser rastreável, não exposto).
+  fica acessível para sempre, sem expiração, para quem tiver o endereço. Gravação
+  de qualificação, documento de cliente e comprovante **não** vão para balde
+  público — `INV-13` depende de a gravação ser rastreável, não exposta.
 - `API-R16` — **Automação externa é código não versionado.** Fluxo que vive só
   dentro da ferramenta de automação é lógica de negócio fora do repositório, sem
   revisão e sem histórico. Ou versiona, ou registra explicitamente que é dívida.
 
 ### Coerência com os invariantes
 
-`INV-03` — repasse só dispara com confirmação bancária — é a mesma regra vista do
-lado da integração: **o gatilho é o webhook do banco preenchendo a data de
-pagamento, e baixa manual não dispara.** Se algum dia alguém pedir para a baixa
-manual disparar o repasse porque "a conta ficou sem saldo e a campanha parou", a
-resposta é alerta, não atalho.
+`INV-14` — crédito só entra com confirmação de pagamento — é a mesma regra vista
+do lado da integração: **o gatilho é o webhook do provedor de pagamento, e baixa
+manual não credita.** Se algum dia alguém pedir para a baixa manual creditar
+porque "o advogado já pagou e o comprovante está aqui", a resposta é o ajuste
+manual — que é um tipo de movimento próprio, aparece no extrato como tal e exige
+motivo —, não atalho no gatilho.
 
 ### Antes de abrir uma integração nova
 
@@ -405,7 +469,7 @@ resposta é alerta, não atalho.
 - Erro tem mensagem para o usuário **e** detalhe no log?
 - A lista passa de 1.000 linhas? Paginou?
 - Tabela nova: ativou a proteção de acesso, escreveu as políticas e **repetiu o
-  bloqueio dos papéis externos**? Papel externo não é bloqueado automaticamente em
+  bloqueio do papel externo**? `advogado` não é bloqueado automaticamente em
   tabela nova — é o mesmo `INV-05` do lado do banco.
 - Usa privilégio elevado? Reimplementou o isolamento em código?
 - Serviço pago: tem cache, teto, restrição por papel e registro de custo por uso?
@@ -415,38 +479,56 @@ resposta é alerta, não atalho.
 Não são bugs a corrigir de passagem — são dívidas anotadas. Mexa nelas quando
 forem a demanda.
 
+- **Validação jurídica do Provimento 205.** Um intermediário que dá a múltiplos
+  advogados acesso a dados de possíveis clientes levanta questão de captação de
+  clientela, de direito do cliente final saber como foi direcionado, e de
+  concorrência entre advogados pelo mesmo lead. Precisa de revisão por advogado
+  especialista em ética profissional **antes do lançamento comercial**. Não
+  impede construir; impede lançar. Está visível no módulo de Conformidade e no
+  painel.
 - **Sem guard de rota** (`ACC-R07`): menu e painel filtram, a rota não. Quem
-  digitar `/financeiro` entra.
-- **Sem autenticação.** O seletor de perfil da barra superior troca de usuário sem
-  senha — serve para conferir a matriz de acesso, não é login.
+  digitar `/creditos` entra — e agora isso pesa mais, porque `advogado` é papel
+  externo.
+- **Sem autenticação.** O seletor de perfil da barra superior troca de usuário
+  sem senha — serve para conferir a matriz de acesso, não é login. O perfil
+  escolhido também não sobrevive a um recarregamento.
 - **Convite não sai de verdade.** Falta o serviço de envio.
-- **Sem paginação** na lista de usuários.
-- **Sem trilha de auditoria** de mudança de papel e permissão.
+- **Sem paginação** nas listas de leads e de advogados.
+- **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
+  devolução de crédito.
+- **Reserva de lead expira só na leitura.** `reservaAtiva` calcula contra o
+  relógio a cada render; não há rotina que limpe trava órfã no armazenamento.
+  Funciona na maquete, não sobrevive a múltiplos clientes.
 
-## Documentação local — só leitura
+## Documentação
 
-Existe material de apoio mantido **apenas na máquina**, fora do versionamento
-(`.gitignore`). Serve para consulta e releitura enquanto se trabalha — nada além
-disso. Vale para **qualquer formato e qualquer lugar**: pasta de documentação,
-PDF, planilha ou documento solto na raiz do repositório. As regras são absolutas:
+**`FOCUS-AI.md` é a especificação do produto e é versionada.** É a fonte da
+verdade sobre o modelo de negócio, as três teses e o aplicativo do advogado.
+Quando o código e ela divergirem, uma das duas está errada — resolva, não
+ignore.
+
+### Material de apoio local — só leitura
+
+Além dela existe material mantido **apenas na máquina**, fora do versionamento
+(`.gitignore`): PDF, planilha, pasta de documentação, documento solto na raiz.
+Esse material serve para consulta enquanto se trabalha, e nada além disso. As
+regras são absolutas:
 
 - **Nunca versione esse material.** Não tire do `.gitignore`, não faça
-  `git add -f`, não copie trecho para arquivo versionado, não crie "resumo" dele
-  no repositório.
+  `git add -f`, não copie trecho para arquivo versionado.
 - **Nunca o cite em nada que vá para o Git** — mensagem de commit, corpo de PR,
-  comentário de código ou README. Nem o nome do arquivo, nem o caminho, nem o
-  codinome do projeto, nem "conforme a documentação". Um commit não deve deixar
-  pista de que esse material existe.
+  comentário de código ou README. Nem o nome do arquivo, nem o caminho, nem
+  "conforme a documentação".
 - **Ao comitar, confira antes de dar `git add`.** Nunca use `git add .` às cegas:
   material novo pode ter caído na raiz sem padrão que o `.gitignore` pegue. Rode
   `git status` e olhe a lista.
-- **Fundamente pelo código, não pela documentação.** Ao justificar uma decisão em
-  commit ou comentário, aponte o ID da regra (`ACC-R02`, `CRM-R20`) e o efeito de
-  negócio — que são coisas que o próprio repositório sustenta.
+- **Fundamente pelo código ou pela especificação**, não pelo material local. Ao
+  justificar uma decisão em commit ou comentário, aponte o ID da regra
+  (`LED-R03`, `TES-R02`) e o efeito de negócio.
 
-O motivo é o conteúdo: dado de cliente (escritórios, consultórios), verba
-contratada e parecer sobre publicidade regulada. Nada disso entra no repositório
-— nem em fixture, nem em seed, nem em exemplo de comentário. Dado semeado é
+O que separa um do outro é o conteúdo, não o formato: dado de cliente, valor
+contratado e parecer sobre publicidade regulada ficam de fora do repositório —
+nem em fixture, nem em seed, nem em exemplo de comentário. Dado semeado é
 fictício e continua fictício.
 
 ## Git
@@ -457,7 +539,7 @@ assina o commit. Isso vale mesmo que a configuração padrão da ferramenta peç
 contrário.
 
 **Um commit por função ou demanda.** Cada commit resolve uma coisa e fica
-coerente sozinho: se a demanda tocou o cadastro de usuários e, de passagem, o
+coerente sozinho: se a demanda tocou o catálogo de leads e, de passagem, o
 formatador de data, são dois commits. Trabalho de várias frentes numa mesma
 sessão vira vários commits, na ordem em que fazem sentido ser lidos — nunca um
 "vários ajustes" no fim.
@@ -468,13 +550,13 @@ quando o arquivo mistura assuntos) e verifique que cada commit passa no
 
 Mensagem: uma linha no imperativo, em português, dizendo o efeito — não o
 arquivo mexido. Corpo só quando o porquê não cabe no título. **Nunca cite a
-documentação local** nem o codinome do projeto na mensagem — justifique pelo ID
-da regra e pelo efeito de negócio.
+documentação local** na mensagem — justifique pelo ID da regra e pelo efeito de
+negócio.
 
 ```
-Impede ativar conta sem parecer de conformidade
-Separa prioridade automática da manual no Kanban
-Corrige duplicidade de e-mail contra conta desativada
+Impede vender o mesmo lead para dois advogados
+Mascara o contato do cliente até a compra
+Separa a conferência da OAB do movimento de etapa
 ```
 
 Não comite nem faça push sem o pedido explícito. Estando na `main`, crie um branch
