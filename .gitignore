@@ -8,6 +8,9 @@ dist-ssr/
 .env.*
 !.env.example
 
+# Credenciais de serviço externo — só nesta máquina, nunca versionadas.
+.secrets/
+
 # Documentação e material de apoio — mantidos APENAS localmente, nunca versionados.
 # Envolvem dado de cliente, verba contratada e parecer sobre publicidade regulada.
 # Valem em qualquer pasta do repositório, inclusive na raiz.
