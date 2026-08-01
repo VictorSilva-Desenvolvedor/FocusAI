@@ -39,11 +39,11 @@ export function Topbar() {
   return (
     // z acima do botão flutuante do assistente: com o menu compacto aberto, ele
     // ficaria por cima dos itens de navegação.
-    <header className="shrink-0 relative z-50 bg-roxo-950 text-roxo-100" ref={menuRef}>
+    <header className="shrink-0 relative z-50 bg-grafite-900 text-roxo-100" ref={menuRef}>
       <div className="h-14 flex items-center gap-2 px-3 sm:px-4">
         {/* Marca */}
         <NavLink to="/" className="flex items-center gap-2.5 shrink-0 pr-2">
-          <div className="size-8 rounded-lg bg-magenta-500 grid place-items-center">
+          <div className="size-8 rounded-lg bg-roxo-600 grid place-items-center">
             <Zap className="size-4.5 text-white" strokeWidth={2.5} />
           </div>
           <div className="hidden sm:block leading-none">
@@ -98,7 +98,7 @@ export function Topbar() {
           >
             <Bell className="size-4.5" />
             {/* Pulsa no acento da marca: é aviso não lido, estado vivo. */}
-            <span className="ponto-estado absolute top-2 right-2 bg-magenta-400 ring-2 ring-roxo-950 animate-pulso-marca" />
+            <span className="ponto-estado absolute top-2 right-2 bg-roxo-400 ring-2 ring-grafite-900 animate-pulso-marca" />
           </button>
 
           {/*
@@ -106,7 +106,7 @@ export function Topbar() {
             acesso sem precisar de autenticação real.
           */}
           <div className="relative flex items-center gap-2 rounded-lg pl-1.5 pr-1 py-1 hover:bg-white/8 transition-colors">
-            <div className="size-7 shrink-0 rounded-full bg-magenta-600 text-white grid place-items-center text-[11px] font-semibold">
+            <div className="size-7 shrink-0 rounded-full bg-roxo-600 text-white grid place-items-center text-[11px] font-semibold">
               {perfil.avatar_iniciais}
             </div>
             <div className="hidden xl:block leading-tight min-w-0 max-w-36">

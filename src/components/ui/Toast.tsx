@@ -26,13 +26,13 @@ export function Toast({ aviso, aoFechar }: { aviso: Aviso | null; aoFechar: () =
     <div
       role="status"
       className={`toast max-w-[min(34rem,calc(100vw-2rem))] ${
-        erro ? 'bg-erro-700' : 'bg-roxo-950'
+        erro ? 'bg-erro-700' : 'bg-grafite-900'
       }`}
     >
       {erro ? (
         <AlertTriangle className="size-4 shrink-0 mt-0.5" />
       ) : (
-        <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-magenta-400" />
+        <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-roxo-400" />
       )}
       <span className="text-[13px] leading-snug">{aviso.texto}</span>
     </div>

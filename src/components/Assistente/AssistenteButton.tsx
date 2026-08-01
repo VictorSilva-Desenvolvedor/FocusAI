@@ -14,9 +14,9 @@ export function AssistenteButton() {
   return (
     <button
       type="button"
-      className="btn fixed bottom-6 right-6 z-40 h-11 pl-3.5 pr-4 rounded-full bg-roxo-950 text-white shadow-flutuante hover:bg-roxo-900"
+      className="btn fixed bottom-6 right-6 z-40 h-11 pl-3.5 pr-4 rounded-full bg-grafite-900 text-white shadow-flutuante hover:bg-grafite-800"
     >
-      <Sparkles className="size-4 text-magenta-400" />
+      <Sparkles className="size-4 text-roxo-400" />
       <span className="text-[13px] font-medium">Assistente</span>
     </button>
   );

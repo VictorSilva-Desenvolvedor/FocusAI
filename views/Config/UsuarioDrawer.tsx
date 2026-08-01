@@ -205,7 +205,7 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
                   aria-hidden
                   className={`size-9 shrink-0 rounded-full grid place-items-center text-[12px] font-semibold transition-colors ${
                     dados.nome.trim()
-                      ? 'bg-magenta-600 text-white'
+                      ? 'bg-roxo-600 text-white'
                       : 'bg-stone-100 text-stone-300 border border-dashed border-stone-300'
                   }`}
                 >
