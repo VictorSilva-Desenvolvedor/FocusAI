@@ -1,0 +1,37 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Documentação e material de apoio — mantidos APENAS localmente, nunca versionados.
+# Envolvem dado de cliente, verba contratada e parecer sobre publicidade regulada.
+# Valem em qualquer pasta do repositório, inclusive na raiz.
+docs/
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.csv
+*.odt
+*.ods
+
+# Capturas de tela geradas por npm run shot
+.screenshots/
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# Lixo de depuração
+temp_*
+scratch_*
+tsc_output*
+*.tsbuildinfo

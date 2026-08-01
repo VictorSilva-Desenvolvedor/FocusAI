@@ -1,0 +1,365 @@
+@import 'tailwindcss';
+
+/*
+ * Identidade: roxo profundo + magenta de destaque.
+ * Roxo carrega a leitura "premium / serviço profissional" que o público
+ * (advogados, contadores, médicos) espera; o magenta é o acento de mídia paga.
+ */
+@theme {
+  --color-roxo-50: #f7f4ff;
+  --color-roxo-100: #efe9fe;
+  --color-roxo-200: #ded4fd;
+  --color-roxo-300: #c5b0fa;
+  --color-roxo-400: #a684f5;
+  --color-roxo-500: #8b5cf6;
+  --color-roxo-600: #7539e8;
+  --color-roxo-700: #6127c7;
+  --color-roxo-800: #4a1d97;
+  --color-roxo-900: #331068;
+  --color-roxo-950: #1f0a45;
+
+  --color-magenta-300: #f4a8e0;
+  --color-magenta-400: #ec72cd;
+  --color-magenta-500: #df46b6;
+  --color-magenta-600: #c22e9a;
+  --color-magenta-700: #9a2379;
+
+  /*
+   * Fundo da aplicação: cinza levemente arroxeado, não cinza puro. Um neutro
+   * frio ao lado do roxo da marca puxa a leitura para "azulado"; este tom
+   * mantém o conjunto coeso sem competir com o card branco.
+   */
+  --color-fundo: #f5f3f7;
+
+  /*
+   * EST-R10 — cor de estado tem nome de estado, não de pigmento.
+   *
+   * Escrever `bg-red-50` na view espalha a decisão: quando "a cor de erro"
+   * precisa mudar, não existe um lugar para mudá-la. Os valores abaixo são a
+   * escala padrão do Tailwind (esmeralda, âmbar, vermelho, céu) — status não é
+   * cor de marca e não deve virar roxo —, mas o código cita o significado.
+   */
+  --color-sucesso-50: #ecfdf5;
+  --color-sucesso-100: #d1fae5;
+  --color-sucesso-200: #a7f3d0;
+  --color-sucesso-500: #10b981;
+  --color-sucesso-600: #059669;
+  --color-sucesso-700: #047857;
+  --color-sucesso-900: #064e3b;
+
+  --color-atencao-50: #fffbeb;
+  --color-atencao-100: #fef3c7;
+  --color-atencao-200: #fde68a;
+  --color-atencao-400: #fbbf24;
+  --color-atencao-500: #f59e0b;
+  --color-atencao-600: #d97706;
+  --color-atencao-800: #92400e;
+  --color-atencao-900: #78350f;
+
+  --color-erro-50: #fef2f2;
+  --color-erro-100: #fee2e2;
+  --color-erro-200: #fecaca;
+  --color-erro-300: #fca5a5;
+  --color-erro-400: #f87171;
+  --color-erro-500: #ef4444;
+  --color-erro-600: #dc2626;
+  --color-erro-700: #b91c1c;
+  --color-erro-800: #991b1b;
+
+  --color-info-50: #f0f9ff;
+  --color-info-100: #e0f2fe;
+  --color-info-200: #bae6fd;
+  --color-info-400: #38bdf8;
+  --color-info-500: #0ea5e9;
+  --color-info-700: #0369a1;
+  --color-info-800: #075985;
+
+  --font-sans:
+    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+
+  /*
+   * EST-R11 — duas sombras, uma para cada papel: superfície em repouso e
+   * camada flutuante. Sem essa separação, cada diálogo novo escolhe um
+   * `shadow-*` diferente e o sistema perde a noção de profundidade.
+   */
+  --shadow-card: 0 1px 2px rgba(31, 10, 69, 0.05);
+  --shadow-flutuante:
+    0 16px 40px -12px rgba(31, 10, 69, 0.3), 0 2px 8px rgba(31, 10, 69, 0.08);
+
+  /*
+   * EST-R12 — animação declarada é animação usada.
+   *
+   * Cada uma abaixo tem consumidor no código. Keyframe declarado e nunca
+   * aplicado não custa nada em runtime, mas sinaliza intenção não cumprida:
+   * quem chega depois assume que existe um padrão de entrada que ninguém
+   * escreveu. Se um uso sumir, o keyframe sai junto.
+   */
+  --animate-surgir: surgir 0.18s ease-out;
+  --animate-entrada-suave: entrada-suave 0.28s ease-out;
+  --animate-entrada-modal: entrada-modal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-entrada-lateral: entrada-lateral 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-subir: subir 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pulso-marca: pulso-marca 2.4s ease-in-out infinite;
+
+  @keyframes surgir {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes entrada-suave {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes entrada-modal {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+  }
+
+  @keyframes entrada-lateral {
+    from {
+      transform: translateX(2rem);
+      opacity: 0;
+    }
+  }
+
+  @keyframes subir {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+
+  /*
+   * Halo por `outline`, não por `box-shadow`: o ponto que usa esta animação
+   * fica sobre o cabeçalho escuro e precisa do anel de separação, que no
+   * Tailwind também é box-shadow — as duas coisas na mesma propriedade fazem a
+   * animação apagar o anel a cada ciclo.
+   */
+  @keyframes pulso-marca {
+    0%,
+    100% {
+      outline: 0 solid rgba(223, 70, 182, 0.5);
+      outline-offset: 0;
+    }
+    50% {
+      outline: 4px solid rgba(223, 70, 182, 0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-fundo text-roxo-950 font-sans;
+  }
+
+  /* Barra de rolagem discreta, no tom da marca */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-roxo-950/15 rounded-full;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-roxo-950/30;
+    background-clip: content-box;
+  }
+
+  /*
+   * Quem pediu menos movimento ao sistema operacional não recebe entrada
+   * animada. Vale para todas as animações do @theme de uma vez, e não depende
+   * de nenhuma tela lembrar de tratar o caso.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/*
+ * Catálogo de padrões — EST-R06.
+ *
+ * Um padrão por elemento, definido aqui. Copiar a cadeia de utilitárias de
+ * outra tela e ajustar "só o raio" é como nascem dois padrões de card
+ * concorrentes, com adoção quase igual e nenhuma decisão registrada.
+ */
+@layer components {
+  /* --- Texto ------------------------------------------------------------ */
+
+  .titulo-pagina {
+    @apply text-2xl font-semibold tracking-tight text-roxo-900;
+  }
+
+  .subtitulo-pagina {
+    @apply text-[13px] text-stone-500;
+  }
+
+  .card-title {
+    @apply text-[13px] font-semibold text-roxo-900 tracking-tight;
+  }
+
+  .label-eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500;
+  }
+
+  .nota {
+    @apply text-[11px] text-stone-400 leading-snug;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- Superfícies ------------------------------------------------------ */
+
+  .card {
+    @apply bg-white border border-stone-200/80 rounded-xl shadow-card;
+  }
+
+  /* Card que é link ou botão. Só a cor muda no hover — EST-R05. */
+  .card-interativo {
+    @apply transition-colors hover:border-roxo-300 hover:bg-roxo-50/40;
+  }
+
+  /* --- Botões ----------------------------------------------------------- */
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg
+      text-[13px] font-medium whitespace-nowrap transition-colors
+      disabled:cursor-not-allowed;
+  }
+
+  .btn-primario {
+    @apply bg-roxo-600 text-white hover:bg-roxo-700 disabled:bg-stone-300;
+  }
+
+  .btn-secundario {
+    @apply border border-stone-200 bg-white text-stone-700
+      hover:border-stone-300 hover:bg-stone-50 disabled:text-stone-300;
+  }
+
+  .btn-fantasma {
+    @apply text-stone-600 hover:bg-stone-200/60
+      disabled:text-stone-300 disabled:hover:bg-transparent;
+  }
+
+  .btn-perigo {
+    @apply bg-erro-600 text-white hover:bg-erro-700 disabled:bg-stone-300;
+  }
+
+  /* Botão só-ícone das linhas de tabela e cabeçalhos de painel. */
+  .btn-icone {
+    @apply inline-grid place-items-center size-8 shrink-0 rounded-lg
+      text-stone-400 transition-colors hover:bg-stone-100 hover:text-roxo-700
+      disabled:text-stone-200 disabled:hover:bg-transparent;
+  }
+
+  /* --- Formulário ------------------------------------------------------- */
+
+  .campo-rotulo {
+    @apply block text-[12px] font-medium text-roxo-900 mb-1.5;
+  }
+
+  .campo {
+    @apply w-full h-9 px-3 rounded-lg border border-stone-300 bg-white
+      text-[13px] text-stone-800 transition-colors placeholder:text-stone-400
+      focus:border-roxo-400 focus:outline-none focus:ring-2 focus:ring-roxo-500/15
+      disabled:bg-stone-50 disabled:text-stone-400;
+  }
+
+  /* Campo dentro de barra de filtro: fundo cinza, borda só no foco. */
+  .campo-filtro {
+    @apply bg-stone-100 border-transparent text-stone-700 focus:bg-white focus:border-roxo-300;
+  }
+
+  .campo-invalido {
+    @apply border-erro-300 focus:border-erro-400 focus:ring-erro-500/15;
+  }
+
+  /* Textarea: mesma casca do campo, sem a altura fixa de uma linha. */
+  .campo-area {
+    @apply h-auto py-2 resize-none;
+  }
+
+  .campo-dica {
+    @apply text-[11px] text-stone-400 mt-1.5;
+  }
+
+  .campo-mensagem-erro {
+    @apply text-[11px] text-erro-600 mt-1.5;
+  }
+
+  /* --- Etiquetas e contadores ------------------------------------------- */
+
+  /* EST-R04 — etiqueta é sempre `rounded-full`. A cor vem de src/lib/estilo. */
+  .etiqueta {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5
+      text-[10px] font-semibold whitespace-nowrap;
+  }
+
+  /* Contador de topo de tela: número grande + rótulo, um por indicador. */
+  .chip {
+    @apply inline-flex items-baseline gap-1.5 rounded-lg border px-3.5 py-2;
+  }
+
+  .ponto-estado {
+    @apply inline-block size-1.5 rounded-full shrink-0;
+  }
+
+  /* --- Camadas — EST-R03 ------------------------------------------------ */
+
+  /* Container do diálogo. Carrega a camada; véu e corpo ficam dentro. */
+  .pilha-dialogo {
+    @apply fixed inset-0 z-50;
+  }
+
+  .veu {
+    @apply absolute inset-0 bg-roxo-950/40 backdrop-blur-[1px] animate-surgir;
+  }
+
+  .dialogo {
+    @apply relative w-full bg-white rounded-xl shadow-flutuante animate-entrada-modal;
+  }
+
+  .gaveta {
+    @apply relative w-full h-full flex flex-col bg-white shadow-flutuante animate-entrada-lateral;
+  }
+
+  .menu-flutuante {
+    @apply fixed z-50 rounded-lg border border-stone-200 bg-white
+      shadow-flutuante py-1.5 animate-surgir;
+  }
+
+  .item-menu {
+    @apply w-full text-left px-3 py-1.5 text-[13px] transition-colors;
+  }
+
+  .toast {
+    @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-70 flex items-start gap-2.5
+      rounded-lg px-4 py-3 text-white shadow-flutuante animate-subir;
+  }
+}
