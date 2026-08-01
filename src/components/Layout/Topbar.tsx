@@ -47,9 +47,9 @@ export function Topbar() {
             <Zap className="size-4.5 text-white" strokeWidth={2.5} />
           </div>
           <div className="hidden sm:block leading-none">
-            <div className="font-semibold text-[15px] text-white tracking-tight">CRM</div>
+            <div className="font-semibold text-[15px] text-white tracking-tight">Focus AI</div>
             <div className="text-[9px] text-roxo-300 tracking-[0.12em] uppercase mt-0.5">
-              Tráfego pago
+              Leads qualificados
             </div>
           </div>
         </NavLink>
