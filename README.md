@@ -67,6 +67,7 @@ padrão do Tailwind sob nome de significado — status não é cor de marca.
 ## Estrutura
 
 ```
+FOCUS-AI.md                      Especificação do produto
 App.tsx                          Rotas
 main.tsx                         Entrada
 types.ts                         Tipos de domínio (vocabulário canônico)

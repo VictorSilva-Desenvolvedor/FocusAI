@@ -500,31 +500,36 @@ forem a demanda.
   relógio a cada render; não há rotina que limpe trava órfã no armazenamento.
   Funciona na maquete, não sobrevive a múltiplos clientes.
 
-## Documentação local — só leitura
+## Documentação
 
-Existe material de apoio mantido **apenas na máquina**, fora do versionamento
-(`.gitignore`). Serve para consulta e releitura enquanto se trabalha — nada além
-disso. Vale para **qualquer formato e qualquer lugar**: pasta de documentação,
-PDF, planilha ou documento solto na raiz do repositório. As regras são absolutas:
+**`FOCUS-AI.md` é a especificação do produto e é versionada.** É a fonte da
+verdade sobre o modelo de negócio, as três teses e o aplicativo do advogado.
+Quando o código e ela divergirem, uma das duas está errada — resolva, não
+ignore.
+
+### Material de apoio local — só leitura
+
+Além dela existe material mantido **apenas na máquina**, fora do versionamento
+(`.gitignore`): PDF, planilha, pasta de documentação, documento solto na raiz.
+Esse material serve para consulta enquanto se trabalha, e nada além disso. As
+regras são absolutas:
 
 - **Nunca versione esse material.** Não tire do `.gitignore`, não faça
-  `git add -f`, não copie trecho para arquivo versionado, não crie "resumo" dele
-  no repositório.
+  `git add -f`, não copie trecho para arquivo versionado.
 - **Nunca o cite em nada que vá para o Git** — mensagem de commit, corpo de PR,
   comentário de código ou README. Nem o nome do arquivo, nem o caminho, nem
-  "conforme a documentação". Um commit não deve deixar pista de que esse material
-  existe. **Focus AI é exceção**: é a marca do produto que o usuário lê na tela,
-  não material de apoio, e aparece normalmente no código e na documentação.
+  "conforme a documentação".
 - **Ao comitar, confira antes de dar `git add`.** Nunca use `git add .` às cegas:
   material novo pode ter caído na raiz sem padrão que o `.gitignore` pegue. Rode
   `git status` e olhe a lista.
-- **Fundamente pelo código, não pela documentação.** Ao justificar uma decisão em
-  commit ou comentário, aponte o ID da regra (`LED-R03`, `TES-R02`) e o efeito de
-  negócio — que são coisas que o próprio repositório sustenta.
+- **Fundamente pelo código ou pela especificação**, não pelo material local. Ao
+  justificar uma decisão em commit ou comentário, aponte o ID da regra
+  (`LED-R03`, `TES-R02`) e o efeito de negócio.
 
-O motivo é o conteúdo: dado de cliente, valor contratado e material sobre
-publicidade regulada. Nada disso entra no repositório — nem em fixture, nem em
-seed, nem em exemplo de comentário. Dado semeado é fictício e continua fictício.
+O que separa um do outro é o conteúdo, não o formato: dado de cliente, valor
+contratado e parecer sobre publicidade regulada ficam de fora do repositório —
+nem em fixture, nem em seed, nem em exemplo de comentário. Dado semeado é
+fictício e continua fictício.
 
 ## Git
 
