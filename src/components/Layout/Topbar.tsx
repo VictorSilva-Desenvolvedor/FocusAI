@@ -1,0 +1,171 @@
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { Bell, ChevronDown, Menu, Search, X, Zap } from 'lucide-react';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { modulosVisiveis } from '@/src/lib/navigation';
+import { ROLE_CURTO } from '@/src/lib/usuarios';
+
+export function Topbar() {
+  const { perfil, perfisDisponiveis, trocarPerfil } = useAuth();
+  const modulos = modulosVisiveis(perfil);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const { pathname } = useLocation();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Navegar fecha o menu compacto — sem isso ele fica aberto por cima da
+  // página que o próprio clique acabou de abrir.
+  useEffect(() => setMenuAberto(false), [pathname]);
+
+  useEffect(() => {
+    if (!menuAberto) return;
+    const aoTeclar = (e: KeyboardEvent) => e.key === 'Escape' && setMenuAberto(false);
+    const aoClicar = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAberto(false);
+    };
+    document.addEventListener('keydown', aoTeclar);
+    document.addEventListener('mousedown', aoClicar);
+    return () => {
+      document.removeEventListener('keydown', aoTeclar);
+      document.removeEventListener('mousedown', aoClicar);
+    };
+  }, [menuAberto]);
+
+  const classeItem = ({ isActive }: { isActive: boolean }) =>
+    [
+      'shrink-0 rounded-lg px-3 py-1.5 text-[13px] transition-colors whitespace-nowrap',
+      isActive ? 'bg-white/12 text-white font-medium' : 'text-roxo-200 hover:bg-white/6 hover:text-white',
+    ].join(' ');
+
+  return (
+    // z acima do botão flutuante do assistente: com o menu compacto aberto, ele
+    // ficaria por cima dos itens de navegação.
+    <header className="shrink-0 relative z-50 bg-roxo-950 text-roxo-100" ref={menuRef}>
+      <div className="h-14 flex items-center gap-2 px-3 sm:px-4">
+        {/* Marca */}
+        <NavLink to="/" className="flex items-center gap-2.5 shrink-0 pr-2">
+          <div className="size-8 rounded-lg bg-magenta-500 grid place-items-center">
+            <Zap className="size-4.5 text-white" strokeWidth={2.5} />
+          </div>
+          <div className="hidden sm:block leading-none">
+            <div className="font-semibold text-[15px] text-white tracking-tight">CRM</div>
+            <div className="text-[9px] text-roxo-300 tracking-[0.12em] uppercase mt-0.5">
+              Tráfego pago
+            </div>
+          </div>
+        </NavLink>
+
+        {/*
+          Navegação horizontal a partir de lg. Abaixo disso os 9 módulos não
+          cabem e o último ficava cortado no meio da palavra, o que parece
+          defeito — nessa faixa o menu compacto é mais honesto.
+        */}
+        <nav
+          aria-label="Módulos"
+          className="hidden lg:flex items-center gap-0.5 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {modulos.map((modulo) => (
+            <NavLink
+              key={modulo.id}
+              to={modulo.rota}
+              end={modulo.rota === '/'}
+              title={modulo.descricao}
+              className={classeItem}
+            >
+              {modulo.rotulo}
+              {modulo.nivel === 'restricted' && (
+                <span className="etiqueta ml-1.5 text-[9px] font-medium text-roxo-300 border border-roxo-700 py-px align-middle">
+                  parcial
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="relative hidden xl:block w-60">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-roxo-300" />
+            <input
+              type="search"
+              placeholder="Buscar cliente, conta, campanha…"
+              className="campo pl-9 bg-white/8 border-white/10 text-white placeholder:text-roxo-300 focus:bg-white/12 focus:border-white/25 focus:ring-0"
+            />
+          </div>
+
+          <button
+            type="button"
+            aria-label="Notificações"
+            className="btn-icone relative size-9 text-roxo-200 hover:bg-white/8 hover:text-white"
+          >
+            <Bell className="size-4.5" />
+            {/* Pulsa no acento da marca: é aviso não lido, estado vivo. */}
+            <span className="ponto-estado absolute top-2 right-2 bg-magenta-400 ring-2 ring-roxo-950 animate-pulso-marca" />
+          </button>
+
+          {/*
+            Seletor de perfil: existe só na maquete, para demonstrar a matriz de
+            acesso sem precisar de autenticação real.
+          */}
+          <div className="relative flex items-center gap-2 rounded-lg pl-1.5 pr-1 py-1 hover:bg-white/8 transition-colors">
+            <div className="size-7 shrink-0 rounded-full bg-magenta-600 text-white grid place-items-center text-[11px] font-semibold">
+              {perfil.avatar_iniciais}
+            </div>
+            <div className="hidden xl:block leading-tight min-w-0 max-w-36">
+              <div className="text-[12px] font-medium text-white truncate">{perfil.nome}</div>
+              <div className="text-[10px] text-roxo-300 truncate">{ROLE_CURTO[perfil.role]}</div>
+            </div>
+            <ChevronDown className="size-4 text-roxo-300 shrink-0" />
+            <select
+              aria-label="Trocar perfil de demonstração"
+              value={perfil.id}
+              onChange={(e) => trocarPerfil(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            >
+              {perfisDisponiveis.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome} — {ROLE_CURTO[p.role]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMenuAberto((v) => !v)}
+            aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={menuAberto}
+            className="btn-icone lg:hidden size-9 text-roxo-200 hover:bg-white/8 hover:text-white"
+          >
+            {menuAberto ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Menu compacto: única navegação disponível abaixo de lg. */}
+      {menuAberto && (
+        <nav
+          aria-label="Módulos"
+          className="lg:hidden border-t border-white/8 px-3 py-2 animate-entrada-suave"
+        >
+          <ul className="grid grid-cols-2 gap-1">
+            {modulos.map((modulo) => (
+              <li key={modulo.id}>
+                <NavLink
+                  to={modulo.rota}
+                  end={modulo.rota === '/'}
+                  className={({ isActive }) =>
+                    [
+                      'block rounded-lg px-3 py-2 text-[13px] transition-colors',
+                      isActive ? 'bg-white/12 text-white font-medium' : 'text-roxo-200 hover:bg-white/6',
+                    ].join(' ')
+                  }
+                >
+                  {modulo.rotulo}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+    </header>
+  );
+}
