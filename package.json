@@ -12,6 +12,7 @@
     "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-advogados.mjs && node scripts/smoke-leads.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
