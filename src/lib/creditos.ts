@@ -1,4 +1,11 @@
-import type { Advogado, Lead, MovimentoCredito, PacoteCredito, TipoMovimento } from '@/types';
+import type {
+  Advogado,
+  Lead,
+  MovimentoCredito,
+  PacoteCredito,
+  Profile,
+  TipoMovimento,
+} from '@/types';
 import type { Tom } from '@/src/lib/estilo';
 
 /**
@@ -41,6 +48,59 @@ export function descontoDoPacote(pacote: PacoteCredito): number {
  */
 export function podeCreditar(origem: 'confirmacao_bancaria' | 'baixa_manual'): boolean {
   return origem === 'confirmacao_bancaria';
+}
+
+// ---------------------------------------------------------------------------
+// CRE-R06 — o ajuste manual é a porta legítima, e ela é estreita
+// ---------------------------------------------------------------------------
+
+/** Mínimo de texto para o motivo valer como explicação, e não como "ok". */
+const MINIMO_DO_MOTIVO = 10;
+
+/**
+ * O ajuste manual existe porque a alternativa é pior.
+ *
+ * Sem ele, a pressão de destravar um advogado com urgência cai sobre o gatilho
+ * do crédito — "confirma aí, o comprovante está aqui" — e aí `INV-14` morre em
+ * silêncio, porque compra passa a entrar por decisão de pessoa e o extrato
+ * deixa de fechar com o do banco. O ajuste absorve essa pressão sem contaminar
+ * a compra: é **tipo de movimento próprio**, aparece no extrato como tal, exige
+ * motivo escrito e não se disfarça de pagamento confirmado.
+ *
+ * Por isso ele não some com a exigência de motivo nem quando quem lança é
+ * administrador: um saldo que ninguém sabe explicar é exatamente o que torna a
+ * conferência de `INV-15` impossível depois.
+ */
+export function motivoParaNaoAjustar(
+  ator: Profile,
+  advogado: Advogado,
+  creditos: number,
+  motivo: string,
+): string | null {
+  if (!ator.permissoes.includes('credito:conciliar_pagamento')) {
+    return 'Ajuste de crédito exige a permissão "Conciliar pagamento de crédito".';
+  }
+  if (!Number.isInteger(creditos) || creditos === 0) {
+    return 'Informe quantos créditos entram (positivo) ou saem (negativo).';
+  }
+  // CRE-R04 — saldo nunca fica negativo. Ajuste que estoura o saldo não é
+  // correção: é dívida disfarçada de crédito.
+  if (advogado.saldoCreditos + creditos < 0) {
+    return `Saldo insuficiente: ele tem ${advogado.saldoCreditos} créditos.`;
+  }
+  if (motivo.trim().length < MINIMO_DO_MOTIVO) {
+    return 'Escreva o motivo do ajuste — é ele que explica o saldo depois.';
+  }
+  return null;
+}
+
+export function podeAjustar(
+  ator: Profile,
+  advogado: Advogado,
+  creditos: number,
+  motivo: string,
+): boolean {
+  return motivoParaNaoAjustar(ator, advogado, creditos, motivo) === null;
 }
 
 // ---------------------------------------------------------------------------
