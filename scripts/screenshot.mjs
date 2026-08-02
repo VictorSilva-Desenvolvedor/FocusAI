@@ -1,17 +1,23 @@
 /**
  * Captura a tela da Focus AI rodando no dev server.
  *
- *   npm run dev                                # em outro terminal
- *   npm run shot                               # / no viewport desktop
- *   npm run shot -- /leads --out leads.png     # outra rota
- *   npm run shot -- --mobile                   # viewport estreito
- *   npm run shot -- --perfil u-advogado        # troca o papel ativo
+ *   npm run dev                                    # em outro terminal
+ *   npm run shot                                   # / no viewport desktop
+ *   npm run shot -- /leads --out leads.png         # outra rota
+ *   npm run shot -- --mobile                       # viewport estreito
+ *   npm run shot -- --perfil advogado@focus.ai     # captura sob outro papel
+ *   npm run shot -- /login --out login.png         # a porta de entrada
+ *
+ * Desde que a aplicação exige sessão (`ACC-R08`), o script entra antes de
+ * capturar. `--perfil` passou a receber e-mail, porque papel agora se troca
+ * entrando com outra conta — não há mais seletor.
  *
  * As imagens caem em .screenshots/ (fora do versionamento).
  */
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { entrar, CONTA_PADRAO } from './entrar.mjs';
 
 const args = process.argv.slice(2);
 const flag = (nome, padrao) => {
@@ -40,17 +46,22 @@ const erros = [];
 page.on('console', (m) => m.type() === 'error' && erros.push(m.text()));
 page.on('pageerror', (e) => erros.push(String(e)));
 
-const alvo = `${baseUrl}/#${rota.replace(/^\/#?/, '/')}`;
-await page.goto(alvo, { waitUntil: 'networkidle', timeout: 30_000 });
+const caminho = rota.replace(/^\/#?/, '/');
+const alvo = `${baseUrl}/#${caminho}`;
+
+// A tela de login é a única que existe sem sessão — capturá-la logado só
+// devolveria o painel, porque ela redireciona quem já entrou.
+if (caminho === '/login') {
+  await page.goto(alvo, { waitUntil: 'networkidle', timeout: 30_000 });
+} else {
+  await entrar(page, perfil ?? CONTA_PADRAO, baseUrl);
+  await page.goto(alvo, { waitUntil: 'networkidle', timeout: 30_000 });
+}
 
 // Espera o shell montar de verdade — não basta o HTML chegar.
 await page.waitForSelector('#root > *', { timeout: 15_000 });
-
-if (perfil) {
-  await page.click('button[aria-label="Trocar perfil de demonstração"]');
-  await page.click(`[data-perfil="${perfil}"]`);
-  await page.waitForTimeout(200);
-}
+// Navegar só pelo hash não dispara carregamento: dá o quadro para a view trocar.
+await page.waitForTimeout(300);
 
 // --click aceita seletor CSS ou texto ("text=Novo usuário"), repetível.
 for (const seletor of args.reduce(

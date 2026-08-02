@@ -1,7 +1,15 @@
-/** Smoke test do funil de advogados. Roda contra o dev server. */
+/**
+ * Smoke test do funil de advogados. Roda contra o dev server.
+ *
+ * Precisa das contas de teste criadas (`npm run contas:teste`): desde `ACC-R08`
+ * nenhuma tela abre sem sessão, e trocar de papel deixou de ser um clique — é
+ * sair e entrar com outra conta.
+ */
 import { chromium } from 'playwright';
+import { entrar, entrarComo } from './entrar.mjs';
 
 const URL = 'http://localhost:5173/#/advogados';
+const ADM = 'victorpaulodev@focus.ai';
 const resultados = [];
 const ok = (n, cond, extra = '') =>
   resultados.push(`${cond ? 'PASS' : 'FALHA'}  ${n}${extra ? ` — ${extra}` : ''}`);
@@ -12,6 +20,7 @@ const erros = [];
 page.on('pageerror', (e) => erros.push(String(e)));
 page.on('console', (m) => m.type() === 'error' && erros.push(m.text()));
 
+await entrar(page, ADM);
 await page.goto(URL, { waitUntil: 'networkidle' });
 await page.evaluate(() => localStorage.removeItem('focus.advogados.v1'));
 await page.reload({ waitUntil: 'networkidle' });
@@ -28,10 +37,11 @@ const fecharMenu = async () => {
 };
 // O aviso de recusa fica 7s na tela de propósito: é texto que precisa ser lido.
 const esperarAvisoSumir = () => page.waitForTimeout(7200);
-const trocarPerfil = async (id) => {
-  await page.click('button[aria-label="Trocar perfil de demonstração"]');
-  await page.click(`[data-perfil="${id}"]`);
-  await page.waitForTimeout(400);
+/** Entrar como outra pessoa devolve ao painel: volta para a tela em teste. */
+const passarASer = async (email) => {
+  await entrarComo(page, email);
+  await page.goto(URL, { waitUntil: 'networkidle' });
+  await page.waitForSelector('article');
 };
 
 const totalCartoes = await page.locator('article').count();
@@ -145,14 +155,18 @@ const linhas = await page.locator('tbody tr').count();
 ok('visão de tabela lista os mesmos advogados', linhas === 20, `${linhas} linhas`);
 
 // --- carteira própria ---------------------------------------------------------
-await trocarPerfil('u-sdr');
+// Entrar de novo remonta a tela no quadro, que é o padrão: a tabela precisa ser
+// reaberta antes de contar linha.
+await passarASer('sdr@focus.ai');
+await page.click('button[title="Tabela"]');
+await page.waitForSelector('table');
 const linhasSdr = await page.locator('tbody tr').count();
 ok('SDR vê apenas a própria carteira', linhasSdr > 0 && linhasSdr < 20, `${linhasSdr} linhas`);
 const temFiltroResp = await page.locator('select[aria-label="Filtrar por responsável"]').count();
 ok('filtro de responsável some para quem só vê a própria carteira', temFiltroResp === 0);
 
 // --- cadastro ------------------------------------------------------------------
-await trocarPerfil('u-adm');
+await passarASer(ADM);
 await page.click('button:has-text("Kanban")');
 await page.waitForTimeout(200);
 await page.click('text=Novo advogado');

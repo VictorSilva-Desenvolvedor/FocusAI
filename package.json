@@ -11,6 +11,7 @@
     "shot": "node scripts/screenshot.mjs",
     "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-advogados.mjs && node scripts/smoke-leads.mjs",
     "smoke:rls": "node scripts/smoke-rls.mjs",
+    "contas:teste": "node scripts/contas-de-teste.mjs",
     "tipos:banco": "node scripts/tipos-banco.mjs"
   },
   "dependencies": {

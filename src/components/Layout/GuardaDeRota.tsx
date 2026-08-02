@@ -14,10 +14,11 @@ import { moduloDaRota, nivelDeAcesso } from '@/src/lib/navigation';
  * modo como o advogado enxerga o próprio recorte do catálogo e do extrato; a
  * tela existe, o conteúdo é que é filtrado (`LED-R06`).
  *
- * Quando a autenticação entrar, o cuidado é `API-R05`: perfil que não carregou
- * precisa cair em estado bloqueado, nunca seguir com papel indefinido. Papel
- * indefinido não está em lista nenhuma, e todo guard que bloqueia *por papel*
- * deixaria de bloquear exatamente na hora em que mais importa.
+ * Este guard só decide acesso a módulo, e conta com um perfil existir. Quem
+ * garante isso é o `PortaoDeSessao` (`ACC-R08`), que roda antes: perfil que não
+ * carregou vira estado bloqueado ali, e nunca chega aqui como papel indefinido
+ * — que é o que `API-R05` proíbe, porque papel indefinido não está em lista
+ * nenhuma e faria este `blocked` deixar de acontecer.
  */
 export function GuardaDeRota() {
   const { perfil } = useAuth();

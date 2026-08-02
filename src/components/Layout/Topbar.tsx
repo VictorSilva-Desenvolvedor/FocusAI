@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Bell, Menu, Search, X, Zap } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { modulosVisiveis } from '@/src/lib/navigation';
-import { SeletorDePerfil } from './SeletorDePerfil';
+import { MenuDoUsuario } from './MenuDoUsuario';
 
 export function Topbar() {
   const { perfil } = useAuth();
@@ -104,7 +104,7 @@ export function Topbar() {
             <span className="ponto-estado absolute top-2 right-2 bg-roxo-400 ring-2 ring-grafite-900 animate-pulso-marca" />
           </button>
 
-          <SeletorDePerfil />
+          <MenuDoUsuario />
 
           <button
             type="button"
