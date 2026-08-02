@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { createContext, use, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LEADS_SEED } from '@/src/lib/leadsSeed';
 import { MINUTOS_DE_RESERVA, reservaAtiva, type LeadFormData } from '@/src/lib/leads';
 import { TESE_POR_ID } from '@/src/lib/teses';
@@ -26,6 +26,8 @@ interface LeadsValue {
    */
   comprar: (id: string, advogadoId: string) => ResultadoCompra;
   devolver: (id: string, motivo: string) => void;
+  /** LED-R08 — nota do comprador depois da consulta. Refazer sobrescreve. */
+  avaliar: (id: string, nota: number, comentario: string) => void;
   restaurarSeed: () => void;
 }
 
@@ -54,13 +56,29 @@ function persistir(lista: Lead[]): void {
 
 export function LeadsProvider({ children }: { children: ReactNode }) {
   const [leads, setLeads] = useState<Lead[]>(carregar);
+  /*
+   * A lista viva, fora do ciclo de render.
+   *
+   * `comprar` e `reservar` precisam responder **na hora** se a operação valeu:
+   * é dessa resposta que saem o toast, o débito do crédito e o movimento no
+   * extrato. Enquanto a transformação vivia dentro do atualizador do
+   * `setState`, essa resposta dependia de o React executar o atualizador na
+   * mesma volta — o que ele faz por otimização, não por contrato. Bastou a
+   * gaveta reservar o lead ao abrir para que a fila deixasse de estar vazia no
+   * clique seguinte: a compra passava a gravar corretamente e a **relatar**
+   * que o lead não existia, debitando nada e fechando a tela.
+   *
+   * Com a referência, a decisão e a escrita acontecem no mesmo instante e o
+   * render é consequência. Quando o backend entrar, quem garante isso é a
+   * função no banco, que valida e grava junto ou não grava nada (`API-R08`).
+   */
+  const vivos = useRef(leads);
 
   const aplicar = useCallback((proximo: (atual: Lead[]) => Lead[]) => {
-    setLeads((atual) => {
-      const novo = proximo(atual);
-      persistir(novo);
-      return novo;
-    });
+    const novo = proximo(vivos.current);
+    vivos.current = novo;
+    persistir(novo);
+    setLeads(novo);
   }, []);
 
   const criar = useCallback(
@@ -92,6 +110,7 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
         ultimaAtividade: agora,
         motivoDesqualificacao: null,
         devolucao: null,
+        avaliacao: null,
       };
       aplicar((atual) => [novo, ...atual]);
       return novo;
@@ -242,6 +261,27 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
     [aplicar],
   );
 
+  const avaliar = useCallback(
+    (id: string, nota: number, comentario: string) => {
+      aplicar((atual) =>
+        atual.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                avaliacao: {
+                  nota,
+                  comentario: comentario.trim() || null,
+                  em: new Date().toISOString(),
+                },
+                ultimaAtividade: new Date().toISOString(),
+              }
+            : l,
+        ),
+      );
+    },
+    [aplicar],
+  );
+
   const restaurarSeed = useCallback(() => aplicar(() => LEADS_SEED), [aplicar]);
 
   const value = useMemo<LeadsValue>(
@@ -255,9 +295,22 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
       liberarReserva,
       comprar,
       devolver,
+      avaliar,
       restaurarSeed,
     }),
-    [leads, criar, mover, agendar, responderFiltro, reservar, liberarReserva, comprar, devolver, restaurarSeed],
+    [
+      leads,
+      criar,
+      mover,
+      agendar,
+      responderFiltro,
+      reservar,
+      liberarReserva,
+      comprar,
+      devolver,
+      avaliar,
+      restaurarSeed,
+    ],
   );
 
   return <LeadsContext value={value}>{children}</LeadsContext>;

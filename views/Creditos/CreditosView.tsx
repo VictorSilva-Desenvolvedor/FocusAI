@@ -1,15 +1,18 @@
-import { useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Landmark, TriangleAlert } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { useCreditos } from '@/src/contexts/CreditosContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
+import { Campo } from '@/src/components/ui/Campo';
+import { Toast, type Aviso } from '@/src/components/ui/Toast';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
 import {
   PACOTES,
   TOM_MOVIMENTO,
   descontoDoPacote,
   divergenciaDeSaldo,
+  motivoParaNaoAjustar,
   precoPorCredito,
   receitaDoPeriodo,
 } from '@/src/lib/creditos';
@@ -262,6 +265,8 @@ function PainelDaOperacao({
         </div>
       )}
 
+      <AjusteManual advogados={ativos} />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr] items-start">
         <section className="card p-5">
           <div className="flex items-baseline justify-between mb-4">
@@ -317,6 +322,126 @@ function PainelDaOperacao({
         </section>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CRE-R06 — ajuste manual
+// ---------------------------------------------------------------------------
+
+/**
+ * A porta legítima para mexer no saldo à mão.
+ *
+ * Ela existe justamente para que a pressão de "destravar agora" não caia sobre
+ * o gatilho da compra: o ajuste aparece no extrato como ajuste, exige motivo
+ * escrito e não se confunde com pagamento confirmado (`INV-14`). O saldo
+ * continua sendo a soma do extrato, porque o movimento é lançado junto com a
+ * mudança de saldo, nunca no lugar dela (`INV-15`).
+ */
+function AjusteManual({ advogados }: { advogados: Advogado[] }) {
+  const { perfil, temPermissao } = useAuth();
+  const { creditar, debitarCreditos } = useAdvogados();
+  const { registrar } = useCreditos();
+  const idBase = useId();
+
+  const [advogadoId, setAdvogadoId] = useState('');
+  const [creditos, setCreditos] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [aviso, setAviso] = useState<Aviso | null>(null);
+
+  // A tela inteira some para quem não tem a permissão: um formulário visível e
+  // recusado no envio só ensina a tentar de novo.
+  if (!temPermissao('credito:conciliar_pagamento')) return null;
+
+  const alvo = advogados.find((a) => a.id === advogadoId) ?? null;
+  const quantidade = Number(creditos);
+  const recusa = alvo ? motivoParaNaoAjustar(perfil, alvo, quantidade, motivo) : null;
+
+  function lancar() {
+    if (!alvo || recusa) return;
+
+    if (quantidade > 0) creditar(alvo.id, quantidade);
+    else debitarCreditos(alvo.id, Math.abs(quantidade));
+
+    registrar({
+      advogadoId: alvo.id,
+      tipo: 'ajuste',
+      creditos: quantidade,
+      // Valor zero de propósito: ajuste não é dinheiro entrando. Contar como
+      // receita aqui somaria duas vezes o que já entrou na compra do pacote.
+      descricao: motivo.trim(),
+    });
+
+    setAviso({
+      texto: `${quantidade > 0 ? '+' : ''}${quantidade} créditos para ${alvo.nome}, com motivo registrado.`,
+    });
+    setAdvogadoId('');
+    setCreditos('');
+    setMotivo('');
+  }
+
+  return (
+    <section className="card p-5">
+      <h2 className="card-title">Ajuste manual</h2>
+      <p className="nota mt-1 mb-4">
+        Entra no extrato como ajuste, com o motivo. Não é confirmação de pagamento — compra de
+        pacote só entra pelo gatilho do provedor (INV-14).
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-[1.2fr_auto_2fr_auto] sm:items-start">
+        <Campo id={`${idBase}-adv`} rotulo="Advogado">
+          <select
+            id={`${idBase}-adv`}
+            value={advogadoId}
+            onChange={(e) => setAdvogadoId(e.target.value)}
+            className="campo"
+          >
+            <option value="">Selecione…</option>
+            {advogados.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nome} · {a.saldoCreditos}
+              </option>
+            ))}
+          </select>
+        </Campo>
+
+        <Campo id={`${idBase}-qtd`} rotulo="Créditos" dica="Negativo retira">
+          <input
+            id={`${idBase}-qtd`}
+            inputMode="numeric"
+            value={creditos}
+            onChange={(e) => setCreditos(e.target.value.replace(/[^\d-]/g, ''))}
+            className="campo tabular w-24"
+            placeholder="5"
+          />
+        </Campo>
+
+        <Campo id={`${idBase}-motivo`} rotulo="Motivo">
+          <input
+            id={`${idBase}-motivo`}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            className="campo"
+            placeholder="Correção de consumo lançado em duplicidade"
+          />
+        </Campo>
+
+        <div className="sm:pt-[26px]">
+          <button
+            type="button"
+            onClick={lancar}
+            disabled={!alvo || recusa !== null}
+            className="btn btn-primario w-full sm:w-auto"
+          >
+            Lançar
+          </button>
+        </div>
+      </div>
+
+      {alvo && recusa && <p className="campo-mensagem-erro mt-2">{recusa}</p>}
+
+      <Toast aviso={aviso} aoFechar={() => setAviso(null)} />
+    </section>
   );
 }
 

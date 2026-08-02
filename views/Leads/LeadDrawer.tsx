@@ -1,13 +1,16 @@
 import { useEffect, useId, useState } from 'react';
 import {
   BadgeCheck,
+  CalendarCheck,
   CalendarClock,
   Check,
   Lock,
   MicOff,
   Phone,
   ShoppingCart,
+  Star,
   Undo2,
+  UserX,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -15,9 +18,12 @@ import { useLeads } from '@/src/contexts/LeadsContext';
 import { ESTILO_BLOCO, ESTILO_TEXTO } from '@/src/lib/estilo';
 import {
   ESTILO_TESE,
+  NOTA_MAXIMA,
   contatoVisivel,
   elegibilidadeDoLead,
   motivoParaNaoComprar,
+  podeAvaliar,
+  podeEncerrarReuniao,
 } from '@/src/lib/leads';
 import { MOTIVOS_DEVOLUCAO, podeDevolver } from '@/src/lib/creditos';
 import { TESE_POR_ID } from '@/src/lib/teses';
@@ -33,6 +39,8 @@ interface Props {
   aoFechar: () => void;
   aoComprar: (lead: Lead) => void;
   aoDevolver: (lead: Lead, motivo: string) => void;
+  /** LED-R07 — desfecho da reunião, registrado por quem esteve nela. */
+  aoEncerrar: (lead: Lead, desfecho: 'atendido' | 'no_show') => void;
 }
 
 export function LeadDrawer({
@@ -42,6 +50,7 @@ export function LeadDrawer({
   aoFechar,
   aoComprar,
   aoDevolver,
+  aoEncerrar,
 }: Props) {
   const { perfil, ehAdvogado } = useAuth();
   const { responderFiltro } = useLeads();
@@ -200,6 +209,11 @@ export function LeadDrawer({
             </section>
           )}
 
+          {/* Avaliação ---------------------------------------------------- */}
+          {(podeAvaliar(lead, advogado) || lead.avaliacao) && (
+            <Avaliacao lead={lead} avaliavel={podeAvaliar(lead, advogado)} />
+          )}
+
           {/* Rastro ------------------------------------------------------- */}
           <section>
             <h3 className="label-eyebrow mb-2">Rastro</h3>
@@ -252,21 +266,48 @@ export function LeadDrawer({
               </div>
 
               {meu ? (
-                podeDevolver(lead) ? (
-                  <button
-                    type="button"
-                    onClick={() => setDevolvendo(true)}
-                    className="btn btn-secundario shrink-0"
-                  >
-                    <Undo2 className="size-4" />
-                    Devolver
-                  </button>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-[12px] text-sucesso-700 shrink-0">
-                    <BadgeCheck className="size-4" />
-                    Seu lead
-                  </span>
-                )
+                /* LED-R07 — passada a hora marcada, a pergunta deixa de ser
+                   "devolver ou não" e passa a ser "o cliente apareceu?". */
+                <div className="flex items-center gap-2 shrink-0">
+                  {podeEncerrarReuniao(lead, advogado) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => aoEncerrar(lead, 'no_show')}
+                        className="btn btn-secundario"
+                      >
+                        <UserX className="size-4" />
+                        Faltou
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => aoEncerrar(lead, 'atendido')}
+                        className="btn btn-primario"
+                      >
+                        <CalendarCheck className="size-4" />
+                        Consulta feita
+                      </button>
+                    </>
+                  )}
+
+                  {podeDevolver(lead) ? (
+                    <button
+                      type="button"
+                      onClick={() => setDevolvendo(true)}
+                      className="btn btn-secundario"
+                    >
+                      <Undo2 className="size-4" />
+                      Devolver
+                    </button>
+                  ) : (
+                    !podeEncerrarReuniao(lead, advogado) && (
+                      <span className="flex items-center gap-1.5 text-[12px] text-sucesso-700">
+                        <BadgeCheck className="size-4" />
+                        Seu lead
+                      </span>
+                    )
+                  )}
+                </div>
               ) : (
                 !recusaCompra && (
                   <button
@@ -301,6 +342,90 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
       <dt className="text-stone-500 shrink-0 w-24">{rotulo}</dt>
       <dd className="text-stone-700 min-w-0">{valor}</dd>
     </div>
+  );
+}
+
+/**
+ * LED-R08 — a nota do comprador, depois da consulta.
+ *
+ * É o único retorno que a Focus recebe sobre a própria qualificação: tudo o
+ * mais que ela mede (taxa, duração, gravação) é visto de dentro. Fica visível
+ * também para o time interno, e de propósito — nota que só o advogado enxerga
+ * não corrige régua nenhuma.
+ */
+function Avaliacao({ lead, avaliavel }: { lead: Lead; avaliavel: boolean }) {
+  const { avaliar } = useLeads();
+  const registrada = lead.avaliacao;
+  const [nota, setNota] = useState(registrada?.nota ?? 0);
+  const [comentario, setComentario] = useState(registrada?.comentario ?? '');
+
+  const notas = Array.from({ length: NOTA_MAXIMA }, (_, i) => i + 1);
+  const mudou = registrada
+    ? nota !== registrada.nota || comentario !== (registrada.comentario ?? '')
+    : nota > 0;
+
+  return (
+    <section>
+      <h3 className="label-eyebrow mb-2">
+        {avaliavel ? 'Como foi este lead?' : 'Avaliação do comprador'}
+      </h3>
+
+      <div className="flex items-center gap-1">
+        {notas.map((valor) => {
+          const cheia = valor <= nota;
+          const estrela = (
+            <Star
+              className={`size-5 ${cheia ? 'fill-atencao-400 text-atencao-400' : 'text-stone-300'}`}
+            />
+          );
+
+          return avaliavel ? (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => setNota(valor)}
+              aria-label={`${valor} de ${NOTA_MAXIMA}`}
+              aria-pressed={cheia}
+              className="btn-icone"
+            >
+              {estrela}
+            </button>
+          ) : (
+            <span key={valor}>{estrela}</span>
+          );
+        })}
+        {registrada && (
+          <span className="nota ml-2">avaliado em {formatarDataHora(registrada.em)}</span>
+        )}
+      </div>
+
+      {avaliavel ? (
+        <>
+          <input
+            value={comentario}
+            onChange={(e) => setComentario(e.target.value)}
+            aria-label="Comentário sobre o lead"
+            placeholder="O caso era o que o resumo dizia? (opcional)"
+            className="campo mt-2"
+          />
+          <p className="campo-dica">
+            A nota é do lead entregue, não do cliente. É ela que corrige a régua da qualificação.
+          </p>
+          <button
+            type="button"
+            disabled={nota === 0 || !mudou}
+            onClick={() => avaliar(lead.id, nota, comentario)}
+            className="btn btn-secundario mt-2"
+          >
+            {registrada ? 'Atualizar avaliação' : 'Salvar avaliação'}
+          </button>
+        </>
+      ) : (
+        registrada?.comentario && (
+          <p className="text-[13px] text-stone-700 leading-relaxed mt-2">{registrada.comentario}</p>
+        )
+      )}
+    </section>
   );
 }
 

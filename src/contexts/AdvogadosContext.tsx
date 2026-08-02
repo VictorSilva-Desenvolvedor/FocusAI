@@ -1,6 +1,6 @@
 import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ADVOGADOS_SEED } from '@/src/lib/advogadosSeed';
-import type { AdvogadoFormData } from '@/src/lib/advogados';
+import { cidadesDoTexto, type AdvogadoFormData } from '@/src/lib/advogados';
 import type {
   Advogado,
   AdvogadoStatus,
@@ -18,6 +18,12 @@ interface AdvogadosValue {
   definirPrioridade: (id: string, p: PrioridadeAdvogado | null) => void;
   /** INV-12 — carimba a conferência da inscrição. É pré-requisito do acesso. */
   conferirOab: (id: string) => void;
+  /**
+   * ADV-R09 — amarra a ficha à conta criada na liberação de acesso. Sem este
+   * elo, o advogado existe no funil e não existe no aplicativo: o painel dele
+   * abre sem carteira e ninguém descobre por que.
+   */
+  vincularUsuario: (id: string, usuarioId: string) => void;
   /** CRE-R02 — o débito de crédito e a venda do lead acontecem juntos. */
   debitarCreditos: (id: string, creditos: number) => void;
   creditar: (id: string, creditos: number) => void;
@@ -72,7 +78,8 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
         whatsapp: dados.whatsapp.trim(),
         uf: dados.uf,
         teses: [...dados.teses],
-        cidades: [],
+        // LED-R06 — lista vazia significa o estado inteiro, não "nenhuma".
+        cidades: cidadesDoTexto(dados.cidades),
         porte: dados.porte as PorteEscritorio,
         status: 'novo',
         modeloPagamento: (dados.modeloPagamento || null) as ModeloPagamento | null,
@@ -137,6 +144,21 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
     [aplicar],
   );
 
+  const vincularUsuario = useCallback(
+    (id: string, usuarioId: string) => {
+      const agora = new Date().toISOString();
+      // O vínculo não é reescrito: a conta que passou a enxergar a carteira é a
+      // que responde por ela depois. Trocar apontamento em silêncio deixaria
+      // dois acessos com histórico pela metade.
+      aplicar((atual) =>
+        atual.map((a) =>
+          a.id === id && !a.usuarioId ? { ...a, usuarioId, ultimaAtividade: agora } : a,
+        ),
+      );
+    },
+    [aplicar],
+  );
+
   const debitarCreditos = useCallback(
     (id: string, creditos: number) => {
       // CRE-R04 — o saldo nunca fica negativo. A checagem de saldo é de quem
@@ -182,11 +204,22 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
       mover,
       definirPrioridade,
       conferirOab,
+      vincularUsuario,
       debitarCreditos,
       creditar,
       restaurarSeed,
     }),
-    [advogados, criar, mover, definirPrioridade, conferirOab, debitarCreditos, creditar, restaurarSeed],
+    [
+      advogados,
+      criar,
+      mover,
+      definirPrioridade,
+      conferirOab,
+      vincularUsuario,
+      debitarCreditos,
+      creditar,
+      restaurarSeed,
+    ],
   );
 
   return <AdvogadosContext value={value}>{children}</AdvogadosContext>;

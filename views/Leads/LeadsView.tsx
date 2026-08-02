@@ -12,6 +12,7 @@ import {
   COR_COLUNA,
   DESFECHOS,
   estaNoCatalogo,
+  motivoParaNaoEncerrarReuniao,
   motivoParaRecusarMovimento,
   venceEmBreve,
   visiveisPara,
@@ -25,7 +26,7 @@ import { TabelaLeads } from './TabelaLeads';
 
 export function LeadsView() {
   const { perfil, ehAdvogado, advogadoId } = useAuth();
-  const { leads, mover, comprar, devolver } = useLeads();
+  const { leads, mover, comprar, devolver, reservar, liberarReserva } = useLeads();
   const { advogados, debitarCreditos, creditar } = useAdvogados();
   const { registrar } = useCreditos();
 
@@ -85,6 +86,35 @@ export function LeadsView() {
   }, [noQuadro]);
 
   /**
+   * LED-R04 — abrir a gaveta de um lead do catálogo **é** entrar no checkout, e
+   * é aí que a trava tem que nascer.
+   *
+   * Sem isso, dois advogados leem a mesma ficha ao mesmo tempo, os dois decidem
+   * comprar, e o segundo descobre que perdeu só depois de clicar. A recusa
+   * continua existindo na escrita (`INV-10`), mas ela é a última linha de
+   * defesa, não o lugar onde a disputa deveria aparecer.
+   *
+   * A trava não é bloqueio: vence sozinha em `MINUTOS_DE_RESERVA` e é calculada
+   * contra o relógio, nunca gravada como booleano — trava que ninguém limpou é
+   * lead preso para sempre.
+   */
+  function abrirDetalhe(lead: Lead) {
+    if (ehAdvogado && advogadoDoPerfil && estaNoCatalogo(lead)) {
+      reservar(lead.id, advogadoDoPerfil.id);
+    }
+    setDetalhe(lead);
+  }
+
+  /** Sair sem comprar devolve o lead ao catálogo na hora, sem esperar o prazo. */
+  function fecharDetalhe() {
+    const atual = detalhe ? leads.find((l) => l.id === detalhe.id) : null;
+    if (atual && advogadoDoPerfil && !atual.compradoPor && atual.reservadoPor === advogadoDoPerfil.id) {
+      liberarReserva(atual.id);
+    }
+    setDetalhe(null);
+  }
+
+  /**
    * CRE-R02 — comprar é um passo só: carimba o comprador, debita o crédito e
    * lança o movimento no extrato.
    *
@@ -142,6 +172,27 @@ export function LeadsView() {
     });
     setDetalhe(null);
     setAviso({ texto: `${lead.custoCreditos} créditos devolvidos. O lead não volta ao catálogo.` });
+  }
+
+  /**
+   * LED-R07 — o desfecho vem de quem esteve na reunião, e passa pelas mesmas
+   * travas do quadro: é o mesmo movimento que a operação faria, feito pelo
+   * lado que sabe o que aconteceu.
+   */
+  function encerrarReuniao(lead: Lead, desfecho: 'atendido' | 'no_show') {
+    const recusa = motivoParaNaoEncerrarReuniao(lead, advogadoDoPerfil);
+    if (recusa) {
+      setAviso({ texto: recusa, tom: 'erro' });
+      return;
+    }
+    mover(lead.id, desfecho);
+    setDetalhe(null);
+    setAviso({
+      texto:
+        desfecho === 'atendido'
+          ? `Consulta de ${lead.nome} registrada como realizada.`
+          : `${lead.nome} registrado como falta. O crédito não volta — a reunião foi entregue.`,
+    });
   }
 
   function tentarMover(lead: Lead, destino: LeadStatus) {
@@ -288,11 +339,7 @@ export function LeadsView() {
       {/* Conteúdo --------------------------------------------------------- */}
       {ehAdvogado ? (
         <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-24">
-          <CatalogoAdvogado
-            leads={filtrados}
-            advogado={advogadoDoPerfil}
-            aoAbrir={(l) => setDetalhe(l)}
-          />
+          <CatalogoAdvogado leads={filtrados} advogado={advogadoDoPerfil} aoAbrir={abrirDetalhe} />
         </div>
       ) : visao === 'kanban' ? (
         <div className="flex-1 min-h-0 overflow-x-auto px-4 sm:px-6 pb-6">
@@ -348,7 +395,7 @@ export function LeadsView() {
                           e.preventDefault();
                           setMenu({ lead: l, x: e.clientX, y: e.clientY });
                         }}
-                        aoAbrir={() => setDetalhe(l)}
+                        aoAbrir={() => abrirDetalhe(l)}
                       />
                     ))}
 
@@ -385,7 +432,7 @@ export function LeadsView() {
                           e.preventDefault();
                           setMenu({ lead: l, x: e.clientX, y: e.clientY });
                         }}
-                        aoAbrir={() => setDetalhe(l)}
+                        aoAbrir={() => abrirDetalhe(l)}
                       />
                       <div className="nota text-[10px] px-3 pt-1">
                         {LEAD_STATUS_LABEL[l.status]}
@@ -405,7 +452,7 @@ export function LeadsView() {
             leads={mostrarDesfechos ? filtrados : noQuadro}
             nomeDoAdvogado={nomeDoAdvogado}
             aoAbrirMenu={(l, e) => setMenu({ lead: l, x: e.clientX, y: e.clientY })}
-            aoAbrir={(l) => setDetalhe(l)}
+            aoAbrir={abrirDetalhe}
           />
         </div>
       )}
@@ -442,9 +489,10 @@ export function LeadsView() {
           lead={leads.find((l) => l.id === detalhe.id) ?? detalhe}
           advogado={advogadoDoPerfil}
           compradorNome={detalhe.compradoPor ? nomeDoAdvogado[detalhe.compradoPor] : null}
-          aoFechar={() => setDetalhe(null)}
+          aoFechar={fecharDetalhe}
           aoComprar={comprarLead}
           aoDevolver={devolverLead}
+          aoEncerrar={encerrarReuniao}
         />
       )}
 

@@ -82,7 +82,7 @@ App.tsx                          Rotas (HashRouter)
 main.tsx                         Entrada
 types.ts                         Tipos de domínio — vocabulário canônico
 src/
-  components/Layout/             Topbar e shell
+  components/Layout/             Topbar, shell e o guard de rota
   components/ui/                 Toast, MenuCartao, Campo
   components/Assistente/         Assistente interno
   contexts/AuthContext.tsx       Perfil ativo, permissões, departamento
@@ -110,6 +110,101 @@ scripts/                         screenshot.mjs, smoke-*.mjs
 Alias: `@/*` → raiz do repositório. Importe `@/src/lib/...`, `@/views/...`,
 `@/types` — caminho relativo só dentro da mesma pasta de view.
 
+## Como trabalhar aqui
+
+As convenções da próxima seção dizem *como escrever*. Esta diz *como decidir* —
+vale igual para bug, para funcionalidade nova e para refatoração.
+
+### Princípios
+
+**A solução mais simples que não fura invariante.** Simples aqui é não inventar
+camada: um `Record` de estado para classe completa resolve o que um nome de
+classe montado em runtime quebra em silêncio (`EST-R01`). Mas simplicidade nunca
+é atalho em invariante — mascarar o contato antes da compra (`INV-11`) e conferir
+se o lead já tem dono (`INV-10`) continuam obrigatórios mesmo quando "é só uma
+listagem".
+
+**Abstração depois do terceiro caso.** Dois usos parecidos são coincidência; o
+helper genérico escrito no primeiro vira parâmetro que ninguém sabe para que
+serve.
+
+**Legibilidade acima de esperteza.** O nome sai do vocabulário canônico de
+`types.ts`, não de sinônimo improvisado. Função curta, uma responsabilidade —
+`src/lib/` é feito de função pura porque é isso que se lê e se verifica sozinho.
+
+**Entrega é bloco completo e funcional.** `// TODO: implementar depois` não é
+resposta final. O que ficou de fora vira linha em **Pendências conhecidas**, com
+o motivo — não comentário solto no meio do arquivo.
+
+**Consistência antes de gosto pessoal.** Antes de introduzir padrão, procure o
+que já existe: classe em `@layer components` (`EST-R06`), tom em `estilo.ts`
+(`EST-R02`), acesso em `navigation.ts`. Dois padrões concorrentes com adoção
+quase igual é a dívida mais cara deste repositório, porque ninguém sabe qual é o
+certo e unificar já custa varredura.
+
+### Ao corrigir um bug
+
+1. **Reproduza.** `npm run shot -- /rota` derruba o caso na tela e falha se o
+   console reclamar; `npm run smoke` cobre usuários, advogados e leads.
+2. **Ache a causa raiz antes de mexer.** As falhas caras aqui são silenciosas, e
+   a view quase nunca é a culpada: classe purgada por concatenação (`EST-R01`),
+   id de seed com acento quebrando o elo (`identificador()`), tabela declarada
+   depois do bloco de dados (zona morta temporal), truncamento silencioso de
+   lista (`API-R07`). "Tela vazia com console limpo" é assinatura de elo de seed
+   quebrado, não de erro de renderização.
+3. **Corrija o mínimo.** Não reescreva o módulo para consertar uma condição.
+   Reescrita ampla só quando for o pedido.
+4. **O conserto mora onde a regra mora.** Defeito de negócio se resolve em
+   `src/lib/`, com o ID no comentário; regra ainda sem ID ganha o próximo do
+   prefixo, e ID não se renumera.
+5. **Explique em duas frases** o que mudou e por quê.
+
+### Ao adicionar funcionalidade
+
+1. Requisito ambíguo? Assuma a leitura mais razoável e **declare a suposição** —
+   não trave a entrega por isso.
+2. **Pergunte primeiro se toca invariante.** Lead, contato do cliente, crédito,
+   cadastro de advogado e registro de qualificação têm regra não negociável. Se a
+   funcionalidade encosta em um deles, a invariante é o primeiro requisito, não
+   ajuste no fim.
+3. **Cada pedaço no seu lugar:** regra, cálculo e preço em `src/lib/` (função
+   pura); estado em contexto; tom em `estilo.ts`; rótulo em `*_LABEL`; acesso em
+   `navigation.ts`. A view chama e renderiza.
+4. Módulo ou papel novo entra conscientemente em `MODULOS` — nada herda acesso
+   (`INV-05`).
+5. Feche pelo portão de verificação abaixo.
+
+### Verificação — não há suíte de testes
+
+Nenhum teste unitário existe no repositório. O que existe:
+
+| Comando | Quando |
+| --- | --- |
+| `npm run typecheck` | sempre, antes de encerrar qualquer mudança |
+| `npm run smoke` | mexeu em `leads.ts`, `advogados.ts`, `usuarios.ts`, nos contextos ou nas views deles |
+| `npm run shot` | mexeu em layout, criou tela, ou quer conferir sob outro perfil |
+
+**Não afrouxe o portão para passar.** Seletor de smoke não se troca para
+"encontrar" o elemento, `.campo-mensagem-erro` não se renomeia para escapar da
+verificação (`EST-R06`), erro de tipo não vira `any`. O que se corrige é a causa.
+
+Quando uma suíte de verdade entrar, **combine o framework antes** de adicionar a
+dependência, e comece por `src/lib/` — as funções são puras exatamente para isso.
+
+### O que evitar
+
+- **Dependência nova sem necessidade clara.** Ícone já é `lucide-react`
+  (`EST-R08`); estilo já é Tailwind pelo `@theme`. Biblioteca a mais é superfície
+  a mais para manter.
+- **Duplicar regra que já vive na lib.** Se a view precisa saber se o contato
+  aparece, ela chama `contatoVisivel` — não repete a condição.
+- **Decidir acesso na view** por comparação de papel solta.
+- **Mudança fora do escopo.** Item de Pendências conhecidas não se corrige "de
+  passagem": é demanda própria, e misturar assunto no commit atrapalha quem for
+  ler depois.
+- **Comentário que parafraseia a linha seguinte.**
+- **Dado real em seed, fixture ou exemplo.** Seed é fictícia e continua fictícia.
+
 ## Convenções
 
 **Vocabulário canônico, não rótulo de tela.** `types.ts` desambigua. O rótulo que
@@ -136,9 +231,11 @@ transição, elegibilidade e preço são funções puras testáveis; a view cham
 renderiza.
 
 **Acesso.** Nunca decida acesso na view por comparação de papel solta. Use
-`nivelDeAcesso`, `modulosVisiveis`, `podeAcessar` e `temAcessoRestrito` de
-`src/lib/navigation.ts`. Papel novo **não herda acesso** — precisa ser adicionado
-conscientemente às listas em `MODULOS` (`INV-05`).
+`nivelDeAcesso`, `modulosVisiveis`, `podeAcessar`, `temAcessoRestrito` e
+`moduloDaRota` de `src/lib/navigation.ts`. Papel novo **não herda acesso** —
+precisa ser adicionado conscientemente às listas em `MODULOS` (`INV-05`). A rota
+é bloqueada pelo `GuardaDeRota`, que lê a mesma matriz: nível `blocked` volta ao
+painel, `restricted` passa e a tela filtra o conteúdo.
 
 **Dado do cliente final passa por um portão só.** Nenhuma tela lê
 `lead.telefone` direto: tudo passa por `contatoVisivel` em `src/lib/leads.ts`.
@@ -361,10 +458,10 @@ justamente por serem silenciosas:
 
 Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `ACC-R21` e `ACC-R22` (`UsuariosContext`), `ACC-R01` e `ACC-R07`
-(`src/lib/navigation.ts`), `CNF-R21` (`AuthContext` + `views/Conformidade/`),
-`LED-R01` a `LED-R06` (`src/lib/leads.ts`), `ADV-R01` a `ADV-R08`
-(`src/lib/advogados.ts`), `TES-R01` a `TES-R06` (`src/lib/teses.ts`), `CRE-R01` a
-`CRE-R05` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
+(`src/lib/navigation.ts` + `GuardaDeRota`), `CNF-R21` (`AuthContext` +
+`views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
+`ADV-R09` (`src/lib/advogados.ts`), `TES-R01` a `TES-R06` (`src/lib/teses.ts`),
+`CRE-R01` a `CRE-R06` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
 (`src/lib/qualificacao.ts`), `ASS-R02` (`AssistenteButton`).
 
 ## Camada de dados — contrato para quando o backend entrar
@@ -400,7 +497,8 @@ Cada uma existe porque o custo dela já foi pago em produção em outro lugar.
   perfil não carregar e a aplicação seguir com papel indefinido, todo guard que
   bloqueia *por papel* deixa de bloquear — "indefinido" não está em lista nenhuma.
   Timeout de carregamento tem que levar a estado bloqueado, não a estado livre.
-  Ver a pendência do guard de rota (`ACC-R07`).
+  O `GuardaDeRota` (`ACC-R07`) já decide pela matriz de acesso; o que falta é o
+  perfil vir de uma sessão de verdade, e é aí que este cuidado entra.
 
 ### Consultas
 
@@ -486,13 +584,19 @@ forem a demanda.
   especialista em ética profissional **antes do lançamento comercial**. Não
   impede construir; impede lançar. Está visível no módulo de Conformidade e no
   painel.
-- **Sem guard de rota** (`ACC-R07`): menu e painel filtram, a rota não. Quem
-  digitar `/creditos` entra — e agora isso pesa mais, porque `advogado` é papel
-  externo.
 - **Sem autenticação.** O seletor de perfil da barra superior troca de usuário
   sem senha — serve para conferir a matriz de acesso, não é login. O perfil
   escolhido também não sobrevive a um recarregamento.
-- **Convite não sai de verdade.** Falta o serviço de envio.
+- **Convite não sai de verdade.** A conta do advogado já nasce da liberação de
+  acesso (`ADV-R09`), mas o e-mail com o acesso depende do serviço de envio.
+- **Aviso de lead novo não sai.** O painel do advogado promete o aviso em três
+  lugares; a integração de WhatsApp está como não configurada e a etapa pulada
+  aparece na tela de Integrações (`API-R10`). Falta o disparo — e ele depende
+  de serviço externo, não de tela.
+- **Compra de pacote não tem checkout.** `INV-14` exige confirmação de
+  pagamento, e o provedor ainda não existe: o botão de comprar pacote está
+  desabilitado de propósito. O caminho interno para destravar alguém é o ajuste
+  manual (`CRE-R06`), que exige permissão e motivo.
 - **Sem paginação** nas listas de leads e de advogados.
 - **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
   devolução de crédito.

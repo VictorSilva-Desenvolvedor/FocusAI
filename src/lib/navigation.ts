@@ -21,10 +21,10 @@ export interface ModuleDef {
  * lista é a exceção: papel novo NÃO herda acesso automaticamente, precisa ser
  * adicionado aqui conscientemente (`INV-05`).
  *
- * ACC-R07 — esconder do menu não é bloquear a rota. O que está aqui controla
- * apenas a navegação; bloqueio real de rota é responsabilidade do guard, que
- * ainda não existe. A dívida ficou mais cara desde que `advogado` entrou: é
- * papel externo, e quem digita `/creditos` na barra de endereço chega lá.
+ * ACC-R07 — esconder do menu não é bloquear a rota. Esta lista governa as duas
+ * coisas: a navegação, pelos módulos visíveis, e o acesso à rota, pelo guard em
+ * `GuardaDeRota`. Quem digita `/creditos` na barra de endereço passa pela mesma
+ * matriz — o que importa desde que `advogado` entrou, por ser papel externo.
  */
 export const MODULOS: ModuleDef[] = [
   {
@@ -168,6 +168,24 @@ export function podeAcessar(moduloId: ModuleId, perfil: Profile): boolean {
   const modulo = MODULOS.find((m) => m.id === moduloId);
   if (!modulo) return false;
   return nivelDeAcesso(modulo, perfil) === 'full';
+}
+
+/**
+ * ACC-R07 — o módulo dono de um caminho. É o que liga a rota à matriz de acesso.
+ *
+ * A raiz casa por igualdade, e não por prefixo, porque `/` é prefixo de tudo:
+ * com `startsWith` ingênuo, qualquer rota bloqueada casaria com o painel e o
+ * guard liberaria justamente o que deveria recusar. As demais casam por
+ * prefixo, porque o módulo tem sub-rota (`/config/usuarios`).
+ */
+export function moduloDaRota(caminho: string): ModuleDef | null {
+  const limpo = caminho.replace(/\/+$/, '') || '/';
+  if (limpo === '/') return MODULOS.find((m) => m.rota === '/') ?? null;
+  return (
+    MODULOS.filter((m) => m.rota !== '/').find(
+      (m) => limpo === m.rota || limpo.startsWith(`${m.rota}/`),
+    ) ?? null
+  );
 }
 
 /**

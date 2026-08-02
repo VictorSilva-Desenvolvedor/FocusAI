@@ -9,9 +9,12 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "shot": "node scripts/screenshot.mjs",
-    "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-advogados.mjs && node scripts/smoke-leads.mjs"
+    "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-advogados.mjs && node scripts/smoke-leads.mjs",
+    "smoke:rls": "node scripts/smoke-rls.mjs",
+    "tipos:banco": "node scripts/tipos-banco.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

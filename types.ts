@@ -248,6 +248,23 @@ export const ORIGEM_LEAD_LABEL: Record<OrigemLead, string> = {
 };
 
 /**
+ * `LED-R08` — o que o advogado achou do lead depois de atender.
+ *
+ * É o único retorno que a Focus tem sobre a própria qualificação: sem ele, a
+ * régua da IA só é avaliada pelo que se vê de dentro (taxa, duração, gravação),
+ * e nunca pelo que aconteceu na consulta. A nota é do produto entregue, não do
+ * cliente final — quem responde é quem pagou por ele.
+ */
+export interface AvaliacaoLead {
+  /** De 1 a 5. */
+  nota: number;
+  /** Texto livre, opcional. */
+  comentario: string | null;
+  /** ISO. Imutável — a nota pode ser refeita, o carimbo da última fica. */
+  em: string;
+}
+
+/**
  * O lead qualificado.
  *
  * `INV-11` — o telefone é o produto. Ele existe no registro, mas a tela só o
@@ -296,6 +313,8 @@ export interface Lead {
   motivoDesqualificacao: string | null;
   /** CRE-R05 — devolução registrada. O lead não volta ao catálogo mesmo assim. */
   devolucao: { motivo: string; em: string } | null;
+  /** LED-R08 — nota do comprador, depois da consulta. Nulo enquanto não avaliou. */
+  avaliacao: AvaliacaoLead | null;
 }
 
 // ---------------------------------------------------------------------------

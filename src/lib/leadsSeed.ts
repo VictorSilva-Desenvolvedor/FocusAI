@@ -171,6 +171,8 @@ export const LEADS_SEED: Lead[] = [
     gravacao: true,
     compradoPor: 'adv-gomes-cia',
     compradoHa: 20,
+    nota: 5,
+    comentarioDaNota: 'O caso era exatamente o descrito no resumo. Cliente chegou informado.',
   }),
   l('Gilberto Nascimento Cruz', 'polo_passivo', 'GO', 'Trindade', 'atendido', 30, {
     resumo: 'Consulta realizada. Panorama entregue e contrato de acompanhamento fechado.',
@@ -209,6 +211,8 @@ export const LEADS_SEED: Lead[] = [
     gravacao: true,
     compradoPor: 'adv-gomes-cia',
     compradoHa: 15,
+    nota: 2,
+    comentarioDaNota: 'Cliente confirmou por telefone e não apareceu.',
   }),
   // CRE-R05 — devolvido, crédito reposto, e mesmo assim fora do catálogo:
   // o contato já foi exposto, então INV-10 continua valendo.
@@ -239,6 +243,9 @@ interface Extras {
   reservadoPor?: string;
   reservaMinutos?: number;
   origem?: OrigemLead;
+  /** LED-R08 — nota que o comprador deu depois da consulta. */
+  nota?: number;
+  comentarioDaNota?: string;
 }
 
 /**
@@ -296,5 +303,9 @@ function l(
     ultimaAtividade: horas(Math.max(1, Math.min(diasDeVida * 4, 240))),
     motivoDesqualificacao: null,
     devolucao: null,
+    avaliacao:
+      extras.nota !== undefined
+        ? { nota: extras.nota, comentario: extras.comentarioDaNota ?? null, em: dias(1) }
+        : null,
   };
 }

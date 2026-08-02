@@ -40,12 +40,34 @@ function normalizarDepartamento(valor: string | null): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { usuarios } = useUsuarios();
   const [perfilId, setPerfilId] = useState<string | null>(null);
+  /*
+   * O perfil padrão é resolvido uma vez, na montagem.
+   *
+   * Antes ele era "o primeiro da lista", e conta nova entra no topo: criar um
+   * usuário trocava o perfil ativo sem ninguém pedir. Com a conta de advogado
+   * nascendo da liberação de acesso (`ADV-R09`), o efeito ficou grave — quem
+   * liberasse um acesso passaria a enxergar o sistema pelo lado de fora, com o
+   * menu do papel externo, sem entender por quê.
+   *
+   * E o padrão é sempre uma conta interna: `advogado` é o papel de fora, e o
+   * sistema não abre por ele. Conta de advogado criada na sessão fica
+   * persistida no topo da lista, então "o primeiro da lista" viraria o padrão
+   * no recarregamento seguinte — e o guard de rota, corretamente, devolveria
+   * a operação inteira ao painel do comprador.
+   */
+  const [padraoId] = useState<string | null>(
+    () => (usuarios.find((u) => u.role !== 'advogado') ?? usuarios[0])?.id ?? null,
+  );
 
   const value = useMemo<AuthValue>(() => {
     // Só quem pode entrar no sistema aparece no seletor. Uma conta desativada
-    // no meio da sessão cai para a primeira disponível em vez de quebrar.
+    // no meio da sessão cai para o padrão em vez de quebrar.
     const disponiveis = usuarios.filter((u) => u.status !== 'inativo');
-    const perfil = disponiveis.find((u) => u.id === perfilId) ?? disponiveis[0] ?? usuarios[0];
+    const perfil =
+      disponiveis.find((u) => u.id === perfilId) ??
+      disponiveis.find((u) => u.id === padraoId) ??
+      disponiveis[0] ??
+      usuarios[0];
 
     return {
       perfil,
@@ -56,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ehAdvogado: perfil.role === 'advogado',
       advogadoId: perfil.advogado_id,
     };
-  }, [usuarios, perfilId]);
+  }, [usuarios, perfilId, padraoId]);
 
   return <AuthContext value={value}>{children}</AuthContext>;
 }

@@ -170,7 +170,8 @@ export const PERMISSAO_LABEL: Record<NamedPermission, { rotulo: string; efeito: 
   },
   'credito:conciliar_pagamento': {
     rotulo: 'Conciliar pagamento de crédito',
-    efeito: 'Confere o extrato. Não credita: só a confirmação bancária credita (INV-14)',
+    efeito:
+      'Confere o extrato e lança ajuste manual com motivo (CRE-R06). Não confirma pagamento: compra de pacote só entra pela confirmação bancária (INV-14)',
   },
   'assistente:financeiro': {
     rotulo: 'Assistente — dados financeiros',
