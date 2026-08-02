@@ -5,10 +5,17 @@
  * silêncio: o telefone só aparece depois da compra (INV-11), um lead é vendido
  * uma única vez (INV-10), devolução repõe crédito sem recolocar no catálogo
  * (CRE-R05) e sem saldo o botão de comprar não é desenhado (CRE-R04).
+ *
+ * Precisa das contas de teste criadas (`npm run contas:teste`): desde `ACC-R08`
+ * nenhuma tela abre sem sessão, e trocar de papel deixou de ser um clique — é
+ * sair e entrar com outra conta. As três carteiras de advogado existem
+ * justamente porque `LED-R06` não é demonstrável com uma só.
  */
 import { chromium } from 'playwright';
+import { entrar, entrarComo } from './entrar.mjs';
 
 const URL = 'http://localhost:5173/#/leads';
+const ADM = 'victorpaulodev@focus.ai';
 const resultados = [];
 const ok = (n, cond, extra = '') =>
   resultados.push(`${cond ? 'PASS' : 'FALHA'}  ${n}${extra ? ` — ${extra}` : ''}`);
@@ -26,12 +33,13 @@ const limpar = () =>
     localStorage.removeItem('focus.creditos.v1');
   });
 
-const trocarPerfil = async (id) => {
-  await page.click('button[aria-label="Trocar perfil de demonstração"]');
-  await page.click(`[data-perfil="${id}"]`);
-  await page.waitForTimeout(400);
+/** Entrar como outra pessoa devolve ao painel: volta para a tela em teste. */
+const passarASer = async (email) => {
+  await entrarComo(page, email);
+  await page.goto(URL, { waitUntil: 'networkidle' });
 };
 
+await entrar(page, ADM);
 await page.goto(URL, { waitUntil: 'networkidle' });
 await limpar();
 await page.reload({ waitUntil: 'networkidle' });
@@ -60,7 +68,7 @@ ok(
 await page.waitForTimeout(7200);
 
 // --- o advogado: catálogo mascarado -------------------------------------------
-await trocarPerfil('u-advogado');
+await passarASer('advogado@focus.ai');
 await page.waitForSelector('button:has-text("Comprar")');
 
 /*
@@ -128,12 +136,12 @@ ok('lead comprado aparece em "Seus leads"', secaoMeus.includes(nomeComprado));
 // O toast da compra cita o nome do lead e vive dentro do <main> por alguns
 // segundos. Sem esperar ele sair, a varredura de texto acusa a si mesma.
 await page.waitForSelector('[role="status"]', { state: 'detached', timeout: 10_000 }).catch(() => {});
-await trocarPerfil('u-advogado-2');
+await passarASer('advogado2@focus.ai');
 const textoOutro = await page.locator('main').innerText();
 ok('outro advogado não vê o lead já vendido', !textoOutro.includes(nomeComprado));
 
 // --- CRE-R04: sem saldo, o botão de comprar não é desenhado --------------------
-await trocarPerfil('u-advogado-3');
+await passarASer('advogado3@focus.ai');
 const semSaldoTexto = await page.locator('main').innerText();
 const disponiveisSemSaldo = Number(
   (await page.locator('.chip', { hasText: 'disponíveis para você' }).innerText()).match(
@@ -153,7 +161,7 @@ ok(
 );
 
 // --- devolução ------------------------------------------------------------------
-await trocarPerfil('u-advogado');
+await passarASer('advogado@focus.ai');
 await page.waitForTimeout(400);
 const saldoAntesDevolucao = Number(
   (await page.locator('.chip', { hasText: 'créditos no saldo' }).innerText()).match(/\d+/)?.[0] ?? 0,
@@ -202,7 +210,7 @@ await page.reload({ waitUntil: 'networkidle' });
 // O perfil ativo não sobrevive ao reload: o seletor é demonstração, não login.
 // Sem reescolher, a página volta como administrador e os chips do advogado não
 // existem — que foi exatamente como este teste falhou da primeira vez.
-await trocarPerfil('u-advogado');
+await passarASer('advogado@focus.ai');
 const saldoPosReload = Number(
   (await page.locator('.chip', { hasText: 'créditos no saldo' }).innerText()).match(/\d+/)?.[0] ?? 0,
 );

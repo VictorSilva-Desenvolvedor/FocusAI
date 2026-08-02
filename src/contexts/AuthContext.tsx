@@ -1,12 +1,11 @@
-import { createContext, use, useMemo, useState, type ReactNode } from 'react';
+import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useUsuarios } from '@/src/contexts/UsuariosContext';
+import { perfilLocal } from '@/src/lib/sessao';
+import { aoMudarSessao, carregarSessao, sair, type EstadoDaSessao } from '@/src/servicos/perfil';
 import type { NamedPermission, Usuario } from '@/types';
 
 interface AuthValue {
   perfil: Usuario;
-  /** Troca o perfil ativo. Existe só na maquete, para demonstrar a matriz de acesso. */
-  trocarPerfil: (id: string) => void;
-  perfisDisponiveis: Usuario[];
   temPermissao: (p: NamedPermission) => boolean;
   /**
    * CNF-R21 — liberar um criativo "com ressalva" é gate por departamento
@@ -19,13 +18,20 @@ interface AuthValue {
   ehAdvogado: boolean;
   /**
    * LED-R06 — a chave de isolamento entre carteiras. Nulo para o time interno.
-   * Filtrar por ela no cliente é ergonomia; quando o backend entrar, quem
-   * segura o isolamento é a política de acesso da tabela (`API-R02`).
+   * Filtrar por ela no cliente é ergonomia; quem segura o isolamento é a
+   * política de acesso da tabela (`API-R02`).
    */
   advogadoId: string | null;
+  encerrarSessao: () => Promise<void>;
+}
+
+interface SessaoValue {
+  estado: EstadoDaSessao;
+  encerrarSessao: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
+const SessaoContext = createContext<SessaoValue | null>(null);
 
 /** Normaliza "Conformidade", "conformidade", "Conformidade " para comparação. */
 function normalizarDepartamento(valor: string | null): string {
@@ -39,52 +45,93 @@ function normalizarDepartamento(valor: string | null): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { usuarios } = useUsuarios();
-  const [perfilId, setPerfilId] = useState<string | null>(null);
+  const [remoto, setRemoto] = useState<EstadoDaSessao>({ estado: 'carregando' });
+
+  useEffect(() => {
+    let vivo = true;
+    const recarregar = () => {
+      /*
+       * Consultar o Supabase de dentro do próprio ouvinte de sessão trava o
+       * cliente: o ouvinte roda segurando o cadeado interno de autenticação, e
+       * `getSession()` espera por esse mesmo cadeado. O sintoma é a promessa
+       * que nunca resolve — a tela fica no esqueleto de carregamento para
+       * sempre, sem erro nenhum no console. Sair do ouvinte antes de consultar
+       * é o que a própria biblioteca recomenda.
+       */
+      setTimeout(() => {
+        void carregarSessao().then((estado) => {
+          if (vivo) setRemoto(estado);
+        });
+      }, 0);
+    };
+
+    recarregar();
+    const cancelar = aoMudarSessao(recarregar);
+    return () => {
+      vivo = false;
+      cancelar();
+    };
+  }, []);
+
+  const encerrarSessao = useCallback(async () => {
+    await sair();
+    // Não espera o ouvinte: quem clicou em Sair precisa ver o efeito agora.
+    setRemoto({ estado: 'anonimo' });
+  }, []);
+
   /*
-   * O perfil padrão é resolvido uma vez, na montagem.
+   * ACC-R08 — sessão autenticada que não resolve num perfil vira bloqueada.
    *
-   * Antes ele era "o primeiro da lista", e conta nova entra no topo: criar um
-   * usuário trocava o perfil ativo sem ninguém pedir. Com a conta de advogado
-   * nascendo da liberação de acesso (`ADV-R09`), o efeito ficou grave — quem
-   * liberasse um acesso passaria a enxergar o sistema pelo lado de fora, com o
-   * menu do papel externo, sem entender por quê.
-   *
-   * E o padrão é sempre uma conta interna: `advogado` é o papel de fora, e o
-   * sistema não abre por ele. Conta de advogado criada na sessão fica
-   * persistida no topo da lista, então "o primeiro da lista" viraria o padrão
-   * no recarregamento seguinte — e o guard de rota, corretamente, devolveria
-   * a operação inteira ao painel do comprador.
+   * É o caso de uma conta que existe no banco com papel que a seed local não
+   * tem. Deixar passar com perfil indefinido é o que `API-R05` proíbe: papel
+   * indefinido não está em lista nenhuma, e todo guard que bloqueia por papel
+   * deixa de bloquear.
    */
-  const [padraoId] = useState<string | null>(
-    () => (usuarios.find((u) => u.role !== 'advogado') ?? usuarios[0])?.id ?? null,
-  );
+  const perfil = remoto.estado === 'autenticado' ? perfilLocal(remoto.perfil, usuarios) : null;
 
-  const value = useMemo<AuthValue>(() => {
-    // Só quem pode entrar no sistema aparece no seletor. Uma conta desativada
-    // no meio da sessão cai para o padrão em vez de quebrar.
-    const disponiveis = usuarios.filter((u) => u.status !== 'inativo');
-    const perfil =
-      disponiveis.find((u) => u.id === perfilId) ??
-      disponiveis.find((u) => u.id === padraoId) ??
-      disponiveis[0] ??
-      usuarios[0];
+  const estado: EstadoDaSessao =
+    remoto.estado === 'autenticado' && !perfil
+      ? {
+          estado: 'bloqueado',
+          motivo: 'Esta conta não tem perfil correspondente nesta instalação.',
+        }
+      : remoto;
 
+  const sessao = useMemo<SessaoValue>(() => ({ estado, encerrarSessao }), [estado, encerrarSessao]);
+
+  const auth = useMemo<AuthValue | null>(() => {
+    if (!perfil) return null;
     return {
       perfil,
-      trocarPerfil: setPerfilId,
-      perfisDisponiveis: disponiveis,
       temPermissao: (p) => perfil.permissoes.includes(p),
       ehConformidade: normalizarDepartamento(perfil.departamento) === 'conformidade',
       ehAdvogado: perfil.role === 'advogado',
       advogadoId: perfil.advogado_id,
+      encerrarSessao,
     };
-  }, [usuarios, perfilId, padraoId]);
+  }, [perfil, encerrarSessao]);
 
-  return <AuthContext value={value}>{children}</AuthContext>;
+  return (
+    <SessaoContext value={sessao}>
+      <AuthContext value={auth}>{children}</AuthContext>
+    </SessaoContext>
+  );
 }
 
+/** O estado da sessão. Só o portão de sessão precisa disto. */
+export function useSessao(): SessaoValue {
+  const ctx = use(SessaoContext);
+  if (!ctx) throw new Error('useSessao precisa estar dentro de <AuthProvider>');
+  return ctx;
+}
+
+/**
+ * O perfil autenticado. Só é válido dentro do `PortaoDeSessao` — fora dele não
+ * existe perfil, e devolver um em branco seria o mesmo que abrir a aplicação
+ * para papel indefinido (`ACC-R08`).
+ */
 export function useAuth(): AuthValue {
   const ctx = use(AuthContext);
-  if (!ctx) throw new Error('useAuth precisa estar dentro de <AuthProvider>');
+  if (!ctx) throw new Error('useAuth precisa estar dentro do <PortaoDeSessao>');
   return ctx;
 }

@@ -1,7 +1,15 @@
-/** Smoke test do módulo de usuários. Roda contra o dev server. */
+/**
+ * Smoke test do módulo de usuários. Roda contra o dev server.
+ *
+ * Precisa das contas de teste criadas (`npm run contas:teste`): desde `ACC-R08`
+ * nenhuma tela abre sem sessão, e trocar de papel deixou de ser um clique — é
+ * sair e entrar com outra conta.
+ */
 import { chromium } from 'playwright';
+import { entrar, entrarComo } from './entrar.mjs';
 
 const URL = 'http://localhost:5173/#/config/usuarios';
+const ADM = 'victorpaulodev@focus.ai';
 const resultados = [];
 const ok = (n, cond, extra = '') =>
   resultados.push(`${cond ? 'PASS' : 'FALHA'}  ${n}${extra ? ` — ${extra}` : ''}`);
@@ -12,12 +20,14 @@ const erros = [];
 page.on('pageerror', (e) => erros.push(String(e)));
 page.on('console', (m) => m.type() === 'error' && erros.push(m.text()));
 
-const trocarPerfil = async (id) => {
-  await page.click('button[aria-label="Trocar perfil de demonstração"]');
-  await page.click(`[data-perfil="${id}"]`);
-  await page.waitForTimeout(400);
+/** Entrar como outra pessoa devolve ao painel: volta para a tela em teste. */
+const passarASer = async (email) => {
+  await entrarComo(page, email);
+  await page.goto(URL, { waitUntil: 'networkidle' });
+  await page.waitForSelector('table');
 };
 
+await entrar(page, ADM);
 await page.goto(URL, { waitUntil: 'networkidle' });
 await page.evaluate(() => localStorage.removeItem('focus.usuarios.v1'));
 await page.reload({ waitUntil: 'networkidle' });
@@ -41,7 +51,7 @@ await page.waitForTimeout(200);
 ok('nome sem sobrenome é recusado', /sobrenome/i.test(erroNome ?? ''), erroNome?.trim());
 
 await page.fill('[role="dialog"] input[placeholder="Ana Ribeiro"]', 'Ana Ribeiro');
-await page.fill('[role="dialog"] input[type="email"]', 'victor@focus.ai');
+await page.fill('[role="dialog"] input[type="email"]', ADM);
 await page.waitForTimeout(150);
 const textoErros = await page.locator('[role="dialog"]').innerText();
 ok('e-mail duplicado é recusado', /Já existe uma conta com este e-mail/.test(textoErros));
@@ -81,12 +91,12 @@ const totalPosReload = await page.locator('tbody tr').count();
 ok('cadastro sobrevive ao reload', totalPosReload === totalInicial + 1, `${totalPosReload} linhas`);
 
 // --- ACC-R03: ninguém edita a si mesmo -------------------------------------
-const linhaEu = page.locator('tbody tr', { hasText: 'victor@focus.ai' });
+const linhaEu = page.locator('tbody tr', { hasText: ADM });
 const editarEu = linhaEu.locator('button[aria-label^="Editar"]');
 ok('botão de editar a própria conta fica desabilitado', await editarEu.isDisabled());
 
 // --- hierarquia de criação --------------------------------------------------
-await trocarPerfil('u-gestor');
+await passarASer('gestortrafego@focus.ai');
 await page.click('text=Novo usuário');
 await page.waitForSelector('[role="dialog"]');
 const opcoes = await page.locator('[role="dialog"] select option').allTextContents();
@@ -98,19 +108,19 @@ ok(
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 
-const linhaGerente = page.locator('tbody tr', { hasText: 'marina@focus.ai' });
+const linhaGerente = page.locator('tbody tr', { hasText: 'gerente@focus.ai' });
 ok(
   'gestor não gerencia conta de gerente',
   await linhaGerente.locator('button[aria-label^="Editar"]').isDisabled(),
 );
 
 // --- último administrador ---------------------------------------------------
-await trocarPerfil('u-adm');
+await passarASer(ADM);
 const desativarEu = linhaEu.locator('button[aria-label^="Desativar"]');
 ok('botão de desativar a própria conta fica desabilitado', await desativarEu.isDisabled());
 
 // --- desativação ------------------------------------------------------------
-const linhaDiego = page.locator('tbody tr', { hasText: 'diego@focus.ai' });
+const linhaDiego = page.locator('tbody tr', { hasText: 'closer@focus.ai' });
 await linhaDiego.locator('button[aria-label^="Desativar"]').click();
 await page.waitForSelector('[role="alertdialog"]');
 ok('desativar pede confirmação', true);

@@ -13,14 +13,15 @@ A entidade que atravessa tudo é o **Lead**: é ele que a campanha produz, que a
 IA qualifica, que carrega a reunião, que consome crédito ao ser comprado e que
 responde, perante a OAB, como aquele cliente chegou àquele advogado.
 
-Estado atual: **maquete**. Sem backend e sem autenticação — o que existe persiste
-em `localStorage`.
+Estado atual: **maquete com login de verdade**. A autenticação é real, contra o
+Supabase; os dados das telas ainda vêm de `localStorage`.
 
 ## Rodando
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+cp .env.example .env.local   # e preencha
+npm run dev                  # http://localhost:5173
 ```
 
 | Script | O que faz |
@@ -29,8 +30,46 @@ npm run dev      # http://localhost:5173
 | `npm run build` | Typecheck + build de produção |
 | `npm run typecheck` | Só a verificação de tipos |
 | `npm run preview` | Serve o build |
+| `npm run contas:teste` | Cria/atualiza as contas de acesso, uma por papel |
 | `npm run shot` | Captura a tela num Chromium headless |
 | `npm run smoke` | Fluxos de usuários, advogados e leads (precisa do `dev` rodando) |
+| `npm run smoke:rls` | Política de acesso, direto contra o banco |
+
+## Entrar
+
+O acesso é por e-mail e senha. `npm run contas:teste` cria uma conta por papel
+para conferir a matriz de acesso — as senhas ficam em `.secrets/supabase.env`,
+fora do versionamento.
+
+| Papel | E-mail |
+| --- | --- |
+| Administrador | `victorpaulodev@focus.ai` |
+| Gerente | `gerente@focus.ai` |
+| Gestor de Tráfego | `gestortrafego@focus.ai` |
+| Criativo | `criativo@focus.ai` |
+| Analista de Conformidade | `analistaconformidade@focus.ai` |
+| Operador da IA | `operadoria@focus.ai` |
+| Closer | `closer@focus.ai` |
+| SDR | `sdr@focus.ai` |
+| Customer Success | `cs@focus.ai` |
+| Financeiro | `financeiro@focus.ai` |
+| Advogado | `advogado@focus.ai`, `advogado2@`, `advogado3@` |
+
+São contas de desenvolvimento: senha curta e igual para todo mundo. Não têm
+lugar num projeto que atenda usuário de verdade.
+
+Além delas existem **contas nominais** — pessoas reais do time, com senha
+própria. Nome, e-mail e senha ficam em `.secrets/supabase.env` e não aparecem
+aqui nem no script: e-mail de pessoa real não entra em arquivo versionado, pela
+mesma razão que seed é fictícia. Sem as variáveis preenchidas, o script cria só
+as contas da tabela acima.
+
+Trocar de papel é sair e entrar com outra conta — não existe seletor de perfil.
+Entrar como advogado mostra o outro lado do produto: o painel do comprador, com
+catálogo mascarado e saldo de créditos.
+
+Três contas de advogado, e não uma, porque `LED-R06` não é demonstrável com uma
+carteira só; a terceira tem saldo zerado, que é o caso de `CRE-R04`.
 
 ### Visualizar
 
@@ -43,17 +82,15 @@ npm run shot                                     # / no viewport desktop
 npm run shot -- --mobile                         # viewport estreito
 npm run shot -- --largura 1600                   # largura específica
 npm run shot -- /leads --out leads.png           # outra rota
-npm run shot -- --perfil u-advogado              # painel sob outro papel
+npm run shot -- --perfil advogado@focus.ai       # captura sob outro papel
+npm run shot -- /login --out login.png           # a porta de entrada
 npm run shot -- /advogados --click "text=Novo advogado"
 ```
 
-As imagens vão para `.screenshots/` (fora do versionamento). O script **falha se
-algo escrever erro no console** — vale como smoke test de qualquer tela.
-
-O seletor de perfil no canto superior direito troca o papel ativo em tempo real.
-É a maneira de conferir a matriz de acesso: o menu **e o conteúdo do painel**
-mudam junto. Trocar para `u-advogado` mostra o outro lado do produto — o painel
-do comprador, com catálogo mascarado e saldo de créditos.
+O script entra sozinho antes de capturar, com a conta de administrador ou com a
+que `--perfil` indicar. As imagens vão para `.screenshots/` (fora do
+versionamento), e o script **falha se algo escrever erro no console** — vale
+como smoke test de qualquer tela.
 
 ## Stack
 
@@ -72,10 +109,12 @@ App.tsx                          Rotas
 main.tsx                         Entrada
 types.ts                         Tipos de domínio (vocabulário canônico)
 src/
-  components/Layout/             Topbar (navegação), shell e guard de rota
+  components/Layout/             Topbar, shell, portão de sessão e guard de rota
   components/ui/                 Toast, MenuCartao, Campo
   components/Assistente/         Assistente interno
-  contexts/AuthContext.tsx       Perfil ativo, permissões, departamento
+  contexts/AuthContext.tsx       Sessão, perfil ativo, permissões, departamento
+  servicos/perfil.ts             Entrar, sair e carregar a sessão do Supabase
+  lib/sessao.ts                  Casa o perfil autenticado com a seed local
   contexts/UsuariosContext.tsx   Cadastro de usuários
   contexts/AdvogadosContext.tsx  Funil de aquisição do advogado
   contexts/LeadsContext.tsx      Catálogo de leads
@@ -92,11 +131,15 @@ src/
   lib/format.ts                  Datas e tempo relativo
   index.css                      Tema Tailwind
 views/                           Uma pasta por módulo
+views/Login/LoginView.tsx        A única tela que existe sem sessão
 scripts/
+  contas-de-teste.mjs            Uma conta de acesso por papel
+  entrar.mjs                     Login para os scripts de verificação
   screenshot.mjs                 Captura headless
   smoke-usuarios.mjs             Cadastro de usuários
   smoke-advogados.mjs            Funil de advogados
   smoke-leads.mjs                Catálogo, compra, exclusividade e devolução
+  smoke-rls.mjs                  Política de acesso, direto contra o banco
 ```
 
 ## Módulos
@@ -172,6 +215,8 @@ semeados — que são fictícios.
 | --- | --- |
 | `ACC-R02` | Criação é hierárquica. Conta de advogado nunca nasce por aqui |
 | `ACC-R07` | A rota é bloqueada, não só escondida do menu — o guard usa a mesma matriz |
+| `ACC-R08` | Nenhuma rota abre sem sessão. Perfil que não resolve fecha, não abre |
+| `ACC-R09` | O login não diz se foi o e-mail ou a senha que estava errado |
 | `ACC-R03` | Ninguém edita nem desativa a própria conta pelo painel |
 | `ACC-R21` | Conta nunca é excluída, só desativada |
 | `ACC-R22` | Conta nasce como convite pendente e vira ativa no primeiro acesso |
@@ -208,7 +253,19 @@ não são renumerados: regra removida deixa o ID aposentado.
   advogados acesso a dados de possíveis clientes levanta questão de captação de
   clientela. Precisa de revisão por especialista em ética profissional **antes do
   lançamento comercial**. Não impede construir; impede lançar.
-- **Sem autenticação.** O seletor de perfil não é login.
+- **Sessão real, dados de maquete.** O login autentica contra o Supabase, mas
+  leads, advogados, créditos e usuários ainda vivem em `localStorage`. O perfil
+  autenticado é casado com a seed local pelo e-mail (`src/lib/sessao.ts`) — sem
+  isso o advogado entraria num painel vazio, porque o `advogado_id` do banco é
+  uuid e o da seed é slug. Migrar os quatro contextos para os serviços de
+  `src/servicos/` é a demanda que apaga esse arquivo.
+- **Cadastro público ainda aberto no projeto Supabase.** Conta criada por fora
+  não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas
+  `disable_signup` precisa ir para `true` em Authentication › Sign In / Providers.
+  `INV-12` diz que ninguém se cadastra sozinho, e o lugar de fechar isso é a
+  configuração, não o código.
+- **Sem recuperação de senha.** Trocar senha é pelo `npm run contas:teste` ou
+  pelo painel do Supabase.
 - **Convite não sai de verdade.** A conta do advogado já nasce da liberação
   (`ADV-R09`), mas o e-mail com o acesso depende de serviço de envio.
 - **Aviso de lead novo não sai.** Três telas prometem ao advogado que ele será

@@ -36,9 +36,30 @@ compra.
 
 ## Estado atual
 
-Maquete de front-end. **Sem backend e sem autenticação.** O estado vive em
-`localStorage` (`focus.leads.v1`, `focus.advogados.v1`, `focus.usuarios.v1`,
+Maquete de front-end **com autenticação de verdade**. Entrar é entrar: e-mail e
+senha contra o Supabase Auth, sessão que sobrevive ao recarregamento, e nenhuma
+rota abre sem ela (`ACC-R08`).
+
+Os dados das telas, porém, ainda são de maquete: `localStorage`
+(`focus.leads.v1`, `focus.advogados.v1`, `focus.usuarios.v1`,
 `focus.creditos.v1`); limpar a chave restaura os dados semeados.
+
+**Os dois mundos se encontram em `src/lib/sessao.ts`.** O perfil que volta do
+banco traz identificador em uuid; a seed usa slug. `perfilLocal()` casa os dois
+pelo e-mail — por isso o e-mail de `USUARIOS_SEED` **é** o e-mail de login, e
+mudar um sem mudar o outro faz a conta entrar com o nome errado. Sessão que não
+resolve num perfil vira bloqueada, nunca aberta.
+
+`npm run contas:teste` cria uma conta de acesso por papel; as senhas estão em
+`.secrets/supabase.env`. Não há seletor de perfil: trocar de papel é sair e
+entrar com outra conta.
+
+**Conta nominal — de pessoa real — não entra no script.** Nome, e-mail e senha
+vêm de variável em `.secrets/supabase.env`, e o script pula a conta se elas
+faltarem. É a mesma regra que mantém a seed fictícia: dado real fica fora do Git,
+inclusive e-mail de colega. Quem entra por uma conta assim não tem par na seed e
+cai no primeiro perfil do mesmo papel — `perfilLocal()` mantém o nome e o e-mail
+do banco justamente para a barra superior não mostrar outra pessoa.
 
 Todos os dez módulos têm tela construída. Os números que não saem dos stores
 reais vêm de seeds em `src/lib/*Seed.ts` — plausíveis, não reais, e fictícios por
@@ -51,8 +72,10 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # tsc -b && vite build
 npm run typecheck  # só a verificação de tipos
+npm run contas:teste # cria/atualiza uma conta de acesso por papel
 npm run shot       # captura headless (precisa do dev rodando)
 npm run smoke      # usuários + advogados + leads (precisa do dev rodando)
+npm run smoke:rls  # política de acesso, direto contra o banco
 ```
 
 `npm run typecheck` é o portão mínimo antes de encerrar qualquer mudança.
@@ -63,17 +86,20 @@ Para conferir mudança de layout sem abrir navegador:
 npm run shot                                   # / no viewport desktop
 npm run shot -- --mobile                       # viewport estreito
 npm run shot -- --largura 1600                 # largura específica
-npm run shot -- --perfil u-advogado            # painel sob outro papel
+npm run shot -- --perfil advogado@focus.ai     # captura sob outro papel
+npm run shot -- /login --out login.png         # a porta de entrada
 npm run shot -- /leads --out leads.png         # outra rota
 npm run shot -- /advogados --click "text=Novo advogado"
 ```
 
-As imagens vão para `.screenshots/` (fora do Git). O script **falha se algo
-escrever erro no console** — vale como smoke test de qualquer tela.
+O script entra sozinho antes de capturar — `--perfil` recebe e-mail, não id de
+seed. As imagens vão para `.screenshots/` (fora do Git). O script **falha se
+algo escrever erro no console** — vale como smoke test de qualquer tela.
 
 `npm run smoke` valida três fluxos ponta a ponta. Rode depois de mexer em
 `src/lib/leads.ts`, `src/lib/advogados.ts`, `src/lib/usuarios.ts`, nos contextos
-ou nas views correspondentes.
+ou nas views correspondentes. Ele e o `shot` precisam das contas de teste
+criadas e de rede: sem sessão não há tela.
 
 ## Estrutura
 
@@ -82,10 +108,12 @@ App.tsx                          Rotas (HashRouter)
 main.tsx                         Entrada
 types.ts                         Tipos de domínio — vocabulário canônico
 src/
-  components/Layout/             Topbar, shell e o guard de rota
+  components/Layout/             Topbar, shell, portão de sessão e guard de rota
   components/ui/                 Toast, MenuCartao, Campo
   components/Assistente/         Assistente interno
-  contexts/AuthContext.tsx       Perfil ativo, permissões, departamento
+  contexts/AuthContext.tsx       Sessão, perfil ativo, permissões, departamento
+  servicos/perfil.ts             Entrar, sair e carregar a sessão do Supabase
+  lib/sessao.ts                  Casa o perfil autenticado com a seed local
   contexts/UsuariosContext.tsx   Cadastro de usuários
   contexts/AdvogadosContext.tsx  Funil de aquisição do advogado
   contexts/LeadsContext.tsx      Catálogo de leads
@@ -236,6 +264,13 @@ renderiza.
 precisa ser adicionado conscientemente às listas em `MODULOS` (`INV-05`). A rota
 é bloqueada pelo `GuardaDeRota`, que lê a mesma matriz: nível `blocked` volta ao
 painel, `restricted` passa e a tela filtra o conteúdo.
+
+São dois portões, e a ordem importa. O `PortaoDeSessao` roda **antes** e trata
+de existir sessão (`ACC-R08`); o `GuardaDeRota` roda depois e trata de qual
+módulo aquele papel abre (`ACC-R07`). Colapsar os dois quebra os dois: o guard
+bloqueia *por papel*, e sem sessão não há papel — papel indefinido não está em
+lista nenhuma, então ele passa. A falha liberaria tudo em vez de fechar, que é
+exatamente o que `API-R05` proíbe.
 
 **Dado do cliente final passa por um portão só.** Nenhuma tela lê
 `lead.telefone` direto: tudo passa por `contatoVisivel` em `src/lib/leads.ts`.
@@ -456,9 +491,15 @@ justamente por serem silenciosas:
   nem cartão, nem número de contrato. Não existe o campo — é assim que a regra se
   sustenta.
 
+`INV-12` também é decisão de configuração, não só de código: `src/servicos/`
+deliberadamente não expõe `signUp`, e o cadastro público precisa estar fechado no
+projeto. Enquanto estiver aberto, o furo é limitado — conta sem linha em `perfis`
+cai como bloqueada (`ACC-R08`) e não enxerga nada —, mas é furo.
+
 Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `ACC-R21` e `ACC-R22` (`UsuariosContext`), `ACC-R01` e `ACC-R07`
-(`src/lib/navigation.ts` + `GuardaDeRota`), `CNF-R21` (`AuthContext` +
+(`src/lib/navigation.ts` + `GuardaDeRota`), `ACC-R08` (`PortaoDeSessao` +
+`src/lib/sessao.ts`), `ACC-R09` (`src/servicos/perfil.ts`), `CNF-R21` (`AuthContext` +
 `views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
 `ADV-R09` (`src/lib/advogados.ts`), `TES-R01` a `TES-R06` (`src/lib/teses.ts`),
 `CRE-R01` a `CRE-R06` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
@@ -466,8 +507,9 @@ Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 
 ## Camada de dados — contrato para quando o backend entrar
 
-Hoje não existe backend: tudo é `localStorage`. As regras abaixo **não são
-hipótese** — são o desenho já decidido (Supabase: tabelas com política de acesso,
+O backend já existe e já é usado numa frente: a autenticação. Os dados das telas
+continuam em `localStorage`. As regras abaixo **não são hipótese** — são o
+desenho já decidido (Supabase: tabelas com política de acesso,
 funções no banco para operação transacional, funções de borda para o que exige
 segredo, automações externas para o que exige IP fixo ou modelo oficial). Valem
 a partir do commit em que a primeira consulta real existir, e valem antes disso
@@ -584,9 +626,16 @@ forem a demanda.
   especialista em ética profissional **antes do lançamento comercial**. Não
   impede construir; impede lançar. Está visível no módulo de Conformidade e no
   painel.
-- **Sem autenticação.** O seletor de perfil da barra superior troca de usuário
-  sem senha — serve para conferir a matriz de acesso, não é login. O perfil
-  escolhido também não sobrevive a um recarregamento.
+- **Sessão real, dados de maquete.** O login autentica contra o Supabase, mas
+  leads, advogados, créditos e usuários seguem em `localStorage`. `src/lib/sessao.ts`
+  casa o perfil autenticado com a seed pelo e-mail; migrar os quatro contextos
+  para `src/servicos/` é a demanda que apaga esse arquivo.
+- **Cadastro público ainda aberto no projeto Supabase.** `disable_signup` precisa
+  ir para `true` (Authentication › Sign In / Providers). Conta criada por fora
+  não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas
+  `INV-12` diz que ninguém se cadastra sozinho, e isso se fecha na configuração.
+- **Sem recuperação de senha.** Trocar senha é por `npm run contas:teste` ou pelo
+  painel do Supabase.
 - **Convite não sai de verdade.** A conta do advogado já nasce da liberação de
   acesso (`ADV-R09`), mas o e-mail com o acesso depende do serviço de envio.
 - **Aviso de lead novo não sai.** O painel do advogado promete o aviso em três

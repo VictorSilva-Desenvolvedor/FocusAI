@@ -18,11 +18,24 @@ import type {
 const diasAtras = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
 const horasAtras = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 
+/**
+ * O e-mail destas contas **é** o e-mail de login.
+ *
+ * Quem autentica é o Supabase, e `perfilLocal()` de `src/lib/sessao.ts` casa o
+ * perfil que volta de lá com a linha daqui pelo e-mail. Mudar um endereço sem
+ * mudar a conta correspondente no banco faz o login cair no seed do mesmo papel
+ * — funciona por acidente, com o nome errado na barra superior.
+ *
+ * As contas sem par no banco (`u-criativo-2`, `u-conformidade-2`,
+ * `u-operador-ia-2`, `u-inativo`) existem para as telas terem o que exercer:
+ * convite pendente, permissão sem efeito por departamento (`CNF-R21`), conta
+ * desativada. Ninguém entra por elas.
+ */
 export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-adm',
     nome: 'Victor Paulo',
-    email: 'victor@focus.ai',
+    email: 'victorpaulodev@focus.ai',
     role: 'adm',
     departamento: 'Tecnologia',
     permissoes: [
@@ -46,7 +59,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-gerente',
     nome: 'Marina Alencar',
-    email: 'marina@focus.ai',
+    email: 'gerente@focus.ai',
     role: 'gerente',
     departamento: 'Operações',
     permissoes: [
@@ -65,7 +78,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-gestor',
     nome: 'Bruno Tavares',
-    email: 'bruno@focus.ai',
+    email: 'gestortrafego@focus.ai',
     role: 'gestor_trafego',
     departamento: 'Tráfego',
     permissoes: ['modulo:campanhas', 'modulo:integracoes'],
@@ -79,7 +92,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-criativo',
     nome: 'Lia Fontes',
-    email: 'lia@focus.ai',
+    email: 'criativo@focus.ai',
     role: 'criativo',
     departamento: 'Criação',
     permissoes: [],
@@ -107,7 +120,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-conformidade',
     nome: 'Rafaela Costa',
-    email: 'rafaela@focus.ai',
+    email: 'analistaconformidade@focus.ai',
     role: 'analista_conformidade',
     departamento: 'Conformidade',
     permissoes: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
@@ -137,7 +150,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-operador-ia',
     nome: 'Tiago Bezerra',
-    email: 'tiago@focus.ai',
+    email: 'operadoria@focus.ai',
     role: 'operador_ia',
     departamento: 'Qualificação',
     permissoes: ['modulo:qualificacao'],
@@ -165,7 +178,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-closer',
     nome: 'Diego Martins',
-    email: 'diego@focus.ai',
+    email: 'closer@focus.ai',
     role: 'closer',
     departamento: 'Comercial',
     permissoes: ['advogado:liberar_acesso'],
@@ -179,7 +192,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-sdr',
     nome: 'Tainá Moreira',
-    email: 'taina@focus.ai',
+    email: 'sdr@focus.ai',
     role: 'sdr',
     departamento: 'Comercial',
     permissoes: [],
@@ -193,7 +206,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-cs',
     nome: 'Júlia Andrade',
-    email: 'julia@focus.ai',
+    email: 'cs@focus.ai',
     role: 'cs',
     departamento: 'Customer Success',
     permissoes: ['lead:aprovar_devolucao'],
@@ -207,7 +220,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-financeiro',
     nome: 'Paula Reis',
-    email: 'paula@focus.ai',
+    email: 'financeiro@focus.ai',
     role: 'financeiro',
     departamento: 'Financeiro',
     permissoes: ['credito:conciliar_pagamento', 'lead:aprovar_devolucao'],
@@ -228,7 +241,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-advogado',
     nome: 'Prev Fácil Advogados',
-    email: 'contato@prevfacil.adv.br',
+    email: 'advogado@focus.ai',
     role: 'advogado',
     departamento: null,
     permissoes: [],
@@ -242,7 +255,7 @@ export const USUARIOS_SEED: Usuario[] = [
   {
     id: 'u-advogado-2',
     nome: 'Gomes & Cia',
-    email: 'contato@gomescia.adv.br',
+    email: 'advogado2@focus.ai',
     role: 'advogado',
     departamento: null,
     permissoes: [],
@@ -258,7 +271,7 @@ export const USUARIOS_SEED: Usuario[] = [
     // de comprar não existe, em vez de existir e falhar no clique.
     id: 'u-advogado-3',
     nome: 'Teixeira Bancário',
-    email: 'contato@teixeirabancario.adv.br',
+    email: 'advogado3@focus.ai',
     role: 'advogado',
     departamento: null,
     permissoes: [],
