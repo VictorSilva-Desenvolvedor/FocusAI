@@ -38,6 +38,7 @@ export function AdvogadoDrawer({
     whatsapp: '',
     uf: '',
     teses: [],
+    cidades: '',
     porte: '',
     potencialMensal: '',
     modeloPagamento: '',
@@ -220,6 +221,25 @@ export function AdvogadoDrawer({
             </div>
             {erros.teses && <p className="campo-mensagem-erro">{erros.teses}</p>}
           </fieldset>
+
+          {/*
+            LED-R06 — a região entra junto da tese porque as duas fazem a mesma
+            coisa: recortam o catálogo dele. Em branco não é campo esquecido, é
+            resposta — o estado inteiro —, e por isso não vira erro de validação.
+          */}
+          <Campo
+            id={`${idBase}-cidades`}
+            rotulo="Cidades que acompanha"
+            dica="Separadas por vírgula. Em branco, ele recebe o estado inteiro"
+          >
+            <input
+              id={`${idBase}-cidades`}
+              value={dados.cidades}
+              onChange={(e) => setDados((d) => ({ ...d, cidades: e.target.value }))}
+              className={entrada()}
+              placeholder="Goiânia, Aparecida de Goiânia"
+            />
+          </Campo>
 
           <div className="grid grid-cols-2 gap-4">
             <Campo id={`${idBase}-porte`} rotulo="Porte do escritório" erro={erros.porte}>

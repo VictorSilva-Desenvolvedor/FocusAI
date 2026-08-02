@@ -7,6 +7,7 @@ import type {
   PrioridadeAdvogado,
   Profile,
   TeseId,
+  UsuarioFormData,
 } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -68,10 +69,23 @@ export const COR_COLUNA: Partial<Record<AdvogadoStatus, string>> = {
 export function motivoParaRecusarMovimento(
   advogado: Advogado,
   destino: AdvogadoStatus,
+  ator: Profile,
 ): string | null {
   if (advogado.status === destino) return null;
 
   const depoisDaLiberacao: AdvogadoStatus[] = ['acesso_liberado', 'modelo_definido', 'ativo'];
+
+  /*
+   * ADV-R09 — liberar acesso não é mover cartão: é criar a conta que passa a
+   * enxergar telefone de cliente final. Por isso é a permissão nomeada que
+   * decide, e não o papel — a mesma permissão que a tela de usuários já
+   * descreve como "cria a conta do advogado depois da inscrição conferida".
+   * O ator é obrigatório na assinatura de propósito: parâmetro opcional aqui
+   * viraria uma chamada esquecida que libera acesso sem ninguém autorizado.
+   */
+  if (destino === 'acesso_liberado' && !ator.permissoes.includes('advogado:liberar_acesso')) {
+    return 'Liberar acesso exige a permissão "Liberar acesso de advogado" — é ela que cria a conta que passa a ver dado de cliente final.';
+  }
 
   if (depoisDaLiberacao.includes(destino) && !advogado.oabConferidaEm) {
     return 'Confira a inscrição na OAB antes de liberar acesso — sem isso, quem entra passa a ver dado pessoal de cliente final (INV-12).';
@@ -90,6 +104,32 @@ export function motivoParaRecusarMovimento(
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// ADV-R09 — a conta nasce da liberação
+// ---------------------------------------------------------------------------
+
+/**
+ * Os dados da conta de acesso do advogado, derivados da própria ficha.
+ *
+ * `INV-12` — advogado não se cadastra sozinho, e também não é cadastrado pelo
+ * painel de usuários: a conta é **consequência** da liberação, depois da
+ * inscrição conferida. Derivar de `Advogado` em vez de pedir os campos de novo
+ * é o que garante que a conta e a ficha falem da mesma pessoa; dois cadastros
+ * digitados em telas diferentes divergem no primeiro e-mail corrigido só de um
+ * lado, e aí ninguém sabe qual dos dois responde pelo acesso.
+ */
+export function contaDoAdvogado(advogado: Advogado): UsuarioFormData {
+  return {
+    nome: advogado.nome,
+    email: advogado.email,
+    role: 'advogado',
+    departamento: '',
+    // INV-05 — papel externo não herda permissão nomeada nenhuma. O que ele vê
+    // sai da matriz de acesso, e é sempre o próprio recorte.
+    permissoes: [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -174,10 +214,24 @@ export interface AdvogadoFormData {
   whatsapp: string;
   uf: string;
   teses: TeseId[];
+  /** Texto livre separado por vírgula. Vazio = o estado inteiro (`LED-R06`). */
+  cidades: string;
   porte: PorteEscritorio | '';
   potencialMensal: string;
   modeloPagamento: ModeloPagamento | '';
   responsavelId: string;
+}
+
+/**
+ * LED-R06 — as regiões que o advogado acompanha, a partir do que ele digitou.
+ *
+ * Campo vazio é resposta válida e significa **o estado inteiro**, não "nenhuma
+ * cidade": tratar vazio como lista restritiva faria o catálogo abrir zerado
+ * para todo advogado que não quis restringir região, e o sintoma seria uma
+ * tela vazia sem erro nenhum.
+ */
+export function cidadesDoTexto(texto: string): string[] {
+  return [...new Set(texto.split(',').map((c) => c.trim()).filter(Boolean))];
 }
 
 export type ErrosAdvogado = Partial<Record<keyof AdvogadoFormData, string>>;

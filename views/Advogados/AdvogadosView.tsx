@@ -10,6 +10,7 @@ import {
   COLUNAS,
   COR_COLUNA,
   DESFECHOS,
+  contaDoAdvogado,
   estaCongelado,
   motivoParaRecusarMovimento,
   prioridade,
@@ -30,8 +31,8 @@ import { TabelaAdvogados } from './TabelaAdvogados';
 
 export function AdvogadosView() {
   const { perfil } = useAuth();
-  const { advogados, mover, conferirOab } = useAdvogados();
-  const { usuarios } = useUsuarios();
+  const { advogados, mover, conferirOab, vincularUsuario } = useAdvogados();
+  const { usuarios, criarParaAdvogado } = useUsuarios();
 
   const [visao, setVisao] = useState<'kanban' | 'tabela'>('kanban');
   const [busca, setBusca] = useState('');
@@ -86,7 +87,7 @@ export function AdvogadosView() {
   const temFiltro = Boolean(busca || filtroResp || filtroTese);
 
   function tentarMover(advogado: Advogado, destino: AdvogadoStatus) {
-    const recusa = motivoParaRecusarMovimento(advogado, destino);
+    const recusa = motivoParaRecusarMovimento(advogado, destino, perfil);
     if (recusa) {
       setAviso({ texto: recusa, tom: 'erro' });
       return;
@@ -96,7 +97,29 @@ export function AdvogadosView() {
       return;
     }
     mover(advogado.id, destino);
-    setAviso({ texto: `${advogado.nome} → ${ADVOGADO_STATUS_LABEL[destino]}.` });
+
+    /*
+     * ADV-R09 / INV-12 — é aqui que a conta nasce, como consequência da
+     * liberação: a ficha passou pela qualificação e pela conferência da
+     * inscrição, e só então existe login. Enquanto isto não existia, o funil
+     * chegava a "acesso liberado" sem criar acesso nenhum — o advogado ficava
+     * cadastrado e sem aplicativo, e a falha era silenciosa.
+     *
+     * Uma conta já apontada para esta ficha é reaproveitada em vez de duplicada:
+     * duas contas para o mesmo advogado partem o histórico de compra em duas
+     * metades, e nenhuma delas responde sozinha por quem comprou o quê.
+     */
+    let complemento = '';
+    if (destino === 'acesso_liberado' && !advogado.usuarioId) {
+      const existente = usuarios.find((u) => u.advogado_id === advogado.id);
+      const conta = existente ?? criarParaAdvogado(contaDoAdvogado(advogado), advogado.id, perfil.id);
+      vincularUsuario(advogado.id, conta.id);
+      complemento = existente
+        ? ' Conta existente revinculada.'
+        : ` Conta criada para ${conta.email}, como convite pendente.`;
+    }
+
+    setAviso({ texto: `${advogado.nome} → ${ADVOGADO_STATUS_LABEL[destino]}.${complemento}` });
   }
 
   function soltarEm(destino: AdvogadoStatus) {
@@ -371,7 +394,7 @@ export function AdvogadosView() {
           colunas={COLUNAS}
           desfechos={DESFECHOS}
           rotulos={ADVOGADO_STATUS_LABEL}
-          motivoParaRecusar={(destino) => motivoParaRecusarMovimento(menu.advogado, destino)}
+          motivoParaRecusar={(destino) => motivoParaRecusarMovimento(menu.advogado, destino, perfil)}
           /*
             A conferência da inscrição não é movimento de etapa — é o ato que
             destrava a liberação de acesso (INV-12). Fica no topo do mesmo menu

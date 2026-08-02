@@ -8,6 +8,13 @@ const CHAVE = 'focus.usuarios.v1';
 interface UsuariosValue {
   usuarios: Usuario[];
   criar: (dados: UsuarioFormData, autorId: string) => Usuario;
+  /**
+   * INV-12 / ADV-R09 — a única porta por onde nasce conta de advogado, e ela
+   * fica no funil, depois da inscrição conferida. Existe separada de `criar`
+   * porque é o único caminho autorizado a preencher `advogado_id`, que é a
+   * chave de isolamento entre carteiras (`LED-R06`).
+   */
+  criarParaAdvogado: (dados: UsuarioFormData, advogadoId: string, autorId: string) => Usuario;
   atualizar: (id: string, dados: UsuarioFormData) => void;
   alterarStatus: (ids: string[], status: UserStatus) => void;
   restaurarSeed: () => void;
@@ -48,31 +55,55 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const montar = useCallback(
+    (dados: UsuarioFormData, autorId: string, advogadoId: string | null): Usuario => ({
+      id: `u-${crypto.randomUUID().slice(0, 8)}`,
+      nome: dados.nome.trim(),
+      email: dados.email.trim().toLowerCase(),
+      role: dados.role,
+      departamento: dados.departamento.trim() || null,
+      permissoes: [...dados.permissoes],
+      advogado_id: advogadoId,
+      avatar_iniciais: iniciais(dados.nome),
+      // ACC-R22 — conta nasce como convite pendente, nunca ativa. Só vira
+      // ativa quando a pessoa entra pela primeira vez.
+      status: 'convite_pendente',
+      criado_em: new Date().toISOString(),
+      criado_por: autorId,
+      ultimo_acesso: null,
+    }),
+    [],
+  );
+
   const criar = useCallback(
     (dados: UsuarioFormData, autorId: string): Usuario => {
-      const novo: Usuario = {
-        id: `u-${crypto.randomUUID().slice(0, 8)}`,
-        nome: dados.nome.trim(),
-        email: dados.email.trim().toLowerCase(),
-        role: dados.role,
-        departamento: dados.departamento.trim() || null,
-        permissoes: [...dados.permissoes],
-        // INV-12 — conta criada por aqui é sempre do time interno. Advogado
-        // não passa por este caminho; a conta dele nasce da liberação de
-        // acesso no funil, e é lá que `advogado_id` é preenchido.
-        advogado_id: null,
-        avatar_iniciais: iniciais(dados.nome),
-        // ACC-R22 — conta nasce como convite pendente, nunca ativa. Só vira
-        // ativa quando a pessoa entra pela primeira vez.
-        status: 'convite_pendente',
-        criado_em: new Date().toISOString(),
-        criado_por: autorId,
-        ultimo_acesso: null,
-      };
+      // INV-12 — conta criada por aqui é sempre do time interno. Advogado não
+      // passa por este caminho: a conta dele nasce da liberação de acesso no
+      // funil, por `criarParaAdvogado`, e é lá que `advogado_id` é preenchido.
+      const novo = montar(dados, autorId, null);
       aplicar((atual) => [novo, ...atual]);
       return novo;
     },
-    [aplicar],
+    [aplicar, montar],
+  );
+
+  const criarParaAdvogado = useCallback(
+    (dados: UsuarioFormData, advogadoId: string, autorId: string): Usuario => {
+      /*
+       * LED-R06 — `advogado_id` é a chave de isolamento entre carteiras, e é
+       * por isso que ele só é escrito aqui: gravá-lo pelo formulário genérico
+       * significaria que apontar uma conta qualquer para uma carteira qualquer
+       * seria questão de escolher um valor num campo.
+       *
+       * A conta nasce em convite pendente como qualquer outra (`ACC-R22`). O
+       * envio do convite depende de serviço externo e continua não existindo —
+       * está anotado como pendência, não simulado aqui.
+       */
+      const novo = montar({ ...dados, role: 'advogado' }, autorId, advogadoId);
+      aplicar((atual) => [novo, ...atual]);
+      return novo;
+    },
+    [aplicar, montar],
   );
 
   const atualizar = useCallback(
@@ -110,8 +141,8 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
   }, [aplicar]);
 
   const value = useMemo<UsuariosValue>(
-    () => ({ usuarios, criar, atualizar, alterarStatus, restaurarSeed }),
-    [usuarios, criar, atualizar, alterarStatus, restaurarSeed],
+    () => ({ usuarios, criar, criarParaAdvogado, atualizar, alterarStatus, restaurarSeed }),
+    [usuarios, criar, criarParaAdvogado, atualizar, alterarStatus, restaurarSeed],
   );
 
   return <UsuariosContext value={value}>{children}</UsuariosContext>;
