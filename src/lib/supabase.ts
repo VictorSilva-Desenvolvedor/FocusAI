@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/src/servicos/banco.types';
 
 /**
  * O cliente do navegador.
@@ -27,7 +28,12 @@ if (!url || !chavePublicavel) {
   );
 }
 
-export const supabase = createClient(url, chavePublicavel, {
+/**
+ * O genérico `Database` vem de `banco.types.ts`, gerado do schema real por
+ * `npm run tipos:banco`. É ele que faz coluna renomeada em migration virar erro
+ * de compilação aqui, em vez de `undefined` numa tela três semanas depois.
+ */
+export const supabase = createClient<Database>(url, chavePublicavel, {
   auth: {
     // INV-12 — não existe cadastro livre. A conta nasce de uma liberação que
     // passou pelo funil, com a inscrição da OAB conferida por alguém do time.
