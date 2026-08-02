@@ -72,7 +72,7 @@ App.tsx                          Rotas
 main.tsx                         Entrada
 types.ts                         Tipos de domínio (vocabulário canônico)
 src/
-  components/Layout/             Topbar (navegação) e shell
+  components/Layout/             Topbar (navegação), shell e guard de rota
   components/ui/                 Toast, MenuCartao, Campo
   components/Assistente/         Assistente interno
   contexts/AuthContext.tsx       Perfil ativo, permissões, departamento
@@ -128,8 +128,10 @@ semeados — que são fictícios.
 | `INV-11` | O telefone do cliente final só aparece depois da compra |
 | `LED-R01` | Não publica no catálogo sem os filtros da tese confirmados |
 | `LED-R02` | Não vende sem reunião agendada — é a hora marcada que o advogado compra |
-| `LED-R04` | Reserva é trava com prazo; expira sozinha e o lead volta ao catálogo |
+| `LED-R04` | Abrir a ficha no catálogo trava o lead; a trava expira sozinha |
 | `LED-R06` | O advogado só enxerga as próprias teses e região, mais o que comprou |
+| `LED-R07` | Quem encerra a reunião é quem comprou, e só depois da hora marcada |
+| `LED-R08` | A nota do lead vem do comprador — é o retorno que corrige a qualificação |
 
 ### Advogados — quem compra
 
@@ -140,6 +142,7 @@ semeados — que são fictícios.
 | `ADV-R03` | Sem tese e região definidas o painel abre vazio e o aviso nunca dispara |
 | `ADV-R04` | Prioridade P1/P2/P3 automática, sobrescrevível pelo gestor |
 | `ADV-R05` | Marcar como perdido ou recusado exige motivo escrito |
+| `ADV-R09` | A conta de acesso nasce da liberação, por quem tem a permissão |
 
 ### Teses — o que a IA apura
 
@@ -161,12 +164,14 @@ semeados — que são fictícios.
 | `CRE-R03` | O preço é congelado no lead ao publicar |
 | `CRE-R04` | Sem saldo o botão de comprar não é desenhado |
 | `CRE-R05` | Devolução exige motivo, repõe o crédito e não devolve o lead ao catálogo |
+| `CRE-R06` | Ajuste manual exige permissão e motivo — e não se disfarça de pagamento |
 
 ### Acesso
 
 | Regra | O que faz |
 | --- | --- |
 | `ACC-R02` | Criação é hierárquica. Conta de advogado nunca nasce por aqui |
+| `ACC-R07` | A rota é bloqueada, não só escondida do menu — o guard usa a mesma matriz |
 | `ACC-R03` | Ninguém edita nem desativa a própria conta pelo painel |
 | `ACC-R21` | Conta nunca é excluída, só desativada |
 | `ACC-R22` | Conta nasce como convite pendente e vira ativa no primeiro acesso |
@@ -203,10 +208,15 @@ não são renumerados: regra removida deixa o ID aposentado.
   advogados acesso a dados de possíveis clientes levanta questão de captação de
   clientela. Precisa de revisão por especialista em ética profissional **antes do
   lançamento comercial**. Não impede construir; impede lançar.
-- **Sem guard de rota** (`ACC-R07`): menu e painel filtram, a rota não. Pesa mais
-  agora que `advogado` é papel externo.
 - **Sem autenticação.** O seletor de perfil não é login.
-- **Convite não sai de verdade.** Falta o serviço de envio.
+- **Convite não sai de verdade.** A conta do advogado já nasce da liberação
+  (`ADV-R09`), mas o e-mail com o acesso depende de serviço de envio.
+- **Aviso de lead novo não sai.** Três telas prometem ao advogado que ele será
+  avisado; a integração de WhatsApp está marcada como não configurada e a
+  etapa aparece como pulada (`API-R10`). Falta o disparo.
+- **Compra de pacote não tem checkout.** Crédito só entra por confirmação de
+  pagamento (`INV-14`), e o provedor ainda não existe. O caminho interno é o
+  ajuste manual (`CRE-R06`).
 - **Sem paginação** nas listas de leads e advogados.
 - **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
   devolução de crédito.
