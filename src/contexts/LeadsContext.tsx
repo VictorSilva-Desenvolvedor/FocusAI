@@ -26,6 +26,8 @@ interface LeadsValue {
    */
   comprar: (id: string, advogadoId: string) => ResultadoCompra;
   devolver: (id: string, motivo: string) => void;
+  /** LED-R08 — nota do comprador depois da consulta. Refazer sobrescreve. */
+  avaliar: (id: string, nota: number, comentario: string) => void;
   restaurarSeed: () => void;
 }
 
@@ -108,6 +110,7 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
         ultimaAtividade: agora,
         motivoDesqualificacao: null,
         devolucao: null,
+        avaliacao: null,
       };
       aplicar((atual) => [novo, ...atual]);
       return novo;
@@ -258,6 +261,27 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
     [aplicar],
   );
 
+  const avaliar = useCallback(
+    (id: string, nota: number, comentario: string) => {
+      aplicar((atual) =>
+        atual.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                avaliacao: {
+                  nota,
+                  comentario: comentario.trim() || null,
+                  em: new Date().toISOString(),
+                },
+                ultimaAtividade: new Date().toISOString(),
+              }
+            : l,
+        ),
+      );
+    },
+    [aplicar],
+  );
+
   const restaurarSeed = useCallback(() => aplicar(() => LEADS_SEED), [aplicar]);
 
   const value = useMemo<LeadsValue>(
@@ -271,9 +295,22 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
       liberarReserva,
       comprar,
       devolver,
+      avaliar,
       restaurarSeed,
     }),
-    [leads, criar, mover, agendar, responderFiltro, reservar, liberarReserva, comprar, devolver, restaurarSeed],
+    [
+      leads,
+      criar,
+      mover,
+      agendar,
+      responderFiltro,
+      reservar,
+      liberarReserva,
+      comprar,
+      devolver,
+      avaliar,
+      restaurarSeed,
+    ],
   );
 
   return <LeadsContext value={value}>{children}</LeadsContext>;

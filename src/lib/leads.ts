@@ -251,6 +251,84 @@ export function podeComprar(lead: Lead, advogado: Advogado | null): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// LED-R07 — o desfecho da reunião
+// ---------------------------------------------------------------------------
+
+/**
+ * Quem encerra a reunião é quem esteve nela: o advogado que comprou.
+ *
+ * Sem este passo o produto não tem fim — o lead ficava em `vendido` para
+ * sempre, e a operação não tinha como distinguir a consulta que aconteceu da
+ * que o cliente não apareceu. É essa diferença que mede a qualidade do que a
+ * IA agendou, e é ela que separa devolução legítima de arrependimento.
+ *
+ * Só depois da hora marcada, de propósito: marcar "atendida" antes é registrar
+ * como acontecido algo que ainda não aconteceu, e o registro do que aconteceu
+ * com o cliente é justamente o que responde perante a OAB (`INV-13`).
+ */
+export function motivoParaNaoEncerrarReuniao(
+  lead: Lead,
+  advogado: Advogado | null,
+): string | null {
+  if (!advogado || lead.compradoPor !== advogado.id) {
+    return 'Só quem comprou o lead encerra a reunião.';
+  }
+  if (lead.devolucao) return 'Lead devolvido não tem reunião a encerrar.';
+  if (lead.status === 'atendido' || lead.status === 'no_show') {
+    return 'Esta reunião já foi encerrada.';
+  }
+  if (!lead.reuniaoEm) return 'Não há reunião marcada.';
+  if (Date.parse(lead.reuniaoEm) > Date.now()) {
+    return 'A reunião ainda não aconteceu — o desfecho é registrado depois da hora marcada.';
+  }
+  return null;
+}
+
+export function podeEncerrarReuniao(lead: Lead, advogado: Advogado | null): boolean {
+  return motivoParaNaoEncerrarReuniao(lead, advogado) === null;
+}
+
+// ---------------------------------------------------------------------------
+// LED-R08 — a avaliação do lead
+// ---------------------------------------------------------------------------
+
+export const NOTA_MINIMA = 1;
+export const NOTA_MAXIMA = 5;
+
+/**
+ * Avalia quem comprou, e só depois da consulta.
+ *
+ * Nota dada antes do encontro mede expectativa, não produto — e expectativa é
+ * exatamente o que a Focus já sabe, porque foi ela que escreveu o resumo. O
+ * dado que falta é o do outro lado: se o cliente que a IA qualificou era mesmo
+ * o caso descrito.
+ *
+ * Lead devolvido fica de fora porque já tem o próprio registro: o motivo da
+ * devolução diz mais do que uma nota diria.
+ */
+export function motivoParaNaoAvaliar(lead: Lead, advogado: Advogado | null): string | null {
+  if (!advogado || lead.compradoPor !== advogado.id) {
+    return 'Só quem comprou o lead avalia.';
+  }
+  if (lead.devolucao) return 'Lead devolvido já tem o motivo registrado.';
+  if (lead.status !== 'atendido' && lead.status !== 'no_show') {
+    return 'A avaliação abre depois que a reunião é encerrada.';
+  }
+  return null;
+}
+
+export function podeAvaliar(lead: Lead, advogado: Advogado | null): boolean {
+  return motivoParaNaoAvaliar(lead, advogado) === null;
+}
+
+/** Média das notas dadas. Nulo quando ninguém avaliou ainda. */
+export function mediaDasNotas(leads: Lead[]): number | null {
+  const notas = leads.map((l) => l.avaliacao?.nota).filter((n): n is number => typeof n === 'number');
+  if (notas.length === 0) return null;
+  return notas.reduce((s, n) => s + n, 0) / notas.length;
+}
+
+// ---------------------------------------------------------------------------
 // Cadastro manual
 // ---------------------------------------------------------------------------
 
