@@ -32,19 +32,42 @@ jobs:
       #
       # Antes do `npm ci` de propósito: erro de configuração não precisa esperar
       # a instalação e o build para aparecer.
+      # Também é aqui que os dois valores são resolvidos, uma vez só, e
+      # repassados aos passos seguintes por GITHUB_ENV. Repetir a expressão no
+      # passo de build convidaria as duas cópias a divergirem.
       - name: Conferir variáveis de publicação
         env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # `vars` é o lugar certo — `API-R01`: a chave é publicável, não
+          # segredo, e mascarar no log sugeriria o contrário. Mas a mesma tela
+          # do GitHub tem abas `Secrets` e `Variables` que criam coisas que não
+          # se enxergam, e uma publicação não deveria depender de qual aba
+          # alguém abriu. String vazia é falsa na expressão, então `vars` vence
+          # quando existe e `secrets` só entra como rede.
+          URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          CHAVE: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # Só as chaves destes dois são impressas, nunca os valores.
+          VARS_JSON: ${{ toJSON(vars) }}
+          SECRETS_JSON: ${{ toJSON(secrets) }}
         run: |
           faltando=
-          [ -n "$VITE_SUPABASE_URL" ] || faltando="$faltando VITE_SUPABASE_URL"
-          [ -n "$VITE_SUPABASE_PUBLISHABLE_KEY" ] || faltando="$faltando VITE_SUPABASE_PUBLISHABLE_KEY"
+          [ -n "$URL" ] || faltando="$faltando VITE_SUPABASE_URL"
+          [ -n "$CHAVE" ] || faltando="$faltando VITE_SUPABASE_PUBLISHABLE_KEY"
           if [ -n "$faltando" ]; then
-            echo "::error::Falta em Settings › Secrets and variables › Actions › Variables:$faltando"
-            echo "::error::Criadas como Secret em vez de Variable? \`vars.\` não enxerga Secret."
+            echo "::error::Falta, em vars e em secrets:$faltando"
+            echo "Nomes que este job enxerga em vars:"
+            echo "$VARS_JSON" | jq -r 'keys[]' | sed 's/^/  - /'
+            echo "Nomes que este job enxerga em secrets:"
+            echo "$SECRETS_JSON" | jq -r 'keys[]' | sed 's/^/  - /'
+            echo "Não aparecendo em nenhuma das duas listas, foram criadas fora"
+            echo "do alcance deste job: em Codespaces ou Dependabot (menus"
+            echo "vizinhos, cada um com sua própria aba Variables), dentro de um"
+            echo "Environment, ou noutro repositório."
             exit 1
           fi
+          {
+            echo "VITE_SUPABASE_URL=$URL"
+            echo "VITE_SUPABASE_PUBLISHABLE_KEY=$CHAVE"
+          } >> "$GITHUB_ENV"
 
       # Lê a versão de .node-version — a mesma da máquina de desenvolvimento.
       # Node antigo quebra no `tsc -b` com erro de sintaxe difícil de ler.
@@ -70,15 +93,10 @@ jobs:
       # `src/lib/supabase.ts` vira um `throw` incondicional depois da
       # minificação — a página publicada abre em branco (API-R10).
       #
-      # Entram como `vars` e não como `secrets` porque é exatamente o que
-      # `API-R01` descreve: só a chave publicável passa por aqui, feita para ser
-      # lida por qualquer visitante do site. Mascarar no log daria a impressão
-      # errada de que há segredo em jogo.
+      # Elas chegam por GITHUB_ENV, do passo de conferência: se o job chegou até
+      # aqui, as duas existem.
       - name: Construir
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
