@@ -42,8 +42,21 @@ jobs:
       - name: Verificar tipos
         run: npm run typecheck
 
+      # As duas variáveis são embutidas no pacote aqui, e não no Cloudflare: o
+      # projeto é Direct Upload, então o painel do Pages nunca vê este build e
+      # variável configurada lá não tem efeito nenhum. Faltando, o guard de
+      # `src/lib/supabase.ts` vira um `throw` incondicional depois da
+      # minificação — a página publicada abre em branco.
+      #
+      # Entram como `vars` e não como `secrets` porque é exatamente o que
+      # `API-R01` descreve: só a chave publicável passa por aqui, feita para ser
+      # lida por qualquer visitante do site. Mascarar no log daria a impressão
+      # errada de que há segredo em jogo.
       - name: Construir
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
