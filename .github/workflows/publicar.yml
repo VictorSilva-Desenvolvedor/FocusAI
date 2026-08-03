@@ -24,6 +24,28 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # API-R10 — configuração ausente não pode virar silêncio. Sem esta
+      # conferência o build termina verde e publica uma página em branco: o
+      # guard de `src/lib/supabase.ts` vira `throw` incondicional depois da
+      # minificação e o React nunca monta. Falhar aqui troca "site branco em
+      # produção, sem aviso" por "deploy vermelho, com o nome do que falta".
+      #
+      # Antes do `npm ci` de propósito: erro de configuração não precisa esperar
+      # a instalação e o build para aparecer.
+      - name: Conferir variáveis de publicação
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          faltando=
+          [ -n "$VITE_SUPABASE_URL" ] || faltando="$faltando VITE_SUPABASE_URL"
+          [ -n "$VITE_SUPABASE_PUBLISHABLE_KEY" ] || faltando="$faltando VITE_SUPABASE_PUBLISHABLE_KEY"
+          if [ -n "$faltando" ]; then
+            echo "::error::Falta em Settings › Secrets and variables › Actions › Variables:$faltando"
+            echo "::error::Criadas como Secret em vez de Variable? \`vars.\` não enxerga Secret."
+            exit 1
+          fi
+
       # Lê a versão de .node-version — a mesma da máquina de desenvolvimento.
       # Node antigo quebra no `tsc -b` com erro de sintaxe difícil de ler.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -42,8 +64,21 @@ jobs:
       - name: Verificar tipos
         run: npm run typecheck
 
+      # As duas variáveis são embutidas no pacote aqui, e não no Cloudflare: o
+      # projeto é Direct Upload, então o painel do Pages nunca vê este build e
+      # as variáveis configuradas lá não têm efeito nenhum. Faltando, o guard de
+      # `src/lib/supabase.ts` vira um `throw` incondicional depois da
+      # minificação — a página publicada abre em branco (API-R10).
+      #
+      # Entram como `vars` e não como `secrets` porque é exatamente o que
+      # `API-R01` descreve: só a chave publicável passa por aqui, feita para ser
+      # lida por qualquer visitante do site. Mascarar no log daria a impressão
+      # errada de que há segredo em jogo.
       - name: Construir
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
