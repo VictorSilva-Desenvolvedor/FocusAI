@@ -1,4 +1,4 @@
-import type { Campanha, Integracao, Ligacao, Parecer } from '@/types';
+import type { Campanha, Ligacao, Parecer } from '@/types';
 
 const horas = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 const dias = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
@@ -199,56 +199,5 @@ export const PARECERES_SEED: Parecer[] = [
     enviadoEm: dias(3),
     observacao:
       'A página pedia número do contrato bancário. Campo removido: o sistema não guarda dado bancário do cliente final (INV-17).',
-  },
-];
-
-/** Integrações e a saúde de cada uma. */
-export const INTEGRACOES_SEED: Integracao[] = [
-  {
-    id: 'int-voz',
-    nome: 'Ferramenta de voz (SDR de IA)',
-    papel: 'Liga, conduz o roteiro da tese e devolve o resultado da qualificação',
-    estado: 'ok',
-    ultimoEvento: horas(0.2),
-    temReconciliacao: true,
-    detalhe: 'Entrega única por evento — a rotina de reconciliação roda a cada 15 min.',
-  },
-  {
-    id: 'int-meta',
-    nome: 'Meta Ads',
-    papel: 'Recebe o formulário preenchido e devolve gasto e desempenho por campanha',
-    estado: 'ok',
-    ultimoEvento: horas(0.5),
-    temReconciliacao: true,
-    detalhe: 'Sincronização do gasto do dia anterior às 06h.',
-  },
-  {
-    id: 'int-agenda',
-    nome: 'Agenda de reuniões',
-    papel: 'Marca o horário da consulta e devolve confirmação e falta',
-    estado: 'atencao',
-    ultimoEvento: horas(4),
-    temReconciliacao: false,
-    detalhe:
-      'Sem rotina de reconciliação: evento perdido é agendamento perdido, e ninguém fica sabendo (API-R12).',
-  },
-  {
-    id: 'int-pagamento',
-    nome: 'Pagamento de créditos',
-    papel: 'Confirma o pagamento do pacote — é o único gatilho que credita (INV-14)',
-    estado: 'ok',
-    ultimoEvento: horas(6),
-    temReconciliacao: true,
-    detalhe: 'Webhook idempotente por (identificador, tipo de evento).',
-  },
-  {
-    id: 'int-whatsapp',
-    nome: 'WhatsApp',
-    papel: 'Avisa o advogado quando entra lead novo na tese e região que ele segue',
-    estado: 'nao_configurada',
-    ultimoEvento: null,
-    temReconciliacao: false,
-    detalhe:
-      'Chave ausente. A etapa está sendo pulada e o aviso não sai — a falha aparece aqui em vez de virar silêncio (API-R10).',
   },
 ];

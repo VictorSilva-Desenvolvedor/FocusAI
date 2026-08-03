@@ -576,38 +576,74 @@ export interface Ligacao {
 // Integrações
 // ---------------------------------------------------------------------------
 
-export type EstadoIntegracao = 'ok' | 'atencao' | 'erro' | 'nao_configurada';
+/**
+ * A frente que a integração serve: um dos quatro elos da cadeia, ou a
+ * plataforma que sustenta os quatro (sessão, banco, publicação).
+ */
+export type FrenteIntegracao = EloDaCadeia | 'plataforma';
 
-export const ESTADO_INTEGRACAO_LABEL: Record<EstadoIntegracao, string> = {
-  ok: 'Operando',
-  atencao: 'Instável',
-  erro: 'Falhando',
-  nao_configurada: 'Não configurada',
+export const FRENTE_INTEGRACAO_LABEL: Record<FrenteIntegracao, string> = {
+  plataforma: 'Plataforma',
+  captar: 'Captar',
+  qualificar: 'Qualificar',
+  agendar: 'Agendar',
+  entregar: 'Entregar',
 };
 
-export interface Integracao {
+/**
+ * Integração que **já opera**: tem código neste repositório e um caminho de
+ * verificação que qualquer um roda.
+ *
+ * Não há telemetria de último evento aqui de propósito. Carimbo de horário que
+ * ninguém mede é dado inventado, e integração é justamente a tela onde dado
+ * inventado engana quem precisa decidir se pode confiar na etapa.
+ */
+export interface IntegracaoAtiva {
   id: string;
   nome: string;
+  /** O que ela faz pelo sistema, em uma frase. */
   papel: string;
-  estado: EstadoIntegracao;
-  /** ISO ou nulo se nunca houve evento. */
-  ultimoEvento: string | null;
-  /**
-   * API-R12 — provedor que não reenvia em falha precisa de rotina que confira o
-   * que ficou para trás. Sem isso, evento perdido é dado perdido.
-   */
-  temReconciliacao: boolean;
-  /** API-R10 — etapa pulada por falta de configuração tem que aparecer. */
-  detalhe: string;
+  /** Onde o código dela vive. */
+  onde: string;
+  /** Como se confere que continua de pé. */
+  verificacao: string;
+  /** IDs das regras que ela carrega. */
+  regras: string[];
+}
+
+/**
+ * Integração que o sistema **ainda não tem**.
+ *
+ * `API-R10` — configuração ausente não pode virar silêncio. A lista existe para
+ * que etapa que não acontece apareça em algum lugar, em vez de sumir sem erro.
+ */
+export interface IntegracaoPendente {
+  id: string;
+  nome: string;
+  frente: FrenteIntegracao;
+  /** O que ela vai fazer quando existir. */
+  papel: string;
+  /** O que não acontece enquanto ela não existir. */
+  semEla: string;
+  /** IDs das regras que ela vai carregar desde o primeiro commit. */
+  regras: string[];
 }
 
 // ---------------------------------------------------------------------------
 // Painel de entrada
 // ---------------------------------------------------------------------------
 
+/**
+ * As quatro máquinas encadeadas do produto.
+ *
+ * Vocabulário compartilhado: o painel usa para os cards da cadeia, e as
+ * integrações usam para dizer qual elo cada uma serve.
+ */
+export type EloDaCadeia = 'captar' | 'qualificar' | 'agendar' | 'entregar';
+
 /** Um estágio da cadeia: captar → qualificar → agendar → entregar. */
 export interface EtapaCadeia {
-  id: 'captar' | 'qualificar' | 'agendar' | 'entregar';
+  id: EloDaCadeia;
   titulo: string;
   descricao: string;
   valor: string;

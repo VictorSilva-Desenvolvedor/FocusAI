@@ -395,16 +395,6 @@ export const TRABALHO_HOJE: ChipTrabalhoHoje[] = [
   },
 ];
 
-/** Pareceres de conformidade sob o Provimento 205. */
-export const ROTINAS = [
-  { horario: 'a cada 1 min', nome: 'Fila de ligações da SDR de voz', estado: 'ok' as const },
-  { horario: 'a cada 2 min', nome: 'Expiração de reserva de lead', estado: 'ok' as const },
-  { horario: 'a cada 10 min', nome: 'Aviso de lead novo por tese e região', estado: 'atencao' as const },
-  { horario: 'a cada 15 min', nome: 'Reconciliação de eventos da ferramenta de voz', estado: 'ok' as const },
-  { horario: '06h00', nome: 'Sincronização do gasto de anúncio de ontem', estado: 'ok' as const },
-  { horario: '12h00', nome: 'Leads agendados sem comprador em 48h', estado: 'ok' as const },
-];
-
 export const ALERTAS: AlertaOperacional[] = [
   {
     id: 'a1',

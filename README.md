@@ -126,6 +126,7 @@ src/
   lib/teses.ts                   As três teses e seus filtros de elegibilidade
   lib/creditos.ts                Pacotes, saldo, devolução, receita
   lib/qualificacao.ts            SDR de voz: taxa, gravação, deduplicação
+  lib/integracoes.ts             Inventário real: o que opera e o que falta ligar
   lib/estilo.ts                  Tom → classe completa
   lib/identificador.ts           Slug estável para os dados semeados
   lib/format.ts                  Datas e tempo relativo

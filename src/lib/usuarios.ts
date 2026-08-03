@@ -150,7 +150,7 @@ export const PERMISSAO_LABEL: Record<NamedPermission, { rotulo: string; efeito: 
   },
   'modulo:integracoes': {
     rotulo: 'Módulo Integrações',
-    efeito: 'Libera a saúde das integrações de voz, anúncio, pagamento e WhatsApp',
+    efeito: 'Libera o inventário de integrações: o que já opera e o que falta ligar',
   },
   'tese:definir_preco': {
     rotulo: 'Definir preço da tese',
