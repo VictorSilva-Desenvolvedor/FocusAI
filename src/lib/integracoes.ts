@@ -1,4 +1,4 @@
-import type { IntegracaoAtiva, IntegracaoPendente } from '@/types';
+import type { FrenteIntegracao, IntegracaoAtiva, IntegracaoPendente } from '@/types';
 
 /**
  * O inventário das integrações.
@@ -55,22 +55,87 @@ export const INTEGRACOES_ATIVAS: IntegracaoAtiva[] = [
 
 /**
  * O que falta ligar, na ordem da cadeia: captar → qualificar → agendar →
- * entregar. `plataforma` vem primeiro porque as quatro dependem dela.
+ * entregar. `plataforma` vem primeiro porque as quatro dependem dela — e é
+ * onde estava o buraco maior da versão anterior desta lista, que só enxergava
+ * os serviços de ponta e ignorava o encanamento que os conecta.
  */
 export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
   {
     id: 'banco-telas',
     nome: 'Banco como fonte dos dados de tela',
     frente: 'plataforma',
+    dependencia: 'codigo_proprio',
     papel: 'Leads, advogados, créditos e usuários lidos do Postgres em vez do navegador',
     semEla:
-      'As migrations e a camada de leitura já existem, mas os quatro contextos ainda leem localStorage: limpar a chave do navegador restaura os dados semeados, e dois computadores nunca veem o mesmo catálogo.',
-    regras: ['API-R06', 'API-R07'],
+      'As migrations, as políticas e as funções transacionais já existem — comprar, reservar, devolver —, mas os quatro contextos ainda leem localStorage. Limpar a chave do navegador restaura os dados semeados, e dois computadores nunca veem o mesmo catálogo.',
+    regras: ['API-R06', 'API-R07', 'API-R08'],
+  },
+  {
+    id: 'funcoes-de-borda',
+    nome: 'Funções de borda',
+    frente: 'plataforma',
+    dependencia: 'codigo_proprio',
+    papel: 'Executa o que exige segredo de servidor — criar conta, receber webhook, falar com API paga',
+    semEla:
+      'Não há onde guardar chave nenhuma: no navegador só existe a chave publicável, e toda variável com prefixo VITE_ entra no pacote. Metade das integrações abaixo não tem onde morar até esta existir. Quem usa privilégio elevado reimplementa o isolamento sozinha — a política do banco não vale para ela.',
+    regras: ['API-R01', 'API-R03', 'API-R04', 'INV-12'],
+  },
+  {
+    id: 'n8n',
+    nome: 'n8n — orquestrador de automações',
+    frente: 'plataforma',
+    dependencia: 'servico_externo',
+    papel:
+      'Amarra os fluxos entre terceiros: evento de voz no banco, gasto de anúncio na campanha, lead novo no aviso',
+    semEla:
+      'Cada integração vira código de encanamento próprio, refeito uma vez por serviço. É também onde vive o que exige IP fixo, que função de borda não entrega. Nasce com dívida declarada: fluxo que só existe dentro da ferramenta é lógica de negócio fora do repositório, sem revisão e sem histórico — ou versiona a exportação, ou registra que é dívida.',
+    regras: ['API-R16', 'API-R11'],
+  },
+  {
+    id: 'agendador',
+    nome: 'Agendador de rotinas',
+    frente: 'plataforma',
+    dependencia: 'codigo_proprio',
+    papel: 'Roda sozinho o que ninguém aciona: reconciliação, expiração de reserva, varredura de pendência',
+    semEla:
+      'Reserva de lead expira só na leitura — o cálculo é contra o relógio a cada render, e trava órfã fica no armazenamento para sempre. Nenhuma reconciliação roda, então evento perdido continua perdido. É a rotina que a versão anterior desta tela mostrava como existente.',
+    regras: ['LED-R04', 'API-R12'],
+  },
+  {
+    id: 'tempo-real',
+    nome: 'Assinatura ao vivo do catálogo',
+    frente: 'plataforma',
+    dependencia: 'codigo_proprio',
+    papel: 'O catálogo do advogado muda na tela quando um lead é comprado por outro',
+    semEla:
+      'Dois advogados olham o mesmo lead disponível até alguém recarregar; a compra do segundo falha na função do banco, como deve, mas depois de ele decidir comprar. O filtro de tempo real só aceita igualdade simples, então filtro composto escuta amplo e refina no cliente, com agrupamento de eventos — e há teto por segundo.',
+    regras: ['API-R09', 'INV-10'],
+  },
+  {
+    id: 'observabilidade',
+    nome: 'Registro de erro e monitoramento',
+    frente: 'plataforma',
+    dependencia: 'servico_externo',
+    papel: 'Guarda o detalhe técnico da falha que o usuário nunca deveria ler',
+    semEla:
+      'Erro tem mensagem para o usuário e detalhe no log — e hoje não existe log. Webhook que falha, fluxo que engole erro e etapa pulada por falta de chave não deixam rastro em lugar nenhum, então a primeira notícia de que algo quebrou vem de quem reclama.',
+    regras: ['API-R11', 'API-R10'],
+  },
+  {
+    id: 'modelo-assistente',
+    nome: 'Modelo de IA do assistente interno',
+    frente: 'plataforma',
+    dependencia: 'servico_externo',
+    papel: 'Responde sobre a operação da Focus a partir de consultas pré-definidas e pré-agregadas',
+    semEla:
+      'O botão do assistente existe na barra e não abre nada. Quando abrir, a chave fica na função de borda e a consulta nunca é livre: pergunta em texto virando SQL cruzaria carteira de advogados diferentes, que é justamente o que o assistente não pode fazer. Serviço pago nasce com cache, teto e registro de custo por uso.',
+    regras: ['INV-06', 'ASS-R02', 'API-R01'],
   },
   {
     id: 'meta-ads',
     nome: 'Meta Ads',
     frente: 'captar',
+    dependencia: 'servico_externo',
     papel: 'Recebe o formulário preenchido e devolve gasto e desempenho por campanha',
     semEla:
       'Nenhum lead entra sozinho e o custo por lead qualificado é digitado à mão — que é justamente o número que decide se a campanha continua no ar.',
@@ -80,6 +145,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'google-ads',
     nome: 'Google Ads',
     frente: 'captar',
+    dependencia: 'servico_externo',
     papel: 'Segunda fonte de captação, para quem já procura a solução em vez de descobri-la no feed',
     semEla: 'A captação fica presa a uma plataforma só, com o risco de conta que isso carrega.',
     regras: ['API-R13'],
@@ -88,6 +154,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'voz',
     nome: 'Ferramenta de voz (SDR de IA)',
     frente: 'qualificar',
+    dependencia: 'servico_externo',
     papel: 'Liga, conduz o roteiro da tese e devolve o resultado da qualificação',
     semEla:
       'É a máquina do meio: sem ela não existe lead qualificado, e lead qualificado é o produto que o advogado compra. Nasce com deduplicação por (identificador, tipo de evento) — evento repetido vira segunda tentativa e o lead é descartado por excesso — e com a reconciliação junto.',
@@ -97,6 +164,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'gravacao',
     nome: 'Armazenamento privado da gravação',
     frente: 'qualificar',
+    dependencia: 'codigo_proprio',
     papel: 'Guarda o áudio da qualificação em balde privado, servido por URL assinada',
     semEla:
       'Não há como provar como o cliente foi direcionado, que é o que responde perante a OAB. Balde público serve URL permanente para quem tiver o endereço: gravação de qualificação não vai para lá.',
@@ -106,6 +174,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'agenda',
     nome: 'Agenda de reuniões',
     frente: 'agendar',
+    dependencia: 'servico_externo',
     papel: 'Marca o horário da consulta e devolve confirmação, remarcação e falta',
     semEla:
       'O terceiro elo da cadeia não fecha. Como o provedor não reenvia evento perdido, a rotina de reconciliação entra no mesmo commit — senão a reunião agendada some do painel e ninguém fica sabendo até o advogado reclamar.',
@@ -115,6 +184,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'pagamento',
     nome: 'Provedor de pagamento',
     frente: 'entregar',
+    dependencia: 'servico_externo',
     papel: 'Confirma o pagamento do pacote — é o único gatilho que credita',
     semEla:
       'O botão de comprar pacote está desabilitado de propósito. O caminho interno para destravar alguém é o ajuste manual, que exige permissão e motivo e aparece no extrato como tal; baixa manual não credita.',
@@ -124,6 +194,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'whatsapp',
     nome: 'WhatsApp',
     frente: 'entregar',
+    dependencia: 'servico_externo',
     papel: 'Avisa o advogado quando entra lead novo na tese e região que ele segue',
     semEla:
       'O painel do advogado promete o aviso em três lugares e ele não sai. A etapa aparece aqui exatamente por isso: chave vazia que faz a chamada ser pulada some sem erro, sem aviso ao usuário e sem registro de que algo foi ignorado.',
@@ -133,9 +204,32 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     id: 'email',
     nome: 'E-mail transacional',
     frente: 'entregar',
+    dependencia: 'servico_externo',
     papel: 'Leva o convite de acesso ao advogado liberado e o link de recuperação de senha',
     semEla:
       'A conta já nasce da liberação de acesso, mas o e-mail com o acesso não sai: hoje conta se cria por script, e trocar senha é pelo painel do provedor.',
     regras: ['ADV-R09', 'INV-12'],
   },
 ];
+
+/** A ordem em que as frentes são lidas: a plataforma sustenta os quatro elos. */
+const ORDEM_DAS_FRENTES: FrenteIntegracao[] = [
+  'plataforma',
+  'captar',
+  'qualificar',
+  'agendar',
+  'entregar',
+];
+
+/**
+ * Agrupa as pendentes por frente, na ordem da cadeia.
+ *
+ * Frente sem pendência nenhuma não vira grupo vazio — quando a última cair, o
+ * título dela some junto em vez de virar uma seção órfã na tela.
+ */
+export function pendentesPorFrente(): { frente: FrenteIntegracao; itens: IntegracaoPendente[] }[] {
+  return ORDEM_DAS_FRENTES.map((frente) => ({
+    frente,
+    itens: INTEGRACOES_PENDENTES.filter((integracao) => integracao.frente === frente),
+  })).filter((grupo) => grupo.itens.length > 0);
+}

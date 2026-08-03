@@ -1,21 +1,26 @@
 import { CheckCircle2, FileCode2, PlugZap, ShieldCheck, Unplug } from 'lucide-react';
 import { ESTILO_BLOCO, ESTILO_ETIQUETA, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
-import { INTEGRACOES_ATIVAS, INTEGRACOES_PENDENTES } from '@/src/lib/integracoes';
-import { FRENTE_INTEGRACAO_LABEL, type FrenteIntegracao } from '@/types';
+import { INTEGRACOES_ATIVAS, INTEGRACOES_PENDENTES, pendentesPorFrente } from '@/src/lib/integracoes';
+import {
+  DEPENDENCIA_INTEGRACAO_LABEL,
+  FRENTE_INTEGRACAO_LABEL,
+  type DependenciaIntegracao,
+} from '@/types';
 
 /**
- * A plataforma sustenta os quatro elos, então fica em roxo de destaque; os
- * elos da cadeia usam tom neutro para não sugerir gravidade diferente entre si.
+ * O que espera terceiro fica em `info`; o que é código nosso fica em `marca`.
+ * A distinção responde a pergunta que a lista existe para responder — o que já
+ * pode começar hoje — e nenhum dos dois usa tom de erro: pendência prevista não
+ * é falha.
  */
-const TOM_FRENTE: Record<FrenteIntegracao, Tom> = {
-  plataforma: 'marca',
-  captar: 'neutro',
-  qualificar: 'neutro',
-  agendar: 'neutro',
-  entregar: 'neutro',
+const TOM_DEPENDENCIA: Record<DependenciaIntegracao, Tom> = {
+  servico_externo: 'info',
+  codigo_proprio: 'marca',
 };
 
 export function IntegracoesView() {
+  const proprias = INTEGRACOES_PENDENTES.filter((i) => i.dependencia === 'codigo_proprio').length;
+
   return (
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24 space-y-6 animate-entrada-suave">
       <div>
@@ -44,7 +49,8 @@ export function IntegracoesView() {
               Só entra na lista de cima o que tem código neste repositório e um comando que
               verifique. Etapa pulada por falta de configuração some sem erro, sem aviso ao usuário
               e sem registro de que algo foi ignorado — a lista de baixo existe para que ela não
-              suma.
+              suma. Dessas, {proprias} não esperam terceiro nenhum: são código nosso, e já podem
+              começar hoje.
             </p>
           </div>
         </div>
@@ -84,39 +90,52 @@ export function IntegracoesView() {
         </div>
       </section>
 
-      <section>
-        <div className="flex items-center gap-2 mb-1">
-          <Unplug className={`size-4 ${ESTILO_TEXTO.atencao}`} />
-          <h2 className="card-title">Falta ligar</h2>
+      <section className="space-y-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Unplug className={`size-4 ${ESTILO_TEXTO.atencao}`} />
+            <h2 className="card-title">Falta ligar</h2>
+          </div>
+          <p className="nota">
+            Na ordem da cadeia: captar → qualificar → agendar → entregar. A plataforma vem antes
+            porque as quatro dependem dela — é o encanamento entre os serviços, e é onde falta mais
+            coisa.
+          </p>
         </div>
-        <p className="nota mb-3">
-          Na ordem da cadeia: captar → qualificar → agendar → entregar. A plataforma vem antes
-          porque as quatro dependem dela.
-        </p>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {INTEGRACOES_PENDENTES.map((integracao) => (
-            <article key={integracao.id} className="card p-4 flex flex-col">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <h3 className="card-title">{integracao.nome}</h3>
-                  <p className="nota mt-1 leading-snug">{integracao.papel}</p>
-                </div>
-                <span
-                  className={`etiqueta shrink-0 ${ESTILO_ETIQUETA[TOM_FRENTE[integracao.frente]]}`}
-                >
-                  {FRENTE_INTEGRACAO_LABEL[integracao.frente]}
-                </span>
-              </div>
+        {pendentesPorFrente().map(({ frente, itens }) => (
+          <div key={frente}>
+            <div className="flex items-baseline gap-2 mb-2">
+              <h3 className="label-eyebrow">{FRENTE_INTEGRACAO_LABEL[frente]}</h3>
+              <span className="nota tabular">{itens.length}</span>
+              <span className="flex-1 h-px bg-stone-200" />
+            </div>
 
-              <p className="text-[12px] text-stone-600 leading-snug mt-3 pt-3 border-t border-stone-100 flex-1">
-                {integracao.semEla}
-              </p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {itens.map((integracao) => (
+                <article key={integracao.id} className="card p-4 flex flex-col">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="card-title">{integracao.nome}</h4>
+                      <p className="nota mt-1 leading-snug">{integracao.papel}</p>
+                    </div>
+                    <span
+                      className={`etiqueta shrink-0 ${ESTILO_ETIQUETA[TOM_DEPENDENCIA[integracao.dependencia]]}`}
+                    >
+                      {DEPENDENCIA_INTEGRACAO_LABEL[integracao.dependencia]}
+                    </span>
+                  </div>
 
-              <Regras ids={integracao.regras} />
-            </article>
-          ))}
-        </div>
+                  <p className="text-[12px] text-stone-600 leading-snug mt-3 pt-3 border-t border-stone-100 flex-1">
+                    {integracao.semEla}
+                  </p>
+
+                  <Regras ids={integracao.regras} />
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="card p-5">

@@ -612,6 +612,21 @@ export interface IntegracaoAtiva {
 }
 
 /**
+ * O que destrava a integração — a pergunta prática de quem lê a lista.
+ *
+ * `servico_externo` espera decisão de fora do repositório: contratar, criar
+ * conta, pegar chave. `codigo_proprio` é trabalho que já pode começar hoje.
+ * Misturar os dois numa lista só faz o que depende de nós parecer bloqueado
+ * por terceiro, que é a leitura mais cara possível de uma lista de pendência.
+ */
+export type DependenciaIntegracao = 'servico_externo' | 'codigo_proprio';
+
+export const DEPENDENCIA_INTEGRACAO_LABEL: Record<DependenciaIntegracao, string> = {
+  servico_externo: 'Serviço externo',
+  codigo_proprio: 'Código nosso',
+};
+
+/**
  * Integração que o sistema **ainda não tem**.
  *
  * `API-R10` — configuração ausente não pode virar silêncio. A lista existe para
@@ -621,6 +636,7 @@ export interface IntegracaoPendente {
   id: string;
   nome: string;
   frente: FrenteIntegracao;
+  dependencia: DependenciaIntegracao;
   /** O que ela vai fazer quando existir. */
   papel: string;
   /** O que não acontece enquanto ela não existir. */
