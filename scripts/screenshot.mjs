@@ -17,7 +17,7 @@
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { entrar, CONTA_PADRAO } from './entrar.mjs';
+import { entrar, CONTA_PADRAO, BASE } from './entrar.mjs';
 
 const args = process.argv.slice(2);
 const flag = (nome, padrao) => {
@@ -28,7 +28,7 @@ const flag = (nome, padrao) => {
 const rota = args.find((a) => a.startsWith('/')) ?? '/';
 const mobile = args.includes('--mobile');
 const perfil = flag('perfil', null);
-const baseUrl = flag('url', 'http://localhost:5173');
+const baseUrl = BASE;
 const saida = path.resolve('.screenshots', flag('out', mobile ? 'mobile.png' : 'desktop.png'));
 
 const largura = Number(flag('largura', mobile ? 420 : 1440));
