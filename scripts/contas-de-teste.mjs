@@ -301,4 +301,4 @@ for (const conta of CONTAS) {
 }
 
 console.log(`\n${criadas} criada(s), ${atualizadas} atualizada(s), ${CONTAS.length} no total.`);
-console.log('As senhas estão em .secrets/supabase.env.');
+console.log(`As senhas estão em ${ARQUIVO}.`);

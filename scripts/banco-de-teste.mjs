@@ -45,7 +45,7 @@
  * Depois: `npm run dev:teste` num terminal e `npm run smoke` no outro.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, renameSync, mkdirSync, rmSync } from 'node:fs';
 import { lerSegredos, exigir } from './segredos.mjs';
 
 const ARQUIVO = '.secrets/supabase-teste.env';
@@ -80,11 +80,32 @@ if (trabalho && trabalho === env.SUPABASE_URL) {
   process.exit(1);
 }
 
-const migrations = readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql')).sort();
+/*
+ * Migration que se declara `NÃO APLICADA` fica de fora.
+ *
+ * O caso real foi a 0009: ela remove `closer` e `sdr` do enum de papéis e exige
+ * passos manuais antes — decidir o destino de quem ainda usa os dois, apagar as
+ * contas correspondentes. O cabeçalho dela avisa isso em maiúsculas, e aplicá-la
+ * às cegas derrubou o push inteiro.
+ *
+ * Manter o mesmo recorte da produção também é o ponto: o banco de teste só vale
+ * como teste se tiver o esquema que o outro tem. Aplicar aqui uma migration que
+ * lá não rodou faria o smoke passar sobre um banco que ninguém opera.
+ */
+const todas = readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql')).sort();
+const adiadas = todas.filter((f) =>
+  readFileSync(`supabase/migrations/${f}`, 'utf8').slice(0, 1200).includes('NÃO APLICADA'),
+);
+const migrations = todas.filter((f) => !adiadas.includes(f));
+
 console.log(`Projeto de teste : ${env.SUPABASE_URL}`);
 console.log(`Projeto de trabalho: ${trabalho ?? '(não configurado)'}`);
 console.log(`Migrations a aplicar: ${migrations.length}`);
 for (const m of migrations) console.log(`  · ${m}`);
+if (adiadas.length) {
+  console.log(`\nAdiadas por se declararem NÃO APLICADA: ${adiadas.length}`);
+  for (const m of adiadas) console.log(`  · ${m}`);
+}
 
 if (!valer) {
   console.log('\nEnsaio. Nada foi escrito. Rode com --valer para aplicar.');
@@ -95,12 +116,31 @@ if (!valer) {
  * A CLI do Supabase entra por `npx -y`, sem virar dependência do projeto: ela é
  * ferramenta de operação, não código que o pacote publicado precisa.
  */
+/*
+ * `supabase db push` não sabe pular arquivo, então as adiadas saem da pasta pelo
+ * tempo do comando e voltam no `finally` — inclusive se o push falhar ou o
+ * processo for interrompido. Deixá-las fora seria pior que não ter começado.
+ */
+const ABRIGO = 'supabase/.adiadas';
 console.log('\nAplicando as migrations…');
-const push = spawnSync(
-  'npx',
-  ['-y', 'supabase@latest', 'db', 'push', '--db-url', env.SUPABASE_DB_URL, '--include-all'],
-  { stdio: 'inherit', shell: true },
-);
+let push;
+try {
+  if (adiadas.length) {
+    mkdirSync(ABRIGO, { recursive: true });
+    for (const m of adiadas) renameSync(`supabase/migrations/${m}`, `${ABRIGO}/${m}`);
+  }
+  push = spawnSync(
+    'npx',
+    ['-y', 'supabase@latest', 'db', 'push', '--db-url', env.SUPABASE_DB_URL, '--include-all'],
+    { stdio: 'inherit', shell: true },
+  );
+} finally {
+  for (const m of adiadas) {
+    if (existsSync(`${ABRIGO}/${m}`)) renameSync(`${ABRIGO}/${m}`, `supabase/migrations/${m}`);
+  }
+  rmSync(ABRIGO, { recursive: true, force: true });
+}
+
 if (push.status !== 0) {
   console.error('\n`supabase db push` falhou. Nada de contas foi criado.');
   process.exit(1);

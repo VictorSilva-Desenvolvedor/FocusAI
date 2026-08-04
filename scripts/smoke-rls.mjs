@@ -14,22 +14,36 @@
  * Precisa de `.secrets/supabase.env` e `.env.local` preenchidos, e das contas
  * de demonstração criadas.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { lerSegredos, exigir } from './segredos.mjs';
 
-const env = Object.fromEntries(
-  readFileSync('.secrets/supabase.env', 'utf8')
-    .split('\n')
-    .filter((l) => l.trim() && !l.trim().startsWith('#') && l.includes('='))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    }),
-);
+/*
+ * `FOCUS_AMBIENTE=teste npm run smoke:rls` roda contra o banco de teste, onde a
+ * seed é reaplicável. Sem a variável, segue o projeto de trabalho.
+ *
+ * A chave publicável é a do navegador de propósito: é ela que faz a política da
+ * tabela valer. Com a chave secreta o teste passaria sempre, porque ela ignora
+ * a RLS inteira — mediria o oposto do que promete (`API-R02`).
+ */
+const AMBIENTE = process.env.FOCUS_AMBIENTE ?? null;
+const SEGREDOS = AMBIENTE ? `.secrets/supabase-${AMBIENTE}.env` : '.secrets/supabase.env';
+const ENV_VITE = AMBIENTE ? `.env.${AMBIENTE}.local` : '.env.local';
 
-const PUBLICAVEL = readFileSync('.env.local', 'utf8')
-  .match(/VITE_SUPABASE_PUBLISHABLE_KEY=(.+)/)[1]
-  .trim();
+const env = lerSegredos(SEGREDOS);
+exigir(env, ['SUPABASE_URL', 'SUPABASE_SECRET_KEY'], SEGREDOS);
+
+if (!existsSync(ENV_VITE)) {
+  console.error(`Falta ${ENV_VITE}, que é de onde sai a chave publicável.`);
+  console.error('Ela é a do navegador — a mesma que Project Settings › API mostra como publishable.');
+  process.exit(1);
+}
+const achado = readFileSync(ENV_VITE, 'utf8').match(/VITE_SUPABASE_PUBLISHABLE_KEY=(.+)/);
+if (!achado) {
+  console.error(`Falta VITE_SUPABASE_PUBLISHABLE_KEY em ${ENV_VITE}.`);
+  process.exit(1);
+}
+const PUBLICAVEL = achado[1].trim();
 
 const PREV_FACIL = 'a0000000-0000-4000-8000-000000000001';
 const GOMES = 'a0000000-0000-4000-8000-000000000002';
