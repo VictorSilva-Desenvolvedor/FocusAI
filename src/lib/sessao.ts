@@ -43,17 +43,24 @@ export function perfilLocal(remoto: Usuario, usuarios: Usuario[]): Usuario | nul
 
   /*
    * A identidade é sempre a do banco; da seed vem só o que a maquete precisa
-   * para operar — o id que `ACC-R03` compara, as permissões e a carteira.
+   * para operar — o id que `ACC-R03` compara e as permissões.
    *
    * Sem isso, quem entra por uma conta que não tem par na seed aparece com o
    * nome de outra pessoa na barra superior. É o caso de qualquer conta nominal
    * nova: ela cai no primeiro seed do mesmo papel, e o papel está certo, mas o
    * nome não. Errar quem está logado é pior que errar um número na tela.
+   *
+   * `advogado_id` mudou de lado quando o catálogo passou a ler do banco. Ele é
+   * a chave de `LED-R06`, e a lista de advogados agora vem em uuid — manter o
+   * slug da seed aqui faz o painel do advogado abrir com "Acesso ainda não
+   * vinculado", porque a carteira procurada não existe na lista carregada.
+   * Nulo para o time interno, dos dois lados.
    */
   return {
     ...base,
     nome: remoto.nome,
     email: remoto.email,
     avatar_iniciais: remoto.avatar_iniciais,
+    advogado_id: remoto.advogado_id,
   };
 }

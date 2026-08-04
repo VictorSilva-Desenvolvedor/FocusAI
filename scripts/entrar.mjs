@@ -22,6 +22,24 @@ const env = Object.fromEntries(
 
 export const CONTA_PADRAO = 'victorpaulodev@focus.ai';
 
+/**
+ * Onde o dev server está.
+ *
+ * O Vite pula para 5174 quando a 5173 já está ocupada — por outro projeto na
+ * mesma máquina, tipicamente. Com o endereço fixo nos scripts, o smoke abria a
+ * aplicação errada e falhava esperando um seletor que nunca ia existir, sem
+ * dizer o motivo. Aqui a base é uma só, e os quatro scripts a herdam.
+ *
+ *   npm run smoke -- --url http://localhost:5174
+ *   FOCUS_BASE_URL=http://localhost:5174 npm run smoke
+ */
+export const BASE = (() => {
+  const i = process.argv.indexOf('--url');
+  if (i !== -1 && process.argv[i + 1]) return process.argv[i + 1].replace(/\/$/, '');
+  if (process.env.FOCUS_BASE_URL) return process.env.FOCUS_BASE_URL.replace(/\/$/, '');
+  return 'http://localhost:5173';
+})();
+
 /** Cada conta de administrador tem senha própria; as de teste dividem a mesma. */
 export function senhaDe(email) {
   const alvo = email.trim().toLowerCase();
@@ -36,7 +54,7 @@ export function senhaDe(email) {
  * Entra e espera a moldura da aplicação montar. Assume que a página já está no
  * dev server; navega para `/login` se ainda não estiver lá.
  */
-export async function entrar(page, email, base = 'http://localhost:5173') {
+export async function entrar(page, email, base = BASE) {
   await page.goto(`${base}/#/login`, { waitUntil: 'networkidle' });
   await page.waitForSelector('#login-email');
   await page.fill('#login-email', email);
@@ -48,7 +66,7 @@ export async function entrar(page, email, base = 'http://localhost:5173') {
 }
 
 /** Sai e entra como outra pessoa. É a única forma de trocar de papel. */
-export async function entrarComo(page, email, base = 'http://localhost:5173') {
+export async function entrarComo(page, email, base = BASE) {
   const jaLogado = await page.locator('button[aria-label="Menu do usuário"]').count();
   if (jaLogado) {
     await page.click('button[aria-label="Menu do usuário"]');

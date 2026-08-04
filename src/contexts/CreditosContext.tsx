@@ -1,8 +1,21 @@
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react';
-import { MOVIMENTOS_SEED } from '@/src/lib/creditosSeed';
+import { createContext, use, useCallback, useMemo, type ReactNode } from 'react';
+import { listarMovimentos } from '@/src/servicos/creditos';
+import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
 import type { MovimentoCredito, TipoMovimento } from '@/types';
 
-const CHAVE = 'focus.creditos.v1';
+/*
+ * MIGRAÇÃO PARCIAL — leitura no banco, escrita ainda em memória.
+ *
+ * Veio junto com `LeadsContext` e `AdvogadosContext` porque o extrato aponta
+ * para os dois por id: movimento semeado sobre advogado real mostraria consumo
+ * que nunca houve, e o saldo da tela divergiria do saldo do banco.
+ *
+ * `registrar` continua local e não ganha substituta: no banco **não existe
+ * inserção direta no extrato**, de propósito (`INV-14`). Crédito entra pelo
+ * webhook do provedor de pagamento; consumo e devolução são lançados dentro de
+ * `comprar_lead` e `devolver_lead`. A única escrita permitida a um humano é o
+ * ajuste manual, que exige a permissão `credito:conciliar_pagamento` e motivo.
+ */
 
 interface NovoMovimento {
   advogadoId: string;
@@ -15,35 +28,26 @@ interface NovoMovimento {
 
 interface CreditosValue {
   movimentos: MovimentoCredito[];
+  /** Verdadeiro enquanto a primeira carga não voltou do banco. */
+  carregando: boolean;
+  /** Mensagem da falha de carregamento, ou nulo. */
+  erro: string | null;
   registrar: (dados: NovoMovimento) => MovimentoCredito;
   doAdvogado: (advogadoId: string) => MovimentoCredito[];
-  restaurarSeed: () => void;
+  /** Busca de novo no banco e devolve o extrato. */
+  recarregar: () => Promise<MovimentoCredito[]>;
 }
 
 const CreditosContext = createContext<CreditosValue | null>(null);
 
-function carregar(): MovimentoCredito[] {
-  try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (!bruto) return MOVIMENTOS_SEED;
-    const dados = JSON.parse(bruto);
-    if (!Array.isArray(dados)) return MOVIMENTOS_SEED;
-    return dados as MovimentoCredito[];
-  } catch {
-    return MOVIMENTOS_SEED;
-  }
-}
-
-function persistir(lista: MovimentoCredito[]): void {
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(lista));
-  } catch {
-    // Modo privativo ou cota estourada — segue em memória.
-  }
-}
-
 export function CreditosProvider({ children }: { children: ReactNode }) {
-  const [movimentos, setMovimentos] = useState<MovimentoCredito[]>(carregar);
+  const {
+    dados: movimentos,
+    carregando,
+    erro,
+    recarregar,
+    definir: setMovimentos,
+  } = useDadosDaSessao(listarMovimentos, 'creditos');
 
   const registrar = useCallback((dados: NovoMovimento): MovimentoCredito => {
     const novo: MovimentoCredito = {
@@ -57,11 +61,7 @@ export function CreditosProvider({ children }: { children: ReactNode }) {
       // INV-13 — o instante do movimento é carimbo, não campo editável.
       em: new Date().toISOString(),
     };
-    setMovimentos((atual) => {
-      const novoExtrato = [novo, ...atual];
-      persistir(novoExtrato);
-      return novoExtrato;
-    });
+    setMovimentos((atual) => [novo, ...atual]);
     return novo;
   }, []);
 
@@ -70,14 +70,9 @@ export function CreditosProvider({ children }: { children: ReactNode }) {
     [movimentos],
   );
 
-  const restaurarSeed = useCallback(() => {
-    setMovimentos(MOVIMENTOS_SEED);
-    persistir(MOVIMENTOS_SEED);
-  }, []);
-
   const value = useMemo<CreditosValue>(
-    () => ({ movimentos, registrar, doAdvogado, restaurarSeed }),
-    [movimentos, registrar, doAdvogado, restaurarSeed],
+    () => ({ movimentos, carregando, erro, registrar, doAdvogado, recarregar }),
+    [movimentos, carregando, erro, registrar, doAdvogado, recarregar],
   );
 
   return <CreditosContext value={value}>{children}</CreditosContext>;

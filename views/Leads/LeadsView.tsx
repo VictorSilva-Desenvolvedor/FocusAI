@@ -27,8 +27,11 @@ import { TabelaLeads } from './TabelaLeads';
 export function LeadsView() {
   const { perfil, ehAdvogado, advogadoId } = useAuth();
   const { leads, mover, comprar, devolver, reservar, liberarReserva } = useLeads();
-  const { advogados, debitarCreditos, creditar } = useAdvogados();
-  const { registrar } = useCreditos();
+  // O saldo vem da view `advogados_com_saldo`, somado do extrato: depois de uma
+  // compra ou devolução os dois precisam ser relidos, porque quem os mudou foi
+  // a função do banco, não esta tela.
+  const { advogados, recarregar: recarregarAdvogados } = useAdvogados();
+  const { recarregar: recarregarCreditos } = useCreditos();
 
   const [visao, setVisao] = useState<'kanban' | 'tabela'>('kanban');
   const [busca, setBusca] = useState('');
@@ -100,7 +103,9 @@ export function LeadsView() {
    */
   function abrirDetalhe(lead: Lead) {
     if (ehAdvogado && advogadoDoPerfil && estaNoCatalogo(lead)) {
-      reservar(lead.id, advogadoDoPerfil.id);
+      // A trava é gravada no banco; a gaveta abre sem esperar por ela, porque
+      // quem perdeu a corrida descobre na compra, que é onde INV-10 decide.
+      void reservar(lead.id);
     }
     setDetalhe(lead);
   }
@@ -109,67 +114,49 @@ export function LeadsView() {
   function fecharDetalhe() {
     const atual = detalhe ? leads.find((l) => l.id === detalhe.id) : null;
     if (atual && advogadoDoPerfil && !atual.compradoPor && atual.reservadoPor === advogadoDoPerfil.id) {
-      liberarReserva(atual.id);
+      void liberarReserva(atual.id);
     }
     setDetalhe(null);
   }
 
   /**
-   * CRE-R02 — comprar é um passo só: carimba o comprador, debita o crédito e
-   * lança o movimento no extrato.
+   * `CRE-R02` / `API-R08` — comprar é um passo só, e agora ele é uma transação
+   * no banco: carimbar o comprador, debitar o crédito e lançar o movimento
+   * acontecem juntos ou não acontecem.
    *
-   * Aqui são três stores separados porque o estado ainda é local; quando o
-   * backend entrar isto vira **uma** função no banco, que valida e grava tudo
-   * junto ou não grava nada (`API-R08`). A ordem importa: a escrita do lead vem
-   * primeiro porque é ela que recusa a corrida — se outro advogado comprou no
-   * meio do caminho, nenhum crédito é debitado.
+   * Isto era três chamadas a três stores separados enquanto o estado era local.
+   * Repetir o débito aqui agora lançaria o consumo duas vezes — o extrato é a
+   * única fonte do saldo (`INV-15`), então movimento duplicado é saldo errado
+   * sem nada para conferir contra.
+   *
+   * O saldo e o extrato são relidos depois porque quem os alterou foi o banco.
    */
-  function comprarLead(lead: Lead) {
+  async function comprarLead(lead: Lead) {
     if (!advogadoDoPerfil) return;
 
-    const resultado = comprar(lead.id, advogadoDoPerfil.id);
+    const resultado = await comprar(lead.id);
     if (!resultado.ok) {
       setAviso({ texto: resultado.motivo, tom: 'erro' });
       setDetalhe(null);
       return;
     }
 
-    if (advogadoDoPerfil.modeloPagamento === 'creditos') {
-      debitarCreditos(advogadoDoPerfil.id, lead.custoCreditos);
-      registrar({
-        advogadoId: advogadoDoPerfil.id,
-        tipo: 'consumo',
-        creditos: -lead.custoCreditos,
-        leadId: lead.id,
-        descricao: `${TESE_CURTA[lead.tese]} · ${lead.cidade}`,
-      });
-    } else {
-      // Venda avulsa: não passa por crédito, entra como receita direta.
-      registrar({
-        advogadoId: advogadoDoPerfil.id,
-        tipo: 'consumo',
-        creditos: 0,
-        valor: lead.precoAvulso,
-        leadId: lead.id,
-        descricao: `Avulso · ${TESE_CURTA[lead.tese]} · ${lead.cidade}`,
-      });
-    }
-
+    await Promise.all([recarregarAdvogados(), recarregarCreditos()]);
     setDetalhe(resultado.lead);
     setAviso({ texto: `${lead.nome} é seu. O telefone completo já está liberado.` });
   }
 
-  function devolverLead(lead: Lead, motivo: string) {
+  /** `CRE-R05` — a reposição do crédito acontece dentro da função do banco. */
+  async function devolverLead(lead: Lead, motivo: string) {
     if (!advogadoDoPerfil) return;
-    devolver(lead.id, motivo);
-    creditar(advogadoDoPerfil.id, lead.custoCreditos);
-    registrar({
-      advogadoId: advogadoDoPerfil.id,
-      tipo: 'devolucao',
-      creditos: lead.custoCreditos,
-      leadId: lead.id,
-      descricao: motivo,
-    });
+
+    const resultado = await devolver(lead.id, motivo);
+    if (!resultado.ok) {
+      setAviso({ texto: resultado.motivo, tom: 'erro' });
+      return;
+    }
+
+    await Promise.all([recarregarAdvogados(), recarregarCreditos()]);
     setDetalhe(null);
     setAviso({ texto: `${lead.custoCreditos} créditos devolvidos. O lead não volta ao catálogo.` });
   }

@@ -6,9 +6,9 @@
  * sair e entrar com outra conta.
  */
 import { chromium } from 'playwright';
-import { entrar, entrarComo } from './entrar.mjs';
+import { entrar, entrarComo, BASE } from './entrar.mjs';
 
-const URL = 'http://localhost:5173/#/config/usuarios';
+const URL = `${BASE}/#/config/usuarios`;
 const ADM = 'victorpaulodev@focus.ai';
 const resultados = [];
 const ok = (n, cond, extra = '') =>
