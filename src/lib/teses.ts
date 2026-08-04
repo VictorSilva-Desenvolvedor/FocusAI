@@ -1,6 +1,23 @@
 import type { Tese, TeseId } from '@/types';
 
 /**
+ * `TES-R07` — as três teses custam o mesmo: 30 créditos, ou R$ 40 avulso.
+ *
+ * O preço mora aqui, e não numa constante global, porque a estrutura precisa
+ * continuar suportando preço por tese: se um dia o custo de aquisição de uma
+ * delas subir, é este número que muda, sozinho. Hoje eles são iguais de
+ * propósito — o advogado escolhe o caso pelo caso, não pela etiqueta, e tabela
+ * diferente por tese empurraria a carteira para a tese mais barata em vez da
+ * mais adequada.
+ *
+ * O par avulso × crédito é a decisão comercial: 30 créditos valem R$ 30
+ * (`CRE-R07`), então quem recarrega paga R$ 10 a menos por lead do que quem
+ * compra avulso. É essa diferença que dá razão para a recarga existir.
+ */
+const CUSTO_EM_CREDITOS = 30;
+const PRECO_AVULSO = 40;
+
+/**
  * As três teses trabalhadas.
  *
  * Cada uma tem público, oferta e roteiro próprios — não é categoria de
@@ -49,8 +66,8 @@ export const TESES: Tese[] = [
       'Pergunta aberta primeiro ("me conta o que está acontecendo"): a narrativa revela se é réu ou autor e se há advogado atuando, sem virar interrogatório.',
       'Qualificar o mínimo necessário e agendar rápido — quem está sendo processado quer resposta, não formulário.',
     ],
-    custoCreditos: 3,
-    precoAvulso: 300,
+    custoCreditos: CUSTO_EM_CREDITOS,
+    precoAvulso: PRECO_AVULSO,
   },
   {
     id: 'vinculo_empregaticio',
@@ -87,8 +104,8 @@ export const TESES: Tese[] = [
       'A urgência citada é sempre o prazo real de 2 anos. Nada de prazo inventado ou "última semana".',
       'PJ ou MEI "disfarçado" conta como sem carteira — a pergunta é sobre como o trabalho acontecia, não sobre o contrato assinado.',
     ],
-    custoCreditos: 2,
-    precoAvulso: 250,
+    custoCreditos: CUSTO_EM_CREDITOS,
+    precoAvulso: PRECO_AVULSO,
   },
   {
     id: 'juros_abusivos',
@@ -127,8 +144,8 @@ export const TESES: Tese[] = [
       'Detalhar o processo além do usual: é o público mais leigo e mais exposto a golpe.',
       'Deixar claro, sempre, que é o advogado quem liga na hora marcada.',
     ],
-    custoCreditos: 4,
-    precoAvulso: 350,
+    custoCreditos: CUSTO_EM_CREDITOS,
+    precoAvulso: PRECO_AVULSO,
   },
 ];
 

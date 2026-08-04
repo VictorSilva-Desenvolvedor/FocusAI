@@ -57,6 +57,11 @@ function g(
 /**
  * Campanhas de exemplo. O número que decide é o custo por lead **qualificado**:
  * lead que a IA desqualifica custou anúncio igual e não virou produto nenhum.
+ *
+ * As verbas estão dimensionadas contra o teto de R$ 40, que é o preço avulso do
+ * lead (`TES-R07`): campanha que gasta mais do que isso por qualificado paga
+ * para entregar. Só a de busca no Google passa do teto, e é justamente por isso
+ * que ela aparece pausada — é o caso que a tela existe para mostrar.
  */
 export const CAMPANHAS_SEED: Campanha[] = [
   {
@@ -65,8 +70,8 @@ export const CAMPANHAS_SEED: Campanha[] = [
     tese: 'polo_passivo',
     plataforma: 'meta',
     situacao: 'ativa',
-    verbaDiaria: 420,
-    gastoMes: 11_340,
+    verbaDiaria: 165,
+    gastoMes: 4_455,
     leadsMes: 312,
     leadsQualificadosMes: 185,
     criativosNoAr: 6,
@@ -78,8 +83,8 @@ export const CAMPANHAS_SEED: Campanha[] = [
     tese: 'polo_passivo',
     plataforma: 'meta',
     situacao: 'aprendizado',
-    verbaDiaria: 180,
-    gastoMes: 3_240,
+    verbaDiaria: 60,
+    gastoMes: 1_080,
     leadsMes: 74,
     leadsQualificadosMes: 31,
     criativosNoAr: 3,
@@ -92,8 +97,8 @@ export const CAMPANHAS_SEED: Campanha[] = [
     tese: 'vinculo_empregaticio',
     plataforma: 'meta',
     situacao: 'ativa',
-    verbaDiaria: 350,
-    gastoMes: 9_450,
+    verbaDiaria: 140,
+    gastoMes: 3_780,
     leadsMes: 288,
     leadsQualificadosMes: 193,
     criativosNoAr: 5,
@@ -105,8 +110,8 @@ export const CAMPANHAS_SEED: Campanha[] = [
     tese: 'juros_abusivos',
     plataforma: 'meta',
     situacao: 'ativa',
-    verbaDiaria: 560,
-    gastoMes: 15_120,
+    verbaDiaria: 210,
+    gastoMes: 5_670,
     leadsMes: 341,
     leadsQualificadosMes: 207,
     criativosNoAr: 7,
@@ -119,7 +124,7 @@ export const CAMPANHAS_SEED: Campanha[] = [
     plataforma: 'google',
     situacao: 'pausada',
     verbaDiaria: 0,
-    gastoMes: 2_880,
+    gastoMes: 960,
     leadsMes: 46,
     leadsQualificadosMes: 19,
     criativosNoAr: 0,

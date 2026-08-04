@@ -49,8 +49,6 @@ fora do versionamento.
 | Criativo | `criativo@focus.ai` |
 | Analista de Conformidade | `analistaconformidade@focus.ai` |
 | Operador da IA | `operadoria@focus.ai` |
-| Closer | `closer@focus.ai` |
-| SDR | `sdr@focus.ai` |
 | Customer Success | `cs@focus.ai` |
 | Financeiro | `financeiro@focus.ai` |
 | Advogado | `advogado@focus.ai`, `advogado2@`, `advogado3@` |
@@ -148,12 +146,13 @@ scripts/
 | --- | --- | --- |
 | Painel | `/` | Cadeia do negócio, funil, estoque por tese, alertas |
 | Leads | `/leads` | Catálogo do produto: quadro e tabela para a operação, catálogo mascarado para o advogado |
-| Advogados | `/advogados` | Funil de aquisição do advogado até a primeira compra |
+| Advogados | `/advogados` | Funil de aquisição em tabela e ranking de quem mais consome |
 | Teses | `/teses` | Público, oferta, filtros de elegibilidade e preço de cada tese |
 | Qualificação | `/qualificacao` | Fila da SDR de voz, taxa por tese, pendências de gravação |
 | Campanhas | `/campanhas` | Anúncios por tese e custo por lead qualificado |
 | Conformidade | `/conformidade` | Parecer sobre criativo e a pendência do Provimento 205 |
-| Créditos | `/creditos` | Pacotes, saldo, consumo e conferência do extrato |
+| Preços | `/precos` | O que custa o lead nos dois modelos e as recargas de crédito |
+| Créditos | `/creditos` | Saldo, consumo e conferência do extrato |
 | Integrações | `/integracoes` | Saúde da voz, do anúncio, do pagamento e do WhatsApp |
 | Configurações | `/config/usuarios` | Usuários, papéis e permissões |
 
@@ -186,6 +185,7 @@ semeados — que são fictícios.
 | `ADV-R04` | Prioridade P1/P2/P3 automática, sobrescrevível pelo gestor |
 | `ADV-R05` | Marcar como perdido ou recusado exige motivo escrito |
 | `ADV-R09` | A conta de acesso nasce da liberação, por quem tem a permissão |
+| `ADV-R10` | Ranking por consumo: quem entra no funil não é quem mais compra |
 
 ### Teses — o que a IA apura
 
@@ -196,6 +196,7 @@ semeados — que são fictícios.
 | `TES-R03` | Juros abusivos: não há campo para senha, cartão ou dado bancário (`INV-17`) |
 | `TES-R04` | Polo passivo: precisa ser parte no processo e estar sem advogado atuante |
 | `TES-R05` | Juros abusivos: registrar que é o advogado quem liga na hora marcada |
+| `TES-R07` | O lead custa 30 créditos ou R$ 40 avulso — o mesmo nas três teses |
 
 ### Créditos
 
@@ -208,6 +209,7 @@ semeados — que são fictícios.
 | `CRE-R04` | Sem saldo o botão de comprar não é desenhado |
 | `CRE-R05` | Devolução exige motivo, repõe o crédito e não devolve o lead ao catálogo |
 | `CRE-R06` | Ajuste manual exige permissão e motivo — e não se disfarça de pagamento |
+| `CRE-R07` | 1 crédito = R$ 1; a recarga mínima de R$ 150 compra cinco leads |
 
 ### Acesso
 
@@ -271,9 +273,14 @@ não são renumerados: regra removida deixa o ID aposentado.
 - **Aviso de lead novo não sai.** Três telas prometem ao advogado que ele será
   avisado; a integração de WhatsApp está marcada como não configurada e a
   etapa aparece como pulada (`API-R10`). Falta o disparo.
-- **Compra de pacote não tem checkout.** Crédito só entra por confirmação de
-  pagamento (`INV-14`), e o provedor ainda não existe. O caminho interno é o
-  ajuste manual (`CRE-R06`).
+- **Recarga não tem checkout.** Crédito só entra por confirmação de pagamento
+  (`INV-14`), e o provedor ainda não existe. O caminho interno é o ajuste manual
+  (`CRE-R06`).
+- **O banco ainda conhece `closer` e `sdr`.** Os dois papéis saíram do app —
+  quem conduz o funil do advogado é Customer Success. A migration
+  `0009_papeis_sem_vendas_humana.sql` recria o enum sem eles e **não foi
+  aplicada**: antes de rodar, decida o destino das contas que ainda estejam
+  nesses papéis e regenere `src/servicos/banco.types.ts`.
 - **Sem paginação** nas listas de leads e advogados.
 - **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
   devolução de crédito.

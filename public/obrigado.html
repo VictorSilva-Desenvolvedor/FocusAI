@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recebemos seu pedido</title>
+
+    <!--
+      Página de destino do redirecionamento do Tally.
+
+      Ela precisa estar no MESMO domínio da landing. O `evento_id` que o script
+      gera no clique é guardado no armazenamento local, e armazenamento local é
+      por origem: hospedada em outro endereço, esta página não encontra o id e a
+      conversão do navegador fica sem par para deduplicar. O evento do servidor
+      continua indo — ele é o confiável dos dois —, mas a cobertura cai.
+
+      Troque SEU_PIXEL_ID abaixo. Se a landing já carrega o pixel por
+      gerenciador de tags, apague este bloco e mantenha só o segundo script.
+    -->
+    <script>
+      !(function (f, b, e, v, n, t, s) {
+        if (f.fbq) return;
+        n = f.fbq = function () {
+          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+        };
+        if (!f._fbq) f._fbq = n;
+        n.push = n;
+        n.loaded = !0;
+        n.version = '2.0';
+        n.queue = [];
+        t = b.createElement(e);
+        t.async = !0;
+        t.src = v;
+        s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s);
+      })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', 'SEU_PIXEL_ID');
+      fbq('track', 'PageView');
+    </script>
+
+    <!--
+      `data-obrigado` é o que identifica esta página como a da conversão. Sem o
+      atributo, o mesmo arquivo se comporta como na landing e não dispara nada.
+    -->
+    <script src="/tally-meta.js" data-obrigado></script>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fundo: #f5f4f8;
+        --carta: #ffffff;
+        --texto: #1c1a21;
+        --suave: #5b5666;
+        --marca: #6d3ff2;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fundo: #17151c;
+          --carta: #201d28;
+          --texto: #f2f0f6;
+          --suave: #a49db4;
+          --marca: #a689ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--fundo);
+        color: var(--texto);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.6;
+      }
+      main {
+        background: var(--carta);
+        border-radius: 12px;
+        padding: 40px 32px;
+        max-width: 480px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(20, 16, 40, 0.08), 0 8px 24px rgba(20, 16, 40, 0.06);
+      }
+      .marca {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 20px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--marca) 14%, transparent);
+        color: var(--marca);
+        font-size: 24px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 24px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 8px;
+        color: var(--suave);
+      }
+      .destaque {
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid color-mix(in srgb, var(--suave) 20%, transparent);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <div class="marca" aria-hidden="true">✓</div>
+      <h1>Recebemos suas respostas</h1>
+      <p>
+        Nossa equipe vai analisar seu caso e entrar em contato pelo WhatsApp no
+        número que você informou.
+      </p>
+      <p class="destaque">
+        Atenda a ligação: é por ela que confirmamos os detalhes e agendamos a
+        conversa com o advogado.
+      </p>
+    </main>
+  </body>
+</html>

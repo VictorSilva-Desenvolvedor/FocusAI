@@ -39,8 +39,6 @@ export const MODULOS: ModuleDef[] = [
       'criativo',
       'analista_conformidade',
       'operador_ia',
-      'closer',
-      'sdr',
       'cs',
       'financeiro',
     ],
@@ -53,9 +51,8 @@ export const MODULOS: ModuleDef[] = [
     rota: '/leads',
     descricao: 'Catálogo de leads qualificados com reunião agendada',
     papeis: ['adm', 'gerente', 'operador_ia', 'cs'],
-    // O advogado entra aqui pelo catálogo mascarado e pelos leads que comprou;
-    // closer e SDR precisam saber o que há em estoque para vender o acesso.
-    papeisRestritos: ['advogado', 'closer', 'sdr'],
+    // O advogado entra aqui pelo catálogo mascarado e pelos leads que comprou.
+    papeisRestritos: ['advogado'],
     grupo: 'operacao',
   },
   {
@@ -63,7 +60,7 @@ export const MODULOS: ModuleDef[] = [
     rotulo: 'Advogados',
     rota: '/advogados',
     descricao: 'Funil de aquisição do advogado e liberação de acesso',
-    papeis: ['adm', 'gerente', 'closer', 'sdr', 'cs'],
+    papeis: ['adm', 'gerente', 'cs'],
     grupo: 'operacao',
   },
   {
@@ -81,7 +78,7 @@ export const MODULOS: ModuleDef[] = [
     rota: '/qualificacao',
     descricao: 'Fila da SDR de voz: ligações, resultado e gravação',
     papeis: ['adm', 'gerente', 'operador_ia'],
-    papeisRestritos: ['closer', 'sdr', 'analista_conformidade'],
+    papeisRestritos: ['analista_conformidade'],
     liberadoPor: 'modulo:qualificacao',
     grupo: 'operacao',
   },
@@ -106,10 +103,26 @@ export const MODULOS: ModuleDef[] = [
     grupo: 'operacao',
   },
   {
+    id: 'precos',
+    rotulo: 'Preços',
+    rota: '/precos',
+    descricao: 'O que custa um lead nos dois modelos: avulso e crédito',
+    /*
+     * INV-05 — o advogado entra aqui de propósito, e restrito. Preço é a
+     * primeira coisa que ele precisa conferir sozinho: enquanto a tabela só
+     * existia dentro de Créditos, quem está no modelo avulso não tinha onde ver
+     * quanto custa o lead que está prestes a comprar. Restrito porque a tela
+     * mostra o modelo dele em destaque e não abre o custo de aquisição.
+     */
+    papeis: ['adm', 'gerente', 'financeiro', 'cs'],
+    papeisRestritos: ['advogado'],
+    grupo: 'operacao',
+  },
+  {
     id: 'creditos',
     rotulo: 'Créditos',
     rota: '/creditos',
-    descricao: 'Pacotes, saldo, consumo por tese e receita',
+    descricao: 'Saldo, extrato, consumo e receita reconhecida',
     papeis: ['adm', 'gerente', 'financeiro'],
     papeisRestritos: ['advogado'],
     grupo: 'operacao',
@@ -135,8 +148,6 @@ export const MODULOS: ModuleDef[] = [
       'criativo',
       'analista_conformidade',
       'operador_ia',
-      'closer',
-      'sdr',
       'cs',
       'financeiro',
     ],

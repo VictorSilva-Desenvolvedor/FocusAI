@@ -31,8 +31,6 @@ export const PODE_CRIAR: Partial<Record<UserRole, UserRole[]>> = {
     'criativo',
     'analista_conformidade',
     'operador_ia',
-    'closer',
-    'sdr',
     'cs',
     'financeiro',
     'adm',
@@ -42,8 +40,6 @@ export const PODE_CRIAR: Partial<Record<UserRole, UserRole[]>> = {
     'criativo',
     'analista_conformidade',
     'operador_ia',
-    'closer',
-    'sdr',
     'cs',
     'financeiro',
   ],
@@ -90,8 +86,6 @@ export const ROLE_CURTO: Record<UserRole, string> = {
   criativo: 'Criativo',
   analista_conformidade: 'Analista de Conformidade',
   operador_ia: 'Operador da IA',
-  closer: 'Closer',
-  sdr: 'SDR',
   cs: 'Customer Success',
   financeiro: 'Financeiro',
   advogado: 'Advogado',
@@ -126,8 +120,10 @@ export const PERMISSOES_PADRAO: Partial<Record<UserRole, NamedPermission[]>> = {
   gestor_trafego: ['modulo:campanhas', 'modulo:integracoes'],
   analista_conformidade: ['modulo:conformidade', 'conformidade:liberar_com_ressalva'],
   operador_ia: ['modulo:qualificacao'],
-  closer: ['advogado:liberar_acesso'],
-  cs: ['lead:aprovar_devolucao'],
+  // CS é quem conduz o funil do advogado, então é o papel que nasce podendo
+  // liberar acesso — a permissão continua sendo nomeada, e não herdada do papel
+  // por conveniência (INV-12).
+  cs: ['advogado:liberar_acesso', 'lead:aprovar_devolucao'],
   financeiro: ['credito:conciliar_pagamento', 'lead:aprovar_devolucao'],
 };
 
@@ -247,8 +243,6 @@ const EXIGE_DEPARTAMENTO = new Set<UserRole>([
   'criativo',
   'analista_conformidade',
   'operador_ia',
-  'closer',
-  'sdr',
   'cs',
   'financeiro',
 ]);

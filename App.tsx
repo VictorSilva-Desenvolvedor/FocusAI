@@ -15,6 +15,7 @@ import { TesesView } from '@/views/Teses/TesesView';
 import { QualificacaoView } from '@/views/Qualificacao/QualificacaoView';
 import { CampanhasView } from '@/views/Campanhas/CampanhasView';
 import { ConformidadeView } from '@/views/Conformidade/ConformidadeView';
+import { PrecosView } from '@/views/Precos/PrecosView';
 import { CreditosView } from '@/views/Creditos/CreditosView';
 import { IntegracoesView } from '@/views/Integracoes/IntegracoesView';
 import { UsuariosView } from '@/views/Config/UsuariosView';
@@ -55,6 +56,7 @@ export default function App() {
                         <Route path="qualificacao" element={<QualificacaoView />} />
                         <Route path="campanhas" element={<CampanhasView />} />
                         <Route path="conformidade" element={<ConformidadeView />} />
+                        <Route path="precos" element={<PrecosView />} />
                         <Route path="creditos" element={<CreditosView />} />
                         <Route path="integracoes" element={<IntegracoesView />} />
                         <Route path="config">

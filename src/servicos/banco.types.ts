@@ -3,10 +3,6 @@
  *
  * Regerar depois de cada migration:
  *   npm run tipos:banco
- *
- * Sem isto o cliente não sabe o formato de nenhuma tabela e devolve
- * `GenericStringError`, que só passa no typecheck com asserção — exatamente o
- * afrouxamento de portão que o repositório não aceita.
  */
 export type Json =
   | string
@@ -122,6 +118,133 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      captacoes: {
+        Row: {
+          agente_usuario: string | null
+          criado_em: string
+          evento_id: string | null
+          fbc: string | null
+          fbclid: string | null
+          fbp: string | null
+          formulario_id: string | null
+          identidade_em: string | null
+          ip: unknown
+          lead_id: string | null
+          pagina: string | null
+          respondente_id: string
+        }
+        Insert: {
+          agente_usuario?: string | null
+          criado_em?: string
+          evento_id?: string | null
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
+          formulario_id?: string | null
+          identidade_em?: string | null
+          ip?: unknown
+          lead_id?: string | null
+          pagina?: string | null
+          respondente_id: string
+        }
+        Update: {
+          agente_usuario?: string | null
+          criado_em?: string
+          evento_id?: string | null
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
+          formulario_id?: string | null
+          identidade_em?: string | null
+          ip?: unknown
+          lead_id?: string | null
+          pagina?: string | null
+          respondente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captacoes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos_meta: {
+        Row: {
+          abandonado_em: string | null
+          abandono_motivo: string | null
+          enfileirado_em: string
+          enviado_em: string | null
+          event_id: string
+          evento: Database["public"]["Enums"]["evento_meta"]
+          id: string
+          lead_id: string
+          ocorrido_em: string
+          tentativas: number
+          ultimo_erro: string | null
+          valor: number | null
+        }
+        Insert: {
+          abandonado_em?: string | null
+          abandono_motivo?: string | null
+          enfileirado_em?: string
+          enviado_em?: string | null
+          event_id: string
+          evento: Database["public"]["Enums"]["evento_meta"]
+          id?: string
+          lead_id: string
+          ocorrido_em: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          valor?: number | null
+        }
+        Update: {
+          abandonado_em?: string | null
+          abandono_motivo?: string | null
+          enfileirado_em?: string
+          enviado_em?: string | null
+          event_id?: string
+          evento?: Database["public"]["Enums"]["evento_meta"]
+          id?: string
+          lead_id?: string
+          ocorrido_em?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_meta_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      formularios_captacao: {
+        Row: {
+          criado_em: string
+          descricao: string
+          form_id: string
+          tese: Database["public"]["Enums"]["tese"]
+        }
+        Insert: {
+          criado_em?: string
+          descricao?: string
+          form_id: string
+          tese: Database["public"]["Enums"]["tese"]
+        }
+        Update: {
+          criado_em?: string
+          descricao?: string
+          form_id?: string
+          tese?: Database["public"]["Enums"]["tese"]
+        }
+        Relationships: []
       }
       leads: {
         Row: {
@@ -496,11 +619,13 @@ export type Database = {
       }
     }
     Functions: {
+      abandonar_eventos_meta_vencidos: { Args: never; Returns: number }
       advogado_atual: { Args: never; Returns: string }
       avaliar_lead: {
         Args: { p_comentario: string; p_lead_id: string; p_nota: number }
         Returns: Json
       }
+      cidade_meta: { Args: { cidade: string }; Returns: string }
       comprar_lead: { Args: { p_lead_id: string }; Returns: Json }
       devolver_lead: {
         Args: { p_lead_id: string; p_motivo: string }
@@ -511,15 +636,71 @@ export type Database = {
         Args: { p_compareceu: boolean; p_lead_id: string }
         Returns: Json
       }
+      enfileirar_evento_meta: {
+        Args: {
+          p_evento: Database["public"]["Enums"]["evento_meta"]
+          p_lead_id: string
+          p_ocorrido_em: string
+          p_valor?: number
+        }
+        Returns: undefined
+      }
+      eventos_meta_pendentes: {
+        Args: { p_limite?: number }
+        Returns: {
+          evento: string
+          id: string
+          lead_id: string
+          payload: Json
+        }[]
+      }
+      hash_meta: { Args: { valor: string }; Returns: string }
+      hash_meta_lista: { Args: { valor: string }; Returns: Json }
+      inet_ou_nulo: { Args: { valor: string }; Returns: unknown }
       liberar_reserva: { Args: { p_lead_id: string }; Returns: undefined }
+      marcar_evento_meta: {
+        Args: { p_erro?: string; p_id: string }
+        Returns: undefined
+      }
       mascarar_contato: { Args: { telefone: string }; Returns: string }
       papel_atual: {
         Args: never
         Returns: Database["public"]["Enums"]["papel_usuario"]
       }
+      registrar_captacao: {
+        Args: {
+          p_cidade?: string
+          p_elegibilidade?: Json
+          p_formulario_id?: string
+          p_nome: string
+          p_respondente_id: string
+          p_resumo?: string
+          p_telefone: string
+          p_tese?: Database["public"]["Enums"]["tese"]
+          p_uf?: string
+        }
+        Returns: Json
+      }
+      registrar_identidade_captacao: {
+        Args: {
+          p_agente_usuario?: string
+          p_evento_id?: string
+          p_fbc?: string
+          p_fbclid?: string
+          p_fbp?: string
+          p_formulario_id?: string
+          p_ip?: string
+          p_pagina?: string
+          p_respondente_id: string
+        }
+        Returns: Json
+      }
       reservar_lead: { Args: { p_lead_id: string }; Returns: Json }
+      telefone_meta: { Args: { telefone: string }; Returns: string }
+      uf_do_ddd: { Args: { telefone: string }; Returns: string }
     }
     Enums: {
+      evento_meta: "Lead" | "LeadQualificado" | "Schedule" | "Purchase"
       modelo_pagamento: "avulso" | "creditos"
       origem_lead: "meta_ads" | "google_ads" | "indicacao" | "organico"
       papel_usuario:
@@ -687,6 +868,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      evento_meta: ["Lead", "LeadQualificado", "Schedule", "Purchase"],
       modelo_pagamento: ["avulso", "creditos"],
       origem_lead: ["meta_ads", "google_ads", "indicacao", "organico"],
       papel_usuario: [

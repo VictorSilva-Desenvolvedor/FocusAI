@@ -27,10 +27,16 @@
 // ---------------------------------------------------------------------------
 
 /**
- * Os 11 papéis. Um único valor por usuário.
+ * Os 9 papéis. Um único valor por usuário.
  *
  * `advogado` é o único papel externo: é o cliente pagante, e enxerga o produto
  * pelo mesmo shell da operação, em modo restrito.
+ *
+ * Não há papel de vendas humana: quem qualifica o cliente final é a SDR de voz,
+ * e o relacionamento com o advogado — do cadastro no funil ao acompanhamento do
+ * consumo — é de Customer Success. Os papéis `closer` e `sdr` existiram e foram
+ * removidos; não os reintroduza sem que a operação tenha essas funções de fato,
+ * porque papel sem gente atrás vira carteira sem responsável.
  */
 export type UserRole =
   | 'adm'
@@ -39,8 +45,6 @@ export type UserRole =
   | 'criativo'
   | 'analista_conformidade'
   | 'operador_ia'
-  | 'closer'
-  | 'sdr'
   | 'cs'
   | 'financeiro'
   | 'advogado';
@@ -52,8 +56,6 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   criativo: 'Criativo (design e copy)',
   analista_conformidade: 'Analista de Conformidade',
   operador_ia: 'Operador da SDR de IA',
-  closer: 'Closer',
-  sdr: 'SDR',
   cs: 'Customer Success',
   financeiro: 'Financeiro',
   advogado: 'Advogado (painel)',
@@ -132,6 +134,7 @@ export type ModuleId =
   | 'qualificacao'
   | 'campanhas'
   | 'conformidade'
+  | 'precos'
   | 'creditos'
   | 'integracoes'
   | 'config';

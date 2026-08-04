@@ -24,8 +24,28 @@ docs/
 *.odt
 *.ods
 
+# Fluxos exportados do n8n por npm run n8n:fluxos.
+#
+# API-R16 pede que o fluxo seja versionado, mas o export cru não pode ser: os
+# nós carregam telefone de pessoa, e-mail nominal, id de agenda e token escrito
+# à mão. Vale aqui a mesma regra do material de apoio — dado real fica fora do
+# Git, inclusive e-mail de colega. Fluxo entra no versionamento um a um, depois
+# de o segredo virar credencial do n8n e o dado real sair do nó; a exceção é
+# escrita nominalmente com `!automacoes/n8n/<arquivo>.json`.
+automacoes/n8n/*.json
+
+# Exceção nominal: fluxo escrito por nós, sem dado de pessoa e sem segredo. O
+# que ele carrega do ambiente é a URL do projeto — que já vai no pacote
+# publicado, por ser `VITE_` — e o *id* da credencial do n8n, nunca o valor.
+!automacoes/n8n/focus-captacao-tally-supabase-meta.3fjeFCCvKJjFudnB.json
+
 # Capturas de tela geradas por npm run shot
 .screenshots/
+
+# Cópia do estado dos formulários antes de npm run tally:preparar escrever.
+# É conteúdo de formulário que capta cliente final — fica fora do Git pela mesma
+# regra do material de apoio.
+.tally-backup/
 
 # Editores
 .vscode/*

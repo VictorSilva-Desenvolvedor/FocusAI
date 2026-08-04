@@ -6,7 +6,7 @@
  * sair e entrar com outra conta.
  */
 import { chromium } from 'playwright';
-import { entrar, entrarComo } from './entrar.mjs';
+import { entrar } from './entrar.mjs';
 
 const URL = 'http://localhost:5173/#/advogados';
 const ADM = 'victorpaulodev@focus.ai';
@@ -24,11 +24,11 @@ await entrar(page, ADM);
 await page.goto(URL, { waitUntil: 'networkidle' });
 await page.evaluate(() => localStorage.removeItem('focus.advogados.v1'));
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForSelector('article');
+await page.waitForSelector('tbody tr');
 
-const cartao = (nome) => page.locator('article', { hasText: nome }).first();
+const linha = (nome) => page.locator('tbody tr', { hasText: nome }).first();
 const abrirMenu = async (nome) => {
-  await cartao(nome).click({ button: 'right' });
+  await linha(nome).locator('button[aria-label^="Ações"]').click();
   await page.waitForSelector('[role="menu"]');
 };
 const fecharMenu = async () => {
@@ -37,15 +37,9 @@ const fecharMenu = async () => {
 };
 // O aviso de recusa fica 7s na tela de propósito: é texto que precisa ser lido.
 const esperarAvisoSumir = () => page.waitForTimeout(7200);
-/** Entrar como outra pessoa devolve ao painel: volta para a tela em teste. */
-const passarASer = async (email) => {
-  await entrarComo(page, email);
-  await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('article');
-};
 
-const totalCartoes = await page.locator('article').count();
-ok('quadro carrega os cartões', totalCartoes === 21, `${totalCartoes} cartões`);
+const totalLinhas = await page.locator('tbody tr').count();
+ok('funil carrega as fichas em aberto', totalLinhas === 21, `${totalLinhas} linhas`);
 
 // --- INV-12: sem inscrição conferida não libera acesso ---------------------
 await abrirMenu('Freitas & Freitas');
@@ -61,7 +55,7 @@ ok(
   /inscrição na OAB/i.test(avisoOab),
   avisoOab.trim().slice(0, 70),
 );
-ok('cartão recusado permanece onde estava', await cartao('Freitas & Freitas').isVisible());
+ok('ficha recusada permanece onde estava', await linha('Freitas & Freitas').isVisible());
 await esperarAvisoSumir();
 
 // --- ADV-R03: sem tese não libera acesso -----------------------------------
@@ -123,8 +117,8 @@ ok('motivo preenchido libera o botão', !(await botaoPerder.isDisabled()));
 await botaoPerder.click();
 await page.waitForTimeout(400);
 
-const sumiu = (await page.locator('article', { hasText: 'Peixoto Sociedade' }).count()) === 0;
-ok('perdido sai do quadro', sumiu);
+const sumiu = (await page.locator('tbody tr', { hasText: 'Peixoto Sociedade' }).count()) === 0;
+ok('perdido sai da lista', sumiu);
 
 await page.click('button:has-text("Encerrados")');
 await page.waitForTimeout(300);
@@ -134,40 +128,37 @@ await page.click('button:has-text("Encerrados")');
 
 // --- persistência ------------------------------------------------------------
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForSelector('article');
-const aposReload = (await page.locator('article', { hasText: 'Peixoto Sociedade' }).count()) === 0;
+await page.waitForSelector('tbody tr');
+const aposReload = (await page.locator('tbody tr', { hasText: 'Peixoto Sociedade' }).count()) === 0;
 ok('movimentos sobrevivem ao reload', aposReload);
+// 21 em aberto menos o que acabou de ser marcado como perdido.
+const restantes = await page.locator('tbody tr').count();
+ok('a lista reflete o que saiu do funil', restantes === 20, `${restantes} linhas`);
 
-// --- filtros e visão ---------------------------------------------------------
+// --- filtros -----------------------------------------------------------------
 await page.fill('input[aria-label="Buscar advogados"]', 'Castro');
 await page
-  .waitForFunction(() => document.querySelectorAll('article').length < 5, null, { timeout: 5000 })
+  .waitForFunction(() => document.querySelectorAll('tbody tr').length < 5, null, { timeout: 5000 })
   .catch(() => {});
-const filtrados = await page.locator('article').count();
-ok('busca casa por nome', filtrados === 1, `${filtrados} cartões`);
+const filtrados = await page.locator('tbody tr').count();
+ok('busca casa por nome', filtrados === 1, `${filtrados} linhas`);
 await page.fill('input[aria-label="Buscar advogados"]', '');
 await page.waitForTimeout(200);
 
-await page.click('button[title="Tabela"]');
+// --- ADV-R10: ranking por consumo ---------------------------------------------
+await page.click('button[title="Ranking"]');
 await page.waitForSelector('table');
-const linhas = await page.locator('tbody tr').count();
-// 21 no quadro menos o que acabou de ser marcado como perdido.
-ok('visão de tabela lista os mesmos advogados', linhas === 20, `${linhas} linhas`);
+await page.selectOption('select[aria-label="Período do ranking"]', 'null');
+await page.waitForTimeout(200);
 
-// --- carteira própria ---------------------------------------------------------
-// Entrar de novo remonta a tela no quadro, que é o padrão: a tabela precisa ser
-// reaberta antes de contar linha.
-await passarASer('sdr@focus.ai');
-await page.click('button[title="Tabela"]');
-await page.waitForSelector('table');
-const linhasSdr = await page.locator('tbody tr').count();
-ok('SDR vê apenas a própria carteira', linhasSdr > 0 && linhasSdr < 20, `${linhasSdr} linhas`);
-const temFiltroResp = await page.locator('select[aria-label="Filtrar por responsável"]').count();
-ok('filtro de responsável some para quem só vê a própria carteira', temFiltroResp === 0);
+const primeira = await page.locator('tbody tr').first().innerText();
+ok('ranking abre com o maior consumo em primeiro', /^1\b/m.test(primeira), primeira.split('\n')[0]);
+
+const semCompra = await page.locator('tbody tr', { hasText: 'sem compra' }).count();
+ok('ativo que não comprou continua na lista, sem posição', semCompra >= 1, `${semCompra} linhas`);
 
 // --- cadastro ------------------------------------------------------------------
-await passarASer(ADM);
-await page.click('button:has-text("Kanban")');
+await page.click('button[title="Funil"]');
 await page.waitForTimeout(200);
 await page.click('text=Novo advogado');
 await page.waitForSelector('[role="dialog"]');
@@ -195,7 +186,7 @@ await page.locator('[role="dialog"] select').first().selectOption('SP');
 await page.locator('[role="dialog"] input[type="checkbox"]').first().check();
 await page.locator('[role="dialog"] select').nth(1).selectOption('pequeno');
 await page.fill('[role="dialog"] input[inputmode="numeric"]', '15');
-await page.locator('[role="dialog"] select').nth(3).selectOption('u-closer');
+await page.locator('[role="dialog"] select').nth(3).selectOption('u-cs');
 await page.click('[role="dialog"] button:has-text("Criar advogado")');
 await page.waitForTimeout(400);
 
@@ -204,7 +195,7 @@ ok('novo advogado entra em Novo', /Novo/.test(criouToast), criouToast.trim());
 
 // INV-12 — a conta nasce sempre por conferir. Conferência é ato de alguém do
 // time, nunca consequência de o formulário ter sido preenchido.
-const nascePorConferir = await cartao('Moura Advocacia').innerText();
+const nascePorConferir = await linha('Moura Advocacia').innerText();
 ok('cadastro nasce com a inscrição por conferir', /por conferir/.test(nascePorConferir));
 
 // --- limpeza --------------------------------------------------------------------

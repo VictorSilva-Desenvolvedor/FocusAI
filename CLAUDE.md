@@ -61,9 +61,16 @@ inclusive e-mail de colega. Quem entra por uma conta assim não tem par na seed 
 cai no primeiro perfil do mesmo papel — `perfilLocal()` mantém o nome e o e-mail
 do banco justamente para a barra superior não mostrar outra pessoa.
 
-Todos os dez módulos têm tela construída. Os números que não saem dos stores
+Todos os onze módulos têm tela construída. Os números que não saem dos stores
 reais vêm de seeds em `src/lib/*Seed.ts` — plausíveis, não reais, e fictícios por
 princípio.
+
+**A tabela de preços é a de hoje, não exemplo:** o lead custa 30 créditos ou
+R$ 40 avulso nas três teses (`TES-R07`), o crédito vale R$ 1 e a recarga mínima
+é de R$ 150, que compra cinco leads (`CRE-R07`). Mexer nesses números é mexer no
+preço do produto — muda `src/lib/teses.ts` e `src/lib/creditos.ts` juntos, e as
+seeds de campanha atrás, porque o preço avulso é o teto do custo por lead
+qualificado.
 
 ## Comandos
 
@@ -76,6 +83,9 @@ npm run contas:teste # cria/atualiza uma conta de acesso por papel
 npm run shot       # captura headless (precisa do dev rodando)
 npm run smoke      # usuários + advogados + leads (precisa do dev rodando)
 npm run smoke:rls  # política de acesso, direto contra o banco
+npm run n8n:fluxos # exporta os fluxos do n8n para automacoes/n8n/ (API-R16)
+npm run meta:eventos # envia a fila de conversões para a Meta (automacoes/meta/)
+npm run tally:preparar # confere os campos ocultos dos formulários (--valer aplica)
 ```
 
 `npm run typecheck` é o portão mínimo antes de encerrar qualquer mudança.
@@ -381,7 +391,7 @@ que dois elementos do mesmo tipo passam a divergir e ninguém sabe qual é o cer
 causa mais comum de animação engasgada em lista grande. **Não há `transition-all`
 na base, e não deve voltar**: onde uma barra precisa animar tamanho, o certo é
 nomear a propriedade (`transition-[width]`, `transition-[height]`). Cartão de
-Kanban e item de lista ficam em `transition-colors`.
+quadro e linha de tabela ficam em `transition-colors`.
 
 ### `EST-R06` — um padrão por elemento, definido em `@layer components`
 
@@ -411,7 +421,7 @@ lugar único onde a mensagem de erro é estilizada. O componente `Campo` de
 A adaptação é essencialmente binária — celular abaixo de 640px, desktop acima.
 Siga o que já existe em vez de introduzir pontos de virada novos.
 
-A exceção é a barra superior: com dez módulos, a navegação horizontal só cabe a
+A exceção é a barra superior: com onze módulos, a navegação horizontal só cabe a
 partir de `xl:`, e a busca só a partir de `2xl:`. Abaixo disso o menu compacto é
 mais honesto que uma lista cortada no meio da palavra, que parece defeito.
 
@@ -501,9 +511,10 @@ Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 (`src/lib/navigation.ts` + `GuardaDeRota`), `ACC-R08` (`PortaoDeSessao` +
 `src/lib/sessao.ts`), `ACC-R09` (`src/servicos/perfil.ts`), `CNF-R21` (`AuthContext` +
 `views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
-`ADV-R09` (`src/lib/advogados.ts`), `TES-R01` a `TES-R06` (`src/lib/teses.ts`),
-`CRE-R01` a `CRE-R06` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
-(`src/lib/qualificacao.ts`), `ASS-R02` (`AssistenteButton`).
+`ADV-R10` (`src/lib/advogados.ts`), `TES-R01` a `TES-R07` (`src/lib/teses.ts`),
+`CRE-R01` a `CRE-R07` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
+(`src/lib/qualificacao.ts`), `ASS-R02` (`AssistenteButton`), `CMP-R01` a
+`CMP-R06` (`supabase/migrations/0006_atribuicao_meta.sql`).
 
 ## Camada de dados — contrato para quando o backend entrar
 
@@ -642,10 +653,30 @@ forem a demanda.
   lugares; a integração de WhatsApp está como não configurada e a etapa pulada
   aparece na tela de Integrações (`API-R10`). Falta o disparo — e ele depende
   de serviço externo, não de tela.
-- **Compra de pacote não tem checkout.** `INV-14` exige confirmação de
-  pagamento, e o provedor ainda não existe: o botão de comprar pacote está
+- **Recarga não tem checkout.** `INV-14` exige confirmação de pagamento, e o
+  provedor ainda não existe: o botão de recarregar, na tela de Preços, está
   desabilitado de propósito. O caminho interno para destravar alguém é o ajuste
   manual (`CRE-R06`), que exige permissão e motivo.
+- **O banco ainda conhece `closer` e `sdr`.** O app não: os dois papéis saíram
+  do vocabulário, e quem conduz o funil do advogado é Customer Success. A
+  migration `0009_papeis_sem_vendas_humana.sql` está escrita e **não aplicada**
+  — ela recria o enum `papel_usuario`, e antes de rodar é preciso decidir o
+  destino das contas que ainda estiverem com esses papéis, apagar
+  `closer@focus.ai` e `sdr@focus.ai` do Supabase Auth e regerar
+  `src/servicos/banco.types.ts`. Enquanto isso não acontece, uma conta com papel
+  removido entra e cai como bloqueada (`ACC-R08`) — fecha, não abre, mas o
+  motivo não aparece na tela.
+- **Duas frentes de captação fora das três teses.** Os formulários de auxílio
+  por incapacidade e de salário-maternidade estão no ar e têm fluxo de voz
+  próprio, mas são previdenciários e não existem no enum `tese` — nem em
+  `FOCUS-AI.md`, que descreve três. `registrar_captacao` recusa a captação
+  deles com motivo, então nada entra classificado errado. Resolver é decisão de
+  produto: ampliar as teses ou tirar os formulários do ar.
+- **A fila de conversões da Meta não tem tela nem agendador.** As funções e os
+  gatilhos existem (`CMP-R01` a `CMP-R06`), e `npm run meta:eventos` esvazia a
+  fila — mas quem chama isso de tempos em tempos ainda é decisão de operação, e
+  o que falhou só aparece consultando `eventos_meta`. A tela de Integrações é
+  onde a etapa pulada deveria aparecer (`API-R10`).
 - **Sem paginação** nas listas de leads e de advogados.
 - **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
   devolução de crédito.
