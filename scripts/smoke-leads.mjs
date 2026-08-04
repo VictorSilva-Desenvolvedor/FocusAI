@@ -12,9 +12,9 @@
  * justamente porque `LED-R06` não é demonstrável com uma só.
  */
 import { chromium } from 'playwright';
-import { entrar, entrarComo } from './entrar.mjs';
+import { entrar, entrarComo, BASE } from './entrar.mjs';
 
-const URL = 'http://localhost:5173/#/leads';
+const URL = `${BASE}/#/leads`;
 const ADM = 'victorpaulodev@focus.ai';
 const resultados = [];
 const ok = (n, cond, extra = '') =>
@@ -26,31 +26,67 @@ const erros = [];
 page.on('pageerror', (e) => erros.push(String(e)));
 page.on('console', (m) => m.type() === 'error' && erros.push(m.text()));
 
-const limpar = () =>
-  page.evaluate(() => {
-    localStorage.removeItem('focus.leads.v1');
-    localStorage.removeItem('focus.advogados.v1');
-    localStorage.removeItem('focus.creditos.v1');
-  });
+const suspenso = (n, motivo) => resultados.push(`SUSPENSO  ${n} — ${motivo}`);
 
-/** Entrar como outra pessoa devolve ao painel: volta para a tela em teste. */
+/**
+ * Entrar como outra pessoa devolve ao painel: volta para a tela em teste.
+ *
+ * O `reload` fecha a mesma armadilha do início: `goto` para outro hash no mesmo
+ * documento nem sempre renavega, e o teste acaba esperando um seletor na tela
+ * anterior. Ele também garante que os contextos recarreguem sob a sessão nova —
+ * que é o recorte que `LED-R06` manda conferir.
+ */
 const passarASer = async (email) => {
   await entrarComo(page, email);
   await page.goto(URL, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
 };
 
 await entrar(page, ADM);
 await page.goto(URL, { waitUntil: 'networkidle' });
-await limpar();
+/*
+ * O `reload` não é supérfluo: com `HashRouter`, `goto` para outro hash no mesmo
+ * documento nem sempre renavega, e `networkidle` resolve na hora porque não
+ * houve rede.
+ *
+ * A limpeza de `localStorage` que existia aqui saiu junto com a migração — o
+ * catálogo vem do banco agora, e apagar chave do navegador não muda mais nada.
+ */
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('article');
 
 // --- visão da operação -------------------------------------------------------
+/*
+ * Não dá para afirmar um número fixo de cartões, e a razão é o próprio teste:
+ * ele compra e devolve um lead a cada execução, e devolvido vira `expirado`,
+ * que é desfecho e sai do quadro. A segunda rodada encontra um cartão a menos
+ * que a primeira — para sempre, porque `INV-13` e `INV-15` proíbem desfazer.
+ *
+ * Afirma-se então a relação, que sobrevive às próprias mutações: todo lead está
+ * no quadro ou entre os encerrados, nunca nos dois nem em nenhum. O total é 17
+ * porque lead não se apaga — ele muda de coluna.
+ */
 const totalCartoes = await page.locator('article').count();
-ok('quadro carrega os leads', totalCartoes > 15, `${totalCartoes} cartões`);
+const encerrados = Number(
+  (await page.locator('button:has-text("Encerrados")').innerText()).match(/\d+/)?.[0] ?? 0,
+);
+ok(
+  'quadro e encerrados cobrem os leads do banco',
+  totalCartoes > 0 && totalCartoes + encerrados === 17,
+  `${totalCartoes} no quadro + ${encerrados} encerrados`,
+);
 
-// LED-R01 — sem os filtros da tese confirmados, não publica no catálogo.
-await page.locator('article', { hasText: 'Eliane Prado Moura' }).first().click({ button: 'right' });
+/*
+ * LED-R01 — sem os filtros da tese confirmados, não publica no catálogo.
+ *
+ * Cleber Nascimento Duarte vem da seed do banco em `em_qualificacao` com só um
+ * dos dois filtros de juros abusivos respondido — é o cartão que a tela mostra
+ * como "1 filtro por confirmar".
+ */
+await page
+  .locator('article', { hasText: 'Cleber Nascimento Duarte' })
+  .first()
+  .click({ button: 'right' });
 await page.waitForSelector('[role="menu"]');
 const itemAgendado = page.locator('[role="menu"] button', { hasText: 'Agendado' });
 ok(
@@ -109,6 +145,11 @@ await page.waitForTimeout(500);
 const avisoCompra = await page.locator('[role="status"]').innerText().catch(() => '');
 ok('comprar libera o contato', /telefone completo já está liberado/i.test(avisoCompra), avisoCompra.trim());
 
+/*
+ * INV-11 do lado que importa: o telefone só chega ao navegador depois que o
+ * banco reconhece o comprador. Não é a tela que revela o número — é a política
+ * de `leads_contato` que passa a casar a linha.
+ */
 const textoDrawer = await page.locator('[role="dialog"]').innerText();
 ok('telefone completo aparece depois da compra', /\(\d{2}\) 9\d{4}-\d{4}/.test(textoDrawer));
 
@@ -132,9 +173,14 @@ ok('lead comprado sai do catálogo', catalogoDepois === cartoesCatalogo - 1);
 const secaoMeus = await page.locator('main').innerText();
 ok('lead comprado aparece em "Seus leads"', secaoMeus.includes(nomeComprado));
 
-// --- INV-10 visto do outro lado: outro advogado não enxerga o lead vendido -----
-// O toast da compra cita o nome do lead e vive dentro do <main> por alguns
-// segundos. Sem esperar ele sair, a varredura de texto acusa a si mesma.
+/*
+ * INV-10 visto do outro lado. Vale uma ressalva sobre o que este teste prova:
+ * Gomes & Cia atua em SP/juros abusivos e o lead comprado é de GO, então ele
+ * não estaria no catálogo dela de qualquer forma. O teste confirma que o lead
+ * não aparece, mas não distingue "porque foi vendido" de "porque é de outra
+ * região" — a prova forte de INV-10 é a recusa da segunda compra, que a função
+ * do banco faz e este roteiro ainda não exercita.
+ */
 await page.waitForSelector('[role="status"]', { state: 'detached', timeout: 10_000 }).catch(() => {});
 await passarASer('advogado2@focus.ai');
 const textoOutro = await page.locator('main').innerText();
@@ -179,7 +225,7 @@ await page.locator('[role="dialog"] select#motivo-devolucao').selectOption({ ind
 await page.waitForTimeout(150);
 ok('motivo escolhido libera a devolução', !(await botaoConfirmar.isDisabled()));
 await botaoConfirmar.click();
-await page.waitForTimeout(500);
+await page.waitForTimeout(800);
 
 const avisoDevolucao = await page.locator('[role="status"]').innerText().catch(() => '');
 ok(
@@ -199,29 +245,26 @@ ok(
 
 // CRE-R05 — o crédito volta, o lead não: o contato já foi exposto.
 await page.waitForTimeout(300);
-const catalogoFinal = await page.locator('main').innerText();
 const voltouAoCatalogo =
-  catalogoFinal.includes(nomeComprado) &&
   (await page.locator('button:has-text("Comprar")', { hasText: nomeComprado }).count()) > 0;
 ok('lead devolvido NÃO volta ao catálogo', !voltouAoCatalogo);
 
-// --- persistência ------------------------------------------------------------------
+// --- persistência: agora a escrita é do banco, então tem que sobreviver ---------
 await page.reload({ waitUntil: 'networkidle' });
-// O perfil ativo não sobrevive ao reload: o seletor é demonstração, não login.
-// Sem reescolher, a página volta como administrador e os chips do advogado não
-// existem — que foi exatamente como este teste falhou da primeira vez.
-await passarASer('advogado@focus.ai');
+await page.waitForSelector('.chip');
 const saldoPosReload = Number(
   (await page.locator('.chip', { hasText: 'créditos no saldo' }).innerText()).match(/\d+/)?.[0] ?? 0,
 );
 ok('saldo sobrevive ao reload', saldoPosReload === saldoAposDevolucao, `${saldoPosReload}`);
 
-// --- limpeza -------------------------------------------------------------------------
-await limpar();
 await browser.close();
 
 console.log(resultados.join('\n'));
-console.log(`\n${resultados.filter((r) => r.startsWith('PASS')).length}/${resultados.length} passaram`);
+const passaram = resultados.filter((r) => r.startsWith('PASS')).length;
+const suspensos = resultados.filter((r) => r.startsWith('SUSPENSO')).length;
+console.log(
+  `\n${passaram}/${resultados.length - suspensos} passaram · ${suspensos} suspensos por falta de cenário`,
+);
 if (erros.length) {
   console.log('\nErros de console:');
   erros.forEach((e) => console.log(`  ${e}`));
