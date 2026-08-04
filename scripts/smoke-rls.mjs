@@ -12,7 +12,13 @@
  * que o navegador usa — e pergunta ao banco.
  *
  * Precisa de `.secrets/supabase.env` e `.env.local` preenchidos, e das contas
- * de demonstração criadas.
+ * criadas por `npm run contas:teste`.
+ *
+ *   npm run smoke:rls                        # projeto de trabalho
+ *   FOCUS_AMBIENTE=teste npm run smoke:rls   # banco de teste
+ *
+ * Não escreve nada que fique: as duas tentativas de escrita existem para serem
+ * recusadas, e é a recusa que se afirma. Roda contra qualquer um dos dois.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
@@ -31,7 +37,11 @@ const SEGREDOS = AMBIENTE ? `.secrets/supabase-${AMBIENTE}.env` : '.secrets/supa
 const ENV_VITE = AMBIENTE ? `.env.${AMBIENTE}.local` : '.env.local';
 
 const env = lerSegredos(SEGREDOS);
-exigir(env, ['SUPABASE_URL', 'SUPABASE_SECRET_KEY'], SEGREDOS);
+exigir(
+  env,
+  ['SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'SUPABASE_SENHA_TESTE', 'SUPABASE_SENHA_ADMIN'],
+  SEGREDOS,
+);
 
 if (!existsSync(ENV_VITE)) {
   console.error(`Falta ${ENV_VITE}, que é de onde sai a chave publicável.`);
@@ -45,6 +55,18 @@ if (!achado) {
 }
 const PUBLICAVEL = achado[1].trim();
 
+/*
+ * As contas, como `contas-de-teste.mjs` as cria hoje.
+ *
+ * Eram `prevfacil@`, `teixeira@` e `adm@` — nomes que o script de contas deixou
+ * de criar quando mudou. No projeto de trabalho elas ainda existem por herança,
+ * então o erro só apareceu quando um banco novo foi montado do zero. Nome de
+ * conta fixado em dois lugares diverge no primeiro que mudar.
+ */
+const ADM = 'victorpaulodev@focus.ai';
+const CONTA_PREV_FACIL = 'advogado@focus.ai';
+const CONTA_TEIXEIRA = 'advogado3@focus.ai';
+
 const PREV_FACIL = 'a0000000-0000-4000-8000-000000000001';
 const GOMES = 'a0000000-0000-4000-8000-000000000002';
 const LEAD_CATALOGO_GO = 'b0000000-0000-4000-8000-000000000001';
@@ -57,21 +79,28 @@ const resultados = [];
 const ok = (n, cond, extra = '') =>
   resultados.push(`${cond ? 'PASS' : 'FALHA'}  ${n}${extra ? ` — ${extra}` : ''}`);
 
+/*
+ * A senha vinha de `SUPABASE_SENHA_DEMO`, que não existe em arquivo nenhum: o
+ * login era tentado com `undefined` e o provedor respondia "Invalid login
+ * credentials" — mensagem que não distingue senha errada de variável vazia, e
+ * por isso o defeito passou por conta inexistente durante muito tempo.
+ *
+ * A conta de administrador tem senha própria; as demais dividem a mesma, igual
+ * a `senhaDe()` em entrar.mjs.
+ */
 async function comoUsuario(email) {
   const cliente = createClient(env.SUPABASE_URL, PUBLICAVEL, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { error } = await cliente.auth.signInWithPassword({
-    email,
-    password: env.SUPABASE_SENHA_DEMO,
-  });
+  const senha = email === ADM ? env.SUPABASE_SENHA_ADMIN : env.SUPABASE_SENHA_TESTE;
+  const { error } = await cliente.auth.signInWithPassword({ email, password: senha });
   if (error) throw new Error(`login ${email}: ${error.message}`);
   return cliente;
 }
 
 // --- LED-R06: o advogado vê o próprio recorte, nunca a carteira alheia -------
 
-const prev = await comoUsuario('prevfacil@focus.ai');
+const prev = await comoUsuario(CONTA_PREV_FACIL);
 const { data: leads } = await prev.from('leads').select('id, tese, uf, comprado_por');
 
 ok('LED-R06 · nenhum lead de outra UF', leads.every((l) => l.uf === 'GO'),
@@ -105,13 +134,13 @@ ok('INV-10 · não compra lead que já tem dono', compraAlheia?.ok === false, co
 
 // --- CRE-R04: sem saldo não compra ------------------------------------------
 
-const teixeira = await comoUsuario('teixeira@focus.ai');
+const teixeira = await comoUsuario(CONTA_TEIXEIRA);
 const { data: semSaldo } = await teixeira.rpc('comprar_lead', { p_lead_id: LEAD_CATALOGO_SP });
 ok('CRE-R04 · saldo zerado recusa a compra', semSaldo?.ok === false, semSaldo?.motivo);
 
 // --- O time interno opera ----------------------------------------------------
 
-const adm = await comoUsuario('adm@focus.ai');
+const adm = await comoUsuario(ADM);
 const { data: todos } = await adm.from('leads').select('id');
 const { data: contatos } = await adm.from('leads_contato').select('lead_id');
 ok('Time interno enxerga o catálogo inteiro', todos.length > 0, `${todos.length} leads`);
