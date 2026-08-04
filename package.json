@@ -18,7 +18,8 @@
     "tipos:banco": "node scripts/tipos-banco.mjs",
     "n8n:fluxos": "node scripts/n8n-fluxos.mjs",
     "meta:eventos": "node scripts/meta-eventos.mjs",
-    "tally:preparar": "node scripts/tally-preparar.mjs"
+    "tally:preparar": "node scripts/tally-preparar.mjs",
+    "smoke:qualificacao": "node scripts/smoke-qualificacao.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",
