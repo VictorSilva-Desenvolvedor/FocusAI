@@ -14,6 +14,7 @@
     "smoke:rls": "node scripts/smoke-rls.mjs",
     "contas:teste": "node scripts/contas-de-teste.mjs",
     "banco:teste": "node scripts/banco-de-teste.mjs",
+    "banco:reiniciar": "node scripts/banco-de-teste.mjs --reiniciar",
     "tipos:banco": "node scripts/tipos-banco.mjs",
     "n8n:fluxos": "node scripts/n8n-fluxos.mjs",
     "meta:eventos": "node scripts/meta-eventos.mjs",

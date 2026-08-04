@@ -50,6 +50,19 @@ import { lerSegredos, exigir } from './segredos.mjs';
 
 const ARQUIVO = '.secrets/supabase-teste.env';
 const valer = process.argv.includes('--valer');
+/*
+ * `--reiniciar` derruba o esquema e reaplica tudo, seed inclusive.
+ *
+ * É o que torna a suíte repetível. Sem isso, cada execução deixa lead comprado
+ * e movimento de crédito que `INV-13` e `INV-15` não deixam desfazer — a
+ * segunda rodada já encontra o catálogo menor, e a terceira não acha o que
+ * comprar. Reaplicar a seed também renova as datas: elas são relativas, então
+ * uma semana depois as reuniões do catálogo estão vencidas.
+ *
+ * Só é seguro porque aqui nenhuma linha responde por pessoa real. A trava de
+ * endereço logo abaixo é o que impede este comando de encontrar o outro banco.
+ */
+const reiniciar = process.argv.includes('--reiniciar');
 
 if (!existsSync(ARQUIVO)) {
   console.error(`Falta ${ARQUIVO}. O cabeçalho deste script diz o que pôr nele.`);
@@ -107,6 +120,11 @@ if (adiadas.length) {
   for (const m of adiadas) console.log(`  · ${m}`);
 }
 
+if (reiniciar) {
+  console.log('\nMODO REINICIAR — o esquema é derrubado e tudo reaplicado, seed inclusive.');
+  console.log('Tudo que o smoke comprou, devolveu ou moveu desaparece.');
+}
+
 if (!valer) {
   console.log('\nEnsaio. Nada foi escrito. Rode com --valer para aplicar.');
   process.exit(0);
@@ -122,18 +140,25 @@ if (!valer) {
  * processo for interrompido. Deixá-las fora seria pior que não ter começado.
  */
 const ABRIGO = 'supabase/.adiadas';
-console.log('\nAplicando as migrations…');
+console.log(reiniciar ? '\nReiniciando o banco…' : '\nAplicando as migrations…');
 let push;
 try {
   if (adiadas.length) {
     mkdirSync(ABRIGO, { recursive: true });
     for (const m of adiadas) renameSync(`supabase/migrations/${m}`, `${ABRIGO}/${m}`);
   }
-  push = spawnSync(
-    'npx',
-    ['-y', 'supabase@latest', 'db', 'push', '--db-url', env.SUPABASE_DB_URL, '--include-all'],
-    { stdio: 'inherit', shell: true },
-  );
+  /*
+   * `--yes` responde ao "tem certeza?" do reset, que sem terminal cancela
+   * sozinho. A confirmação que importa não é essa: é a comparação de endereço
+   * lá em cima, que roda antes e não depende de ninguém estar olhando.
+   */
+  const comando = reiniciar
+    ? ['db', 'reset', '--db-url', env.SUPABASE_DB_URL, '--yes']
+    : ['db', 'push', '--db-url', env.SUPABASE_DB_URL, '--include-all'];
+  push = spawnSync('npx', ['-y', 'supabase@latest', ...comando], {
+    stdio: 'inherit',
+    shell: true,
+  });
 } finally {
   for (const m of adiadas) {
     if (existsSync(`${ABRIGO}/${m}`)) renameSync(`${ABRIGO}/${m}`, `supabase/migrations/${m}`);
@@ -142,7 +167,7 @@ try {
 }
 
 if (push.status !== 0) {
-  console.error('\n`supabase db push` falhou. Nada de contas foi criado.');
+  console.error(`\n\`supabase db ${reiniciar ? 'reset' : 'push'}\` falhou. Nada de contas foi criado.`);
   process.exit(1);
 }
 
