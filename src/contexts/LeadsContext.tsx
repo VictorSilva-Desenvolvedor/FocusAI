@@ -1,10 +1,40 @@
-import { createContext, use, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import { LEADS_SEED } from '@/src/lib/leadsSeed';
-import { MINUTOS_DE_RESERVA, reservaAtiva, type LeadFormData } from '@/src/lib/leads';
+import { createContext, use, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { type LeadFormData } from '@/src/lib/leads';
+import {
+  avaliarLead,
+  comprarLead,
+  devolverLead,
+  liberarReserva as liberarReservaNoBanco,
+  listarLeads,
+  reservarLead,
+} from '@/src/servicos/leads';
+import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
 import { TESE_POR_ID } from '@/src/lib/teses';
 import type { Lead, LeadStatus, TeseId } from '@/types';
 
-const CHAVE = 'focus.leads.v1';
+/*
+ * MIGRAÇÃO — leitura e as operações transacionais no banco.
+ *
+ * A lista vem de `src/servicos/leads.ts`, com a política de acesso do Postgres
+ * decidindo o que sai (`API-R02`) e o contato mascarado antes de chegar aqui
+ * (`INV-11`).
+ *
+ * **Comprar, devolver, reservar, liberar e avaliar** passaram a chamar as
+ * funções do banco. Elas gravam em conjunto e validam antes (`API-R08`): a
+ * compra carimba o comprador e lança o movimento no extrato numa transação só,
+ * e é ela que fecha a janela em que dois advogados compram o mesmo lead. O
+ * comprador não é mais parâmetro — a função o deriva da sessão, porque passá-lo
+ * do cliente faria de comprar em nome de terceiro uma chamada bem formada.
+ *
+ * O que **continua local**: `criar`, `mover`, `agendar` e `responderFiltro` —
+ * as operações do quadro interno. Não há função no banco para elas ainda, e
+ * escrita direta na tabela contornaria a validação que as outras têm. Alteração
+ * feita por elas vale para a sessão e some no recarregar.
+ *
+ * Consequência operacional que vale saber: `npm run smoke` agora consome lead
+ * de verdade. Hoje só a seed fictícia; quando a captação entregar lead real, o
+ * smoke precisa apontar para outro projeto antes de rodar.
+ */
 
 /** O que a compra devolve. `false` significa que outra pessoa chegou antes. */
 export type ResultadoCompra =
@@ -13,49 +43,38 @@ export type ResultadoCompra =
 
 interface LeadsValue {
   leads: Lead[];
+  /** Verdadeiro enquanto a primeira carga não voltou do banco. */
+  carregando: boolean;
+  /** Mensagem da falha de carregamento, ou nulo. Lista vazia por erro não é lista vazia. */
+  erro: string | null;
   criar: (dados: LeadFormData) => Lead;
   mover: (id: string, status: LeadStatus, motivo?: string) => void;
   agendar: (id: string, reuniaoEm: string) => void;
   responderFiltro: (id: string, filtroId: string, valor: boolean) => void;
-  reservar: (id: string, advogadoId: string) => boolean;
-  liberarReserva: (id: string) => void;
+  reservar: (id: string) => Promise<boolean>;
+  liberarReserva: (id: string) => Promise<void>;
   /**
-   * CRE-R02 — carimbar o comprador e sair do catálogo é um passo só. Quem
-   * chama é responsável por debitar o crédito na mesma ação; a checagem de
-   * corrida mora aqui porque é aqui que o registro é escrito.
+   * `CRE-R02` / `API-R08` — carimbar o comprador, debitar o crédito e lançar o
+   * movimento é uma transação só, no banco. Quem chama não debita nada por
+   * fora: fazê-lo duplicaria o lançamento.
+   *
+   * O advogado não é parâmetro — a função o deriva da sessão.
    */
-  comprar: (id: string, advogadoId: string) => ResultadoCompra;
-  devolver: (id: string, motivo: string) => void;
+  comprar: (id: string) => Promise<ResultadoCompra>;
+  devolver: (id: string, motivo: string) => Promise<ResultadoCompra>;
   /** LED-R08 — nota do comprador depois da consulta. Refazer sobrescreve. */
-  avaliar: (id: string, nota: number, comentario: string) => void;
-  restaurarSeed: () => void;
+  avaliar: (id: string, nota: number, comentario: string) => Promise<ResultadoCompra>;
+  /** Busca de novo no banco e devolve a lista. */
+  recarregar: () => Promise<Lead[]>;
 }
 
 const LeadsContext = createContext<LeadsValue | null>(null);
 
-function carregar(): Lead[] {
-  try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (!bruto) return LEADS_SEED;
-    const dados = JSON.parse(bruto);
-    // Um payload corrompido não pode derrubar o app inteiro na inicialização.
-    if (!Array.isArray(dados) || dados.length === 0) return LEADS_SEED;
-    return dados as Lead[];
-  } catch {
-    return LEADS_SEED;
-  }
-}
-
-function persistir(lista: Lead[]): void {
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(lista));
-  } catch {
-    // Modo privativo ou cota estourada — segue em memória.
-  }
-}
-
 export function LeadsProvider({ children }: { children: ReactNode }) {
-  const [leads, setLeads] = useState<Lead[]>(carregar);
+  const { dados: leads, carregando, erro, recarregar, definir } = useDadosDaSessao(
+    listarLeads,
+    'leads',
+  );
   /*
    * A lista viva, fora do ciclo de render.
    *
@@ -73,13 +92,18 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
    * função no banco, que valida e grava junto ou não grava nada (`API-R08`).
    */
   const vivos = useRef(leads);
+  // A referência precisa acompanhar o que voltou do banco, senão `comprar` e
+  // `reservar` decidem sobre a lista da carga anterior.
+  vivos.current = leads;
 
-  const aplicar = useCallback((proximo: (atual: Lead[]) => Lead[]) => {
-    const novo = proximo(vivos.current);
-    vivos.current = novo;
-    persistir(novo);
-    setLeads(novo);
-  }, []);
+  const aplicar = useCallback(
+    (proximo: (atual: Lead[]) => Lead[]) => {
+      const novo = proximo(vivos.current);
+      vivos.current = novo;
+      definir(() => novo);
+    },
+    [definir],
+  );
 
   const criar = useCallback(
     (dados: LeadFormData): Lead => {
@@ -167,126 +191,80 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
     [aplicar],
   );
 
-  const reservar = useCallback(
-    (id: string, advogadoId: string): boolean => {
-      let conseguiu = false;
-      aplicar((atual) =>
-        atual.map((l) => {
-          if (l.id !== id) return l;
-          // LED-R04 — quem já tem a trava viva mantém; ninguém mais entra.
-          if (reservaAtiva(l) && l.reservadoPor !== advogadoId) return l;
-          if (l.compradoPor) return l;
-          conseguiu = true;
-          return {
-            ...l,
-            reservadoPor: advogadoId,
-            reservadoAte: new Date(Date.now() + MINUTOS_DE_RESERVA * 60_000).toISOString(),
-          };
-        }),
-      );
-      return conseguiu;
+  /**
+   * Depois de qualquer escrita, a verdade vem do banco — nunca de adivinhar o
+   * que ele fez.
+   *
+   * `API-R14` já diz isso para evento externo, e vale igual aqui: as funções
+   * transacionais recusam por regra (lead já vendido, reserva de outro, saldo
+   * insuficiente) e a recusa pode chegar depois de a tela ter decidido o
+   * contrário. Reler é mais barato que manter duas versões da mesma linha.
+   */
+  const aplicarNoBanco = useCallback(
+    async (executar: () => Promise<{ ok: boolean; motivo?: string }>, id: string) => {
+      const r = await executar();
+      if (!r.ok) return { ok: false as const, motivo: r.motivo ?? 'Operação recusada.' };
+
+      const atualizados = await recarregar();
+      const lead = atualizados.find((l) => l.id === id);
+      if (!lead) return { ok: false as const, motivo: 'Lead não encontrado depois da operação.' };
+      return { ok: true as const, lead };
     },
-    [aplicar],
+    [recarregar],
+  );
+
+  /** `LED-R04` — a trava de checkout, com prazo, decidida no banco. */
+  const reservar = useCallback(
+    async (id: string): Promise<boolean> => {
+      const r = await reservarLead(id);
+      if (r.ok) await recarregar();
+      return r.ok;
+    },
+    [recarregar],
   );
 
   const liberarReserva = useCallback(
-    (id: string) => {
-      aplicar((atual) =>
-        atual.map((l) => (l.id === id ? { ...l, reservadoPor: null, reservadoAte: null } : l)),
-      );
+    async (id: string) => {
+      await liberarReservaNoBanco(id);
+      await recarregar();
     },
-    [aplicar],
+    [recarregar],
   );
 
+  /**
+   * Substituída por `comprarLead(id)` de `src/servicos/leads.ts`.
+   *
+   * A RPC não recebe o comprador: ela o deriva da sessão. Passá-lo do cliente
+   * faria de comprar em nome de terceiro uma chamada bem formada. E lá o
+   * carimbo e o débito acontecem na mesma transação (`API-R08`) — as três
+   * chamadas que a view faz hoje viram uma só.
+   */
   const comprar = useCallback(
-    (id: string, advogadoId: string): ResultadoCompra => {
-      let resultado: ResultadoCompra = { ok: false, motivo: 'Lead não encontrado.' };
-
-      aplicar((atual) =>
-        atual.map((l) => {
-          if (l.id !== id) return l;
-
-          // INV-10 — a última checagem antes de escrever. Entre abrir a tela e
-          // clicar, outro advogado pode ter comprado; sem esta linha o segundo
-          // clique sobrescreveria o primeiro comprador em silêncio.
-          if (l.compradoPor) {
-            resultado = { ok: false, motivo: 'Outro advogado comprou este lead primeiro.' };
-            return l;
-          }
-          if (reservaAtiva(l) && l.reservadoPor !== advogadoId) {
-            resultado = { ok: false, motivo: 'Outro advogado está finalizando a compra.' };
-            return l;
-          }
-
-          const agora = new Date().toISOString();
-          const vendido: Lead = {
-            ...l,
-            status: 'vendido',
-            compradoPor: advogadoId,
-            // INV-13 — carimbo imutável. É o que responde, perante a OAB,
-            // quando e para quem aquele cliente foi direcionado.
-            compradoEm: agora,
-            reservadoPor: null,
-            reservadoAte: null,
-            ultimaAtividade: agora,
-          };
-          resultado = { ok: true, lead: vendido };
-          return vendido;
-        }),
-      );
-
-      return resultado;
-    },
-    [aplicar],
+    (id: string) => aplicarNoBanco(() => comprarLead(id), id),
+    [aplicarNoBanco],
   );
 
+  /**
+   * `CRE-R05` — o crédito volta, o lead não. A reposição do crédito acontece
+   * dentro da função do banco, junto da marcação da devolução: quem chama não
+   * credita por fora.
+   */
   const devolver = useCallback(
-    (id: string, motivo: string) => {
-      aplicar((atual) =>
-        atual.map((l) =>
-          l.id === id
-            ? {
-                ...l,
-                // CRE-R05 — o crédito volta, o lead não. O contato já foi
-                // exposto àquele advogado; recolocar no catálogo criaria o
-                // segundo comprador que INV-10 proíbe.
-                status: 'expirado',
-                devolucao: { motivo, em: new Date().toISOString() },
-                ultimaAtividade: new Date().toISOString(),
-              }
-            : l,
-        ),
-      );
-    },
-    [aplicar],
+    (id: string, motivo: string) => aplicarNoBanco(() => devolverLead(id, motivo), id),
+    [aplicarNoBanco],
   );
 
   const avaliar = useCallback(
-    (id: string, nota: number, comentario: string) => {
-      aplicar((atual) =>
-        atual.map((l) =>
-          l.id === id
-            ? {
-                ...l,
-                avaliacao: {
-                  nota,
-                  comentario: comentario.trim() || null,
-                  em: new Date().toISOString(),
-                },
-                ultimaAtividade: new Date().toISOString(),
-              }
-            : l,
-        ),
-      );
-    },
-    [aplicar],
+    (id: string, nota: number, comentario: string) =>
+      aplicarNoBanco(() => avaliarLead(id, nota, comentario.trim() || null), id),
+    [aplicarNoBanco],
   );
-
-  const restaurarSeed = useCallback(() => aplicar(() => LEADS_SEED), [aplicar]);
 
   const value = useMemo<LeadsValue>(
     () => ({
       leads,
+      carregando,
+      erro,
       criar,
       mover,
       agendar,
@@ -296,10 +274,12 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
       comprar,
       devolver,
       avaliar,
-      restaurarSeed,
+      recarregar,
     }),
     [
       leads,
+      carregando,
+      erro,
       criar,
       mover,
       agendar,
@@ -309,7 +289,7 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
       comprar,
       devolver,
       avaliar,
-      restaurarSeed,
+      recarregar,
     ],
   );
 

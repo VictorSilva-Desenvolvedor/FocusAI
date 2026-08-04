@@ -1,6 +1,7 @@
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react';
-import { ADVOGADOS_SEED } from '@/src/lib/advogadosSeed';
+import { createContext, use, useCallback, useMemo, type ReactNode } from 'react';
 import { cidadesDoTexto, type AdvogadoFormData } from '@/src/lib/advogados';
+import { listarAdvogados } from '@/src/servicos/advogados';
+import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
 import type {
   Advogado,
   AdvogadoStatus,
@@ -9,10 +10,30 @@ import type {
   PrioridadeAdvogado,
 } from '@/types';
 
-const CHAVE = 'focus.advogados.v1';
+/*
+ * MIGRAÇÃO PARCIAL — leitura no banco, escrita ainda em memória.
+ *
+ * Veio junto com `LeadsContext` por necessidade, não por conveniência: o lead
+ * aponta para o comprador por `uuid`, e a seed local usa slug (`adv-a1b2`). Com
+ * um lado no banco e o outro no navegador, o elo quebra em silêncio — a carteira
+ * do advogado abre vazia e nenhum erro aparece.
+ *
+ * A leitura sai de `advogados_com_saldo`, nunca da tabela crua: é a view que
+ * soma o extrato (`INV-15`). Consultar `advogados` direto devolveria o cadastro
+ * sem saldo, e o sintoma seria zero crédito para quem tem cento e quarenta.
+ *
+ * `debitarCreditos` e `creditar` continuam locais e **não têm substituta
+ * direta**: no banco não existe "mexer no saldo", porque saldo não é coluna. O
+ * que existe é lançar movimento — e isso acontece dentro de `comprar_lead` e
+ * `devolver_lead`, na mesma transação da escrita no lead.
+ */
 
 interface AdvogadosValue {
   advogados: Advogado[];
+  /** Verdadeiro enquanto a primeira carga não voltou do banco. */
+  carregando: boolean;
+  /** Mensagem da falha de carregamento, ou nulo. */
+  erro: string | null;
   criar: (dados: AdvogadoFormData, autorId: string) => Advogado;
   mover: (id: string, status: AdvogadoStatus, motivoPerda?: string) => void;
   definirPrioridade: (id: string, p: PrioridadeAdvogado | null) => void;
@@ -27,42 +48,20 @@ interface AdvogadosValue {
   /** CRE-R02 — o débito de crédito e a venda do lead acontecem juntos. */
   debitarCreditos: (id: string, creditos: number) => void;
   creditar: (id: string, creditos: number) => void;
-  restaurarSeed: () => void;
+  /** Busca de novo no banco e devolve a lista. */
+  recarregar: () => Promise<Advogado[]>;
 }
 
 const AdvogadosContext = createContext<AdvogadosValue | null>(null);
 
-function carregar(): Advogado[] {
-  try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (!bruto) return ADVOGADOS_SEED;
-    const dados = JSON.parse(bruto);
-    // Um payload corrompido não pode derrubar o app inteiro na inicialização.
-    if (!Array.isArray(dados) || dados.length === 0) return ADVOGADOS_SEED;
-    return dados as Advogado[];
-  } catch {
-    return ADVOGADOS_SEED;
-  }
-}
-
-function persistir(lista: Advogado[]): void {
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(lista));
-  } catch {
-    // Modo privativo ou cota estourada — segue em memória.
-  }
-}
-
 export function AdvogadosProvider({ children }: { children: ReactNode }) {
-  const [advogados, setAdvogados] = useState<Advogado[]>(carregar);
-
-  const aplicar = useCallback((proximo: (atual: Advogado[]) => Advogado[]) => {
-    setAdvogados((atual) => {
-      const novo = proximo(atual);
-      persistir(novo);
-      return novo;
-    });
-  }, []);
+  const {
+    dados: advogados,
+    carregando,
+    erro,
+    recarregar,
+    definir: aplicar,
+  } = useDadosDaSessao(listarAdvogados, 'advogados');
 
   const criar = useCallback(
     (dados: AdvogadoFormData, autorId: string): Advogado => {
@@ -195,11 +194,11 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
     [aplicar],
   );
 
-  const restaurarSeed = useCallback(() => aplicar(() => ADVOGADOS_SEED), [aplicar]);
-
   const value = useMemo<AdvogadosValue>(
     () => ({
       advogados,
+      carregando,
+      erro,
       criar,
       mover,
       definirPrioridade,
@@ -207,10 +206,12 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
       vincularUsuario,
       debitarCreditos,
       creditar,
-      restaurarSeed,
+      recarregar,
     }),
     [
       advogados,
+      carregando,
+      erro,
       criar,
       mover,
       definirPrioridade,
@@ -218,7 +219,7 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
       vincularUsuario,
       debitarCreditos,
       creditar,
-      restaurarSeed,
+      recarregar,
     ],
   );
 
