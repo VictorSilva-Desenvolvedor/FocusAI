@@ -108,6 +108,63 @@ const inexistente = await chamar({
 });
 ok('lead inexistente é recusado com motivo', inexistente.data?.ok === false, inexistente.data?.motivo);
 
+// --- o agendamento: o que transforma lead em produto ------------------------
+
+const agendar = (args) => servico.rpc('registrar_agendamento', args);
+const daqui = (dias) => new Date(Date.now() + dias * 86_400_000).toISOString();
+
+/*
+ * LED-R01 — o Cleber foi qualificado acima, mas a seed o deixou com só um dos
+ * dois filtros de juros abusivos respondido. Publicar assim anunciaria caso que
+ * o advogado recusa na primeira leitura.
+ */
+const semFiltro = await agendar({
+  p_lead_id: CLEBER, p_chamada_id: 'call-ok', p_reuniao_em: daqui(3),
+});
+ok('LED-R01 · não publica com filtro de elegibilidade pendente',
+  semFiltro.data?.ok === false, semFiltro.data?.motivo?.slice(0, 60));
+
+await servico.from('leads')
+  .update({ elegibilidade: { tem_contrato: true, confirmou_agendamento: true } })
+  .eq('id', CLEBER);
+
+// Horário no passado é quase sempre fuso trocado, e o lead entraria já vencido.
+const noPassado = await agendar({
+  p_lead_id: CLEBER, p_chamada_id: 'call-passado', p_reuniao_em: daqui(-1),
+});
+ok('reunião no passado é recusada', noPassado.data?.ok === false, noPassado.data?.motivo);
+
+const marcou = await agendar({
+  p_lead_id: CLEBER, p_chamada_id: 'call-ok', p_reuniao_em: daqui(3),
+});
+const publicado = await lead(CLEBER);
+ok('com os filtros confirmados, o lead é publicado', marcou.data?.ok === true && publicado.status === 'agendado', publicado.status);
+ok('CRE-R03 · o preço é congelado na publicação',
+  marcou.data?.custo_creditos === 4 && Number(marcou.data?.preco_avulso) === 350,
+  `${marcou.data?.custo_creditos} créditos · R$ ${marcou.data?.preco_avulso}`);
+
+/*
+ * A prova de que a cadeia fecha: um advogado de SP que atua em juros abusivos
+ * enxerga este lead no catálogo. É a mesma política que o smoke:rls exerce, do
+ * lado de quem compra.
+ */
+const { createClient: criar } = await import('@supabase/supabase-js');
+const { readFileSync } = await import('node:fs');
+const publicavel = readFileSync('.env.teste.local', 'utf8')
+  .match(/VITE_SUPABASE_PUBLISHABLE_KEY=(.+)/)[1].trim();
+const gomes = criar(env.SUPABASE_URL, publicavel, { auth: { persistSession: false } });
+await gomes.auth.signInWithPassword({ email: 'advogado2@focus.ai', password: env.SUPABASE_SENHA_TESTE });
+const { data: catalogo } = await gomes.from('leads').select('id, status').eq('id', CLEBER);
+ok('o lead agendado aparece no catálogo do advogado da tese e da região',
+  (catalogo ?? []).length === 1, `${(catalogo ?? []).length} linha(s)`);
+
+// INV-10 — reagendar lead vendido não o recoloca no catálogo.
+const vendidoDeNovo = await agendar({
+  p_lead_id: VENDIDO, p_chamada_id: 'call-revender', p_reuniao_em: daqui(5),
+});
+ok('INV-10 · lead vendido não volta ao catálogo por reagendamento',
+  vendidoDeNovo.data?.ok === false, vendidoDeNovo.data?.motivo);
+
 console.log(resultados.join('\n'));
 const falhas = resultados.filter((r) => r.startsWith('FALHA')).length;
 console.log(`\n${resultados.length - falhas}/${resultados.length} passaram`);
