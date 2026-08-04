@@ -34,9 +34,9 @@ await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('table');
 
 const totalInicial = await page.locator('tbody tr').count();
-// 14 contas do time + as 3 de advogado, que aparecem na lista mas são
+// 12 contas do time + as 3 de advogado, que aparecem na lista mas são
 // gerenciadas no funil, não aqui (INV-12).
-ok('lista carrega com as contas semeadas', totalInicial === 17, `${totalInicial} linhas`);
+ok('lista carrega com as contas semeadas', totalInicial === 15, `${totalInicial} linhas`);
 
 // --- validação -------------------------------------------------------------
 await page.click('text=Novo usuário');
@@ -120,16 +120,16 @@ const desativarEu = linhaEu.locator('button[aria-label^="Desativar"]');
 ok('botão de desativar a própria conta fica desabilitado', await desativarEu.isDisabled());
 
 // --- desativação ------------------------------------------------------------
-const linhaDiego = page.locator('tbody tr', { hasText: 'closer@focus.ai' });
-await linhaDiego.locator('button[aria-label^="Desativar"]').click();
+const linhaTiago = page.locator('tbody tr', { hasText: 'operadoria@focus.ai' });
+await linhaTiago.locator('button[aria-label^="Desativar"]').click();
 await page.waitForSelector('[role="alertdialog"]');
 ok('desativar pede confirmação', true);
 await page.click('button:has-text("Desativar"):below([role="alertdialog"] h2)').catch(async () => {
   await page.locator('[role="alertdialog"] button:has-text("Desativar")').click();
 });
 await page.waitForTimeout(400);
-const textoDiego = await linhaDiego.innerText();
-ok('conta fica inativa e permanece na base', /Inativo/.test(textoDiego));
+const textoTiago = await linhaTiago.innerText();
+ok('conta fica inativa e permanece na base', /Inativo/.test(textoTiago));
 
 // --- filtros ----------------------------------------------------------------
 // Esperar a lista reagir, não dormir um tempo fixo: o sleep passava por sorte

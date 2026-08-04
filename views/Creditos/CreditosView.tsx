@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Landmark, TriangleAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, Check, Landmark, Tag, TriangleAlert } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { useCreditos } from '@/src/contexts/CreditosContext';
@@ -8,12 +9,9 @@ import { Campo } from '@/src/components/ui/Campo';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
 import {
-  PACOTES,
   TOM_MOVIMENTO,
-  descontoDoPacote,
   divergenciaDeSaldo,
   motivoParaNaoAjustar,
-  precoPorCredito,
   receitaDoPeriodo,
 } from '@/src/lib/creditos';
 import { formatarDataHora } from '@/src/lib/format';
@@ -29,8 +27,6 @@ const brl = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
   maximumFractionDigits: 0,
 });
-
-const brlCentavos = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function CreditosView() {
   const { ehAdvogado, advogadoId } = useAuth();
@@ -85,7 +81,7 @@ function PainelDoAdvogado({
         <p className="subtitulo-pagina mt-1">
           {avulso
             ? 'Você está no modelo avulso: paga por lead, sem compromisso de volume.'
-            : 'Cada lead consome créditos do seu saldo. O custo varia por tese.'}
+            : 'Cada lead consome créditos do seu saldo. A tabela de preços fica em Preços.'}
         </p>
       </div>
 
@@ -133,42 +129,19 @@ function PainelDoAdvogado({
         </div>
       )}
 
-      <section>
-        <h2 className="label-eyebrow mb-3">Pacotes</h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {PACOTES.map((pacote) => {
-            const desconto = descontoDoPacote(pacote);
-            return (
-              <div
-                key={pacote.id}
-                className={`card p-4 ${pacote.destaque ? 'ring-1 ring-roxo-300' : ''}`}
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="card-title">{pacote.nome}</span>
-                  {desconto > 0 && (
-                    <span className={`etiqueta ${ESTILO_ETIQUETA.sucesso}`}>−{desconto}%</span>
-                  )}
-                </div>
-                <div className="text-2xl font-semibold text-roxo-900 tabular mt-2">
-                  {pacote.creditos}
-                  <span className="text-[12px] font-normal text-stone-500"> créditos</span>
-                </div>
-                <div className="text-[13px] text-stone-700 tabular mt-1">
-                  {brl.format(pacote.valor)}
-                </div>
-                <p className="nota mt-1">{brlCentavos.format(precoPorCredito(pacote))} por crédito</p>
-                <button type="button" disabled className="btn btn-primario w-full mt-3">
-                  Comprar pacote
-                </button>
-              </div>
-            );
-          })}
+      {/* A tabela de recargas mora em Preços, e só lá: dois lugares desenhando o
+          mesmo pacote divergem no primeiro reajuste, e aí ninguém sabe qual dos
+          dois está certo. */}
+      <Link to="/precos" className="card card-interativo p-4 flex items-center gap-3 group">
+        <Tag className={`size-5 shrink-0 ${ESTILO_TEXTO.marca}`} />
+        <div className="min-w-0">
+          <div className="card-title">Preços e recargas</div>
+          <p className="nota mt-0.5">
+            Quanto custa o lead nos dois modelos e a partir de quanto você recarrega
+          </p>
         </div>
-        <p className="nota mt-2">
-          O crédito entra no saldo só quando o pagamento é confirmado pelo banco. Comprovante
-          enviado não credita (INV-14).
-        </p>
-      </section>
+        <ArrowRight className="ml-auto size-4 text-stone-300 group-hover:text-roxo-600 transition-colors" />
+      </Link>
 
       <section className="card p-5">
         <h2 className="card-title mb-4">Seu extrato</h2>
@@ -219,8 +192,8 @@ function PainelDaOperacao({
       <div>
         <h1 className="titulo-pagina">Créditos</h1>
         <p className="subtitulo-pagina mt-1">
-          Pacotes, saldo por advogado e consumo. A receita entra na compra do pacote — o consumo é
-          entrega, não receita nova.
+          Saldo por advogado, extrato e conferência. A receita entra na compra do pacote — o consumo
+          é entrega, não receita nova.
         </p>
       </div>
 

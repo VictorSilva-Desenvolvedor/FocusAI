@@ -1,0 +1,326 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Gustavo  Afonso",
+    "autosaved": false,
+    "connections": {
+      "Extrair campos": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Registrar identidade",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Registrar captação": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Responder",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Registrar identidade": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Registrar captação",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook Tally": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Extrair campos",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2026-08-03T23:57:16.751Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "id": "fc76fed7-9908-4008-8161-1cd2e9e574e3",
+        "name": "Webhook Tally",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "captacao-meta",
+          "responseMode": "responseNode"
+        },
+        "position": [
+          0,
+          0
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "8a4c33a3-c1bd-4b82-bd7a-45c04c2072a6"
+      },
+      {
+        "id": "871f2b8c-a8f4-422a-beb5-39cdc677a195",
+        "name": "Extrair campos",
+        "parameters": {
+          "jsCode": "/*\n * Só extração: acha o campo pelo tipo e pelo nome do campo oculto. Nenhuma\n * decisão de negócio mora aqui — tese, UF, deduplicação e preço são do banco.\n */\nconst corpo = $json.body ?? $json;\nconst dados = corpo.data ?? {};\nconst campos = dados.fields ?? [];\n\nconst porTipo = (tipo) => campos.find((c) => c.type === tipo)?.value ?? null;\nconst oculto = (nome) =>\n  campos.find((c) => c.label === nome || c.key === nome)?.value ?? null;\n\nreturn [{\n  json: {\n    respondenteId: dados.respondentId ?? null,\n    formularioId: dados.formId ?? null,\n    nome: porTipo('INPUT_TEXT'),\n    telefone: porTipo('INPUT_PHONE_NUMBER'),\n    fbp: oculto('fbp'),\n    fbc: oculto('fbc'),\n    fbclid: oculto('fbclid'),\n    pagina: oculto('pagina'),\n    eventoId: oculto('evento_id'),\n  },\n}];"
+        },
+        "position": [
+          220,
+          0
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "credentials": {
+          "httpCustomAuth": {
+            "id": "nzAfKUF4I4UroCBT",
+            "name": "Supabase Focus AI (service role)"
+          }
+        },
+        "id": "024cd99e-8b1b-4508-8773-a82f48fe3278",
+        "name": "Registrar identidade",
+        "parameters": {
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpCustomAuth",
+          "jsonBody": "={{ JSON.stringify({ p_respondente_id: $json.respondenteId, p_formulario_id: $json.formularioId, p_fbp: $json.fbp, p_fbc: $json.fbc, p_fbclid: $json.fbclid, p_pagina: $json.pagina, p_evento_id: $json.eventoId }) }}",
+          "method": "POST",
+          "options": {},
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "https://bzxtpujwwyntbianlmyz.supabase.co/rest/v1/rpc/registrar_identidade_captacao"
+        },
+        "position": [
+          440,
+          0
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2
+      },
+      {
+        "credentials": {
+          "httpCustomAuth": {
+            "id": "nzAfKUF4I4UroCBT",
+            "name": "Supabase Focus AI (service role)"
+          }
+        },
+        "id": "a77bcd63-f74e-449e-9cef-a85cd3b3c94e",
+        "name": "Registrar captação",
+        "parameters": {
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpCustomAuth",
+          "jsonBody": "={{ JSON.stringify({ p_respondente_id: $('Extrair campos').item.json.respondenteId, p_nome: $('Extrair campos').item.json.nome, p_telefone: $('Extrair campos').item.json.telefone, p_formulario_id: $('Extrair campos').item.json.formularioId }) }}",
+          "method": "POST",
+          "options": {},
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "https://bzxtpujwwyntbianlmyz.supabase.co/rest/v1/rpc/registrar_captacao"
+        },
+        "position": [
+          660,
+          0
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2
+      },
+      {
+        "id": "5456e576-5b03-4283-8a0d-e2a6240e469b",
+        "name": "Responder",
+        "parameters": {
+          "options": {
+            "responseCode": "={{ $json.ok === false ? 422 : 200 }}"
+          },
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json) }}"
+        },
+        "position": [
+          880,
+          0
+        ],
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1
+      }
+    ],
+    "updatedAt": "2026-08-03T23:57:16.751Z",
+    "versionId": "13c89277-c130-49e8-98d7-34cf12a529a0",
+    "workflowId": "3fjeFCCvKJjFudnB"
+  },
+  "activeVersionId": "13c89277-c130-49e8-98d7-34cf12a529a0",
+  "connections": {
+    "Extrair campos": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Registrar identidade",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Registrar captação": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Responder",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Registrar identidade": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Registrar captação",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook Tally": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extrair campos",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-08-03T23:57:16.751Z",
+  "id": "3fjeFCCvKJjFudnB",
+  "isArchived": false,
+  "meta": null,
+  "name": "[FOCUS] Captação Tally → Supabase → Meta",
+  "nodes": [
+    {
+      "id": "fc76fed7-9908-4008-8161-1cd2e9e574e3",
+      "name": "Webhook Tally",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "captacao-meta",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "8a4c33a3-c1bd-4b82-bd7a-45c04c2072a6"
+    },
+    {
+      "id": "871f2b8c-a8f4-422a-beb5-39cdc677a195",
+      "name": "Extrair campos",
+      "parameters": {
+        "jsCode": "/*\n * Só extração: acha o campo pelo tipo e pelo nome do campo oculto. Nenhuma\n * decisão de negócio mora aqui — tese, UF, deduplicação e preço são do banco.\n */\nconst corpo = $json.body ?? $json;\nconst dados = corpo.data ?? {};\nconst campos = dados.fields ?? [];\n\nconst porTipo = (tipo) => campos.find((c) => c.type === tipo)?.value ?? null;\nconst oculto = (nome) =>\n  campos.find((c) => c.label === nome || c.key === nome)?.value ?? null;\n\nreturn [{\n  json: {\n    respondenteId: dados.respondentId ?? null,\n    formularioId: dados.formId ?? null,\n    nome: porTipo('INPUT_TEXT'),\n    telefone: porTipo('INPUT_PHONE_NUMBER'),\n    fbp: oculto('fbp'),\n    fbc: oculto('fbc'),\n    fbclid: oculto('fbclid'),\n    pagina: oculto('pagina'),\n    eventoId: oculto('evento_id'),\n  },\n}];"
+      },
+      "position": [
+        220,
+        0
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "nzAfKUF4I4UroCBT",
+          "name": "Supabase Focus AI (service role)"
+        }
+      },
+      "id": "024cd99e-8b1b-4508-8773-a82f48fe3278",
+      "name": "Registrar identidade",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "jsonBody": "={{ JSON.stringify({ p_respondente_id: $json.respondenteId, p_formulario_id: $json.formularioId, p_fbp: $json.fbp, p_fbc: $json.fbc, p_fbclid: $json.fbclid, p_pagina: $json.pagina, p_evento_id: $json.eventoId }) }}",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://bzxtpujwwyntbianlmyz.supabase.co/rest/v1/rpc/registrar_identidade_captacao"
+      },
+      "position": [
+        440,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "nzAfKUF4I4UroCBT",
+          "name": "Supabase Focus AI (service role)"
+        }
+      },
+      "id": "a77bcd63-f74e-449e-9cef-a85cd3b3c94e",
+      "name": "Registrar captação",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "jsonBody": "={{ JSON.stringify({ p_respondente_id: $('Extrair campos').item.json.respondenteId, p_nome: $('Extrair campos').item.json.nome, p_telefone: $('Extrair campos').item.json.telefone, p_formulario_id: $('Extrair campos').item.json.formularioId }) }}",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://bzxtpujwwyntbianlmyz.supabase.co/rest/v1/rpc/registrar_captacao"
+      },
+      "position": [
+        660,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "5456e576-5b03-4283-8a0d-e2a6240e469b",
+      "name": "Responder",
+      "parameters": {
+        "options": {
+          "responseCode": "={{ $json.ok === false ? 422 : 200 }}"
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "position": [
+        880,
+        0
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2026-08-03T23:57:16.751Z",
+      "projectId": "EDaizeBU9gniBRFc",
+      "role": "workflow:owner",
+      "updatedAt": "2026-08-03T23:57:16.751Z",
+      "workflowId": "3fjeFCCvKJjFudnB"
+    }
+  ],
+  "tags": []
+}
