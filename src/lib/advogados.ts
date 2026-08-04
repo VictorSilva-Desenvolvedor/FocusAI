@@ -1,7 +1,9 @@
-import { ESTILO_ETIQUETA, ESTILO_PONTO } from '@/src/lib/estilo';
+import { VALOR_DO_CREDITO } from '@/src/lib/creditos';
+import { ESTILO_ETIQUETA } from '@/src/lib/estilo';
 import type {
   Advogado,
   AdvogadoStatus,
+  Lead,
   ModeloPagamento,
   PorteEscritorio,
   PrioridadeAdvogado,
@@ -15,13 +17,12 @@ import type {
 // ---------------------------------------------------------------------------
 
 /**
- * As colunas do quadro, na ordem do fluxo real do advogado: vê o anúncio,
+ * As etapas do funil, na ordem do fluxo real do advogado: vê o anúncio,
  * preenche o formulário, passa por qualificação, recebe acesso, escolhe o
  * modelo de pagamento e faz a primeira compra.
  *
- * Recusado, perdido e pausado ficam fora — são desfechos, não etapas, e uma
- * coluna-cemitério no fim do quadro só serve para acumular cartão que ninguém
- * olha.
+ * Recusado, perdido e pausado ficam fora — são desfechos, não etapas, e listar
+ * os dois juntos por padrão faz o funil parecer maior do que é.
  */
 export const COLUNAS: AdvogadoStatus[] = [
   'novo',
@@ -32,22 +33,8 @@ export const COLUNAS: AdvogadoStatus[] = [
   'ativo',
 ];
 
-/** Desfechos: saem do quadro e só aparecem por filtro. */
+/** Desfechos: saem da lista e só aparecem por filtro. */
 export const DESFECHOS: AdvogadoStatus[] = ['recusado', 'perdido', 'em_pausa'];
-
-/**
- * Cabeça de coluna do quadro. Os dois passos do meio usam tons da marca em
- * intensidade crescente — a progressão é o que faz o quadro ser lido da
- * esquerda para a direita; os demais usam o tom do significado (EST-R10).
- */
-export const COR_COLUNA: Partial<Record<AdvogadoStatus, string>> = {
-  novo: ESTILO_PONTO.neutro,
-  em_qualificacao: ESTILO_PONTO.info,
-  qualificado: 'bg-roxo-400',
-  acesso_liberado: 'bg-roxo-600',
-  modelo_definido: ESTILO_PONTO.atencao,
-  ativo: ESTILO_PONTO.sucesso,
-};
 
 // ---------------------------------------------------------------------------
 // ADV-R01 a ADV-R03 — transições que o quadro recusa
@@ -188,19 +175,105 @@ export const PROXIMA_ACAO: Record<AdvogadoStatus, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Visibilidade
+// ADV-R10 — ranking por consumo
 // ---------------------------------------------------------------------------
 
-/** Closer e SDR veem apenas a própria carteira. Os demais veem tudo. */
-const SO_A_PROPRIA_CARTEIRA = new Set(['closer', 'sdr']);
+/** Janelas do ranking. Nulo = todo o histórico. */
+export const JANELAS_DO_RANKING = [
+  { dias: 30, rotulo: 'Últimos 30 dias' },
+  { dias: 90, rotulo: 'Últimos 90 dias' },
+  { dias: null, rotulo: 'Todo o histórico' },
+] as const;
 
-export function visiveisPara(advogados: Advogado[], perfil: Profile): Advogado[] {
-  if (!SO_A_PROPRIA_CARTEIRA.has(perfil.role)) return advogados;
-  return advogados.filter((a) => a.responsavelId === perfil.id);
+export interface LinhaDoRanking {
+  advogado: Advogado;
+  /** Nulo quando não comprou nada no período — não é última posição, é ausência. */
+  posicao: number | null;
+  leads: number;
+  creditos: number;
+  /** Valor do que consumiu, a preço de tabela. Não é receita — ver abaixo. */
+  entregue: number;
+  devolvidos: number;
+  /** Média das notas que ele deu aos leads comprados (LED-R08). */
+  nota: number | null;
+  ultimaCompra: string | null;
 }
 
-export function veApenasPropria(perfil: Profile): boolean {
-  return SO_A_PROPRIA_CARTEIRA.has(perfil.role);
+/**
+ * Quem consome o produto, em ordem.
+ *
+ * O funil responde "quem entra"; este ranking responde "quem sustenta a
+ * operação depois que entrou" — e as duas leituras divergem sempre: o cadastro
+ * de maior potencial declarado costuma não ser o que mais compra. Sem esta
+ * lista, um advogado ativo que parou de comprar só aparece quando cancela.
+ *
+ * `entregue` é o valor do consumo a preço de tabela, e **não é receita**: no
+ * modelo de crédito o dinheiro entrou na recarga, e somar as duas coisas conta
+ * a mesma venda duas vezes. Receita reconhecida continua sendo o que
+ * `receitaDoPeriodo` calcula, na tela de Créditos.
+ *
+ * Empate divide a posição em vez de desempatar por critério inventado: dois
+ * advogados com o mesmo consumo são o mesmo lugar, e o número que apareceria
+ * como desempate seria ruído para quem lê a tela.
+ */
+export function rankearPorConsumo(
+  advogados: Advogado[],
+  leads: Lead[],
+  desde: Date | null,
+): LinhaDoRanking[] {
+  const corte = desde?.getTime() ?? null;
+
+  const linhas = advogados.map((advogado) => {
+    const comprados = leads.filter(
+      (l) =>
+        l.compradoPor === advogado.id &&
+        l.compradoEm !== null &&
+        (corte === null || Date.parse(l.compradoEm) >= corte),
+    );
+
+    const notas = comprados
+      .map((l) => l.avaliacao?.nota)
+      .filter((n): n is number => typeof n === 'number');
+
+    return {
+      advogado,
+      posicao: null as number | null,
+      leads: comprados.length,
+      creditos: comprados.reduce((s, l) => s + l.custoCreditos, 0),
+      entregue: comprados.reduce(
+        (s, l) =>
+          s +
+          (advogado.modeloPagamento === 'avulso'
+            ? l.precoAvulso
+            : l.custoCreditos * VALOR_DO_CREDITO),
+        0,
+      ),
+      devolvidos: comprados.filter((l) => l.devolucao !== null).length,
+      nota: notas.length > 0 ? notas.reduce((s, n) => s + n, 0) / notas.length : null,
+      ultimaCompra:
+        comprados
+          .map((l) => l.compradoEm!)
+          .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null,
+    };
+  });
+
+  linhas.sort((a, b) => {
+    if (b.leads !== a.leads) return b.leads - a.leads;
+    if (b.entregue !== a.entregue) return b.entregue - a.entregue;
+    return a.advogado.nome.localeCompare(b.advogado.nome, 'pt-BR');
+  });
+
+  let posicao = 0;
+  linhas.forEach((linha, indice) => {
+    if (linha.leads === 0) return;
+    const anterior = linhas[indice - 1];
+    // Competição: empate compartilha a posição e a seguinte pula (1, 1, 3).
+    const empatou = anterior && anterior.leads === linha.leads && anterior.entregue === linha.entregue;
+    posicao = empatou ? (anterior.posicao ?? indice + 1) : indice + 1;
+    linha.posicao = posicao;
+  });
+
+  return linhas;
 }
 
 // ---------------------------------------------------------------------------

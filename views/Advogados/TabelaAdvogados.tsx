@@ -116,12 +116,18 @@ export function TabelaAdvogados({
                         {a.oab}
                       </span>
                     ) : (
+                      /* INV-12 — o estado da inscrição é o portão do funil, então
+                         ele é escrito, não só colorido: ícone sozinho obriga a
+                         passar o mouse para saber o que trava a liberação. */
                       <span
                         title="Inscrição não conferida — não libera acesso (INV-12)."
-                        className="flex items-center gap-1 text-atencao-800 tabular text-[12px]"
+                        className="text-atencao-800"
                       >
-                        <ShieldAlert className="size-3.5" />
-                        {a.oab}
+                        <span className="flex items-center gap-1 tabular text-[12px]">
+                          <ShieldAlert className="size-3.5" />
+                          {a.oab}
+                        </span>
+                        <span className="nota">por conferir</span>
                       </span>
                     )}
                   </td>
@@ -140,8 +146,12 @@ export function TabelaAdvogados({
                     </div>
                   </td>
 
-                  <td className="px-3 py-3 text-stone-700 whitespace-nowrap">
+                  {/* O motivo acompanha o desfecho: sem ele a linha diz que a
+                      ficha foi perdida e não diz por quê, que é justamente o que
+                      ADV-R05 obriga a registrar. */}
+                  <td className="px-3 py-3 text-stone-700 min-w-40">
                     {ADVOGADO_STATUS_LABEL[a.status]}
+                    {a.motivoPerda && <div className="nota">{a.motivoPerda}</div>}
                   </td>
 
                   <td className="px-3 py-3 tabular text-stone-700 whitespace-nowrap">

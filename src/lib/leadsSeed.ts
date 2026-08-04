@@ -13,9 +13,9 @@ const emHoras = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString(
  * na zona morta temporal e o app quebra na inicialização.
  */
 const PRECO: Record<TeseId, { creditos: number; avulso: number }> = {
-  polo_passivo: { creditos: 3, avulso: 300 },
-  vinculo_empregaticio: { creditos: 2, avulso: 250 },
-  juros_abusivos: { creditos: 4, avulso: 350 },
+  polo_passivo: { creditos: 30, avulso: 40 },
+  vinculo_empregaticio: { creditos: 30, avulso: 40 },
+  juros_abusivos: { creditos: 30, avulso: 40 },
 };
 
 /** Pela mesma razão de `PRECO`: `l()` lê isto durante a carga do módulo. */

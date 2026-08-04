@@ -17,7 +17,7 @@ import { TESES } from '@/src/lib/teses';
 import { MODELO_PAGAMENTO_LABEL, PORTE_LABEL, type PorteEscritorio, type TeseId } from '@/types';
 
 /** Papéis que podem ser responsáveis por um advogado no funil. */
-const PAPEIS_COMERCIAIS = new Set(['closer', 'sdr', 'cs', 'gerente', 'adm']);
+const PAPEIS_COMERCIAIS = new Set(['cs', 'gerente', 'adm']);
 
 export function AdvogadoDrawer({
   aoFechar,

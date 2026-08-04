@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, KanbanSquare, Plus, Search, Table2, X } from 'lucide-react';
+import { BadgeCheck, Plus, Search, Table2, Trophy, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
+import { useLeads } from '@/src/contexts/LeadsContext';
 import { useUsuarios } from '@/src/contexts/UsuariosContext';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
 import { MenuCartao } from '@/src/components/ui/MenuCartao';
-import { ESTILO_CHIP, ESTILO_PONTO, type Tom } from '@/src/lib/estilo';
+import { ESTILO_CHIP, type Tom } from '@/src/lib/estilo';
 import {
   COLUNAS,
-  COR_COLUNA,
   DESFECHOS,
+  JANELAS_DO_RANKING,
   contaDoAdvogado,
   estaCongelado,
   motivoParaRecusarMovimento,
   prioridade,
-  veApenasPropria,
-  visiveisPara,
+  rankearPorConsumo,
 } from '@/src/lib/advogados';
 import { TESES } from '@/src/lib/teses';
 import {
@@ -25,22 +25,36 @@ import {
   type AdvogadoStatus,
   type TeseId,
 } from '@/types';
-import { AdvogadoCard } from './AdvogadoCard';
 import { AdvogadoDrawer } from './AdvogadoDrawer';
+import { RankingAdvogados } from './RankingAdvogados';
 import { TabelaAdvogados } from './TabelaAdvogados';
 
+const brl = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  maximumFractionDigits: 0,
+});
+
+/**
+ * Duas leituras da mesma carteira, e elas divergem sempre.
+ *
+ * O **funil** responde quem entra e onde cada ficha travou. O **ranking**
+ * responde quem sustenta a operação depois de entrar — e o cadastro de maior
+ * potencial declarado costuma não ser o que mais compra. Enquanto só existia o
+ * funil, um advogado ativo que parou de comprar só aparecia quando cancelava.
+ */
 export function AdvogadosView() {
   const { perfil } = useAuth();
   const { advogados, mover, conferirOab, vincularUsuario } = useAdvogados();
+  const { leads } = useLeads();
   const { usuarios, criarParaAdvogado } = useUsuarios();
 
-  const [visao, setVisao] = useState<'kanban' | 'tabela'>('kanban');
+  const [visao, setVisao] = useState<'funil' | 'ranking'>('funil');
+  const [janela, setJanela] = useState<number | null>(JANELAS_DO_RANKING[0].dias);
   const [busca, setBusca] = useState('');
   const [filtroResp, setFiltroResp] = useState('');
   const [filtroTese, setFiltroTese] = useState('');
   const [mostrarDesfechos, setMostrarDesfechos] = useState(false);
-  const [arrastando, setArrastando] = useState<string | null>(null);
-  const [colunaAlvo, setColunaAlvo] = useState<AdvogadoStatus | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState<{ advogado: Advogado; x: number; y: number } | null>(null);
   const [perdaDe, setPerdaDe] = useState<{ advogado: Advogado; destino: AdvogadoStatus } | null>(null);
@@ -51,12 +65,9 @@ export function AdvogadosView() {
     [usuarios],
   );
 
-  const minhaCarteira = veApenasPropria(perfil);
-  const daCarteira = useMemo(() => visiveisPara(advogados, perfil), [advogados, perfil]);
-
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return daCarteira.filter((a) => {
+    return advogados.filter((a) => {
       if (filtroResp && a.responsavelId !== filtroResp) return false;
       if (filtroTese && !a.teses.includes(filtroTese as TeseId)) return false;
       if (!termo) return true;
@@ -66,7 +77,7 @@ export function AdvogadosView() {
         a.uf.toLowerCase().includes(termo)
       );
     });
-  }, [daCarteira, busca, filtroResp, filtroTese]);
+  }, [advogados, busca, filtroResp, filtroTese]);
 
   const noQuadro = useMemo(
     () => filtrados.filter((a) => !DESFECHOS.includes(a.status)),
@@ -83,6 +94,29 @@ export function AdvogadosView() {
     const semSaldo = noQuadro.filter((a) => a.status === 'ativo' && a.saldoCreditos === 0).length;
     return { porConferir, semTese, congelados, p1, potencial, semSaldo };
   }, [noQuadro]);
+
+  /*
+   * ADV-R10 — quem não comprou no período fica na lista, sem posição: ativo sem
+   * compra é o sinal de cancelamento que a tela precisa dar, e ele some se o
+   * ranking mostrar só quem compra. Ficha encerrada sem consumo, essa sai — não
+   * há o que acompanhar num cadastro recusado.
+   */
+  const ranking = useMemo(() => {
+    const desde = janela === null ? null : new Date(Date.now() - janela * 86_400_000);
+    return rankearPorConsumo(filtrados, leads, desde).filter(
+      (linha) => linha.leads > 0 || linha.advogado.status === 'ativo',
+    );
+  }, [filtrados, leads, janela]);
+
+  const totaisDoRanking = useMemo(() => {
+    const compradores = ranking.filter((l) => l.leads > 0).length;
+    return {
+      compradores,
+      leads: ranking.reduce((s, l) => s + l.leads, 0),
+      entregue: ranking.reduce((s, l) => s + l.entregue, 0),
+      inertes: ranking.filter((l) => l.leads === 0).length,
+    };
+  }, [ranking]);
 
   const temFiltro = Boolean(busca || filtroResp || filtroTese);
 
@@ -122,15 +156,6 @@ export function AdvogadosView() {
     setAviso({ texto: `${advogado.nome} → ${ADVOGADO_STATUS_LABEL[destino]}.${complemento}` });
   }
 
-  function soltarEm(destino: AdvogadoStatus) {
-    setColunaAlvo(null);
-    const id = arrastando;
-    setArrastando(null);
-    if (!id) return;
-    const a = advogados.find((x) => x.id === id);
-    if (a) tentarMover(a, destino);
-  }
-
   return (
     <div className="flex flex-col h-full">
       {/* Cabeçalho ------------------------------------------------------- */}
@@ -139,19 +164,21 @@ export function AdvogadosView() {
           <div>
             <h1 className="titulo-pagina">Advogados</h1>
             <p className="subtitulo-pagina mt-1">
-              {minhaCarteira
-                ? 'Sua carteira. Do anúncio à primeira compra de lead.'
-                : 'O funil vai do anúncio à primeira compra. Acesso só depois da qualificação.'}
+              O funil vai do anúncio à primeira compra. Acesso só depois da qualificação.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-stone-200 bg-white p-0.5">
-              <BotaoVisao ativo={visao === 'kanban'} aoClicar={() => setVisao('kanban')} rotulo="Kanban">
-                <KanbanSquare className="size-4" />
-              </BotaoVisao>
-              <BotaoVisao ativo={visao === 'tabela'} aoClicar={() => setVisao('tabela')} rotulo="Tabela">
+              <BotaoVisao ativo={visao === 'funil'} aoClicar={() => setVisao('funil')} rotulo="Funil">
                 <Table2 className="size-4" />
+              </BotaoVisao>
+              <BotaoVisao
+                ativo={visao === 'ranking'}
+                aoClicar={() => setVisao('ranking')}
+                rotulo="Ranking"
+              >
+                <Trophy className="size-4" />
               </BotaoVisao>
             </div>
 
@@ -164,28 +191,48 @@ export function AdvogadosView() {
 
         {/* Chips ---------------------------------------------------------- */}
         <div className="flex flex-wrap gap-2 mb-3">
-          <Chip valor={noQuadro.length} rotulo="no funil" />
-          <Chip valor={chips.potencial} rotulo="leads/mês de potencial" tom="marca" />
-          <Chip
-            valor={chips.porConferir}
-            rotulo="inscrição por conferir"
-            tom={chips.porConferir > 0 ? 'atencao' : 'neutro'}
-            titulo="Sem a inscrição conferida não se libera acesso (INV-12)."
-          />
-          <Chip
-            valor={chips.semTese}
-            rotulo="sem tese"
-            tom={chips.semTese > 0 ? 'atencao' : 'neutro'}
-            titulo="Sem tese o painel abre vazio e o aviso de lead novo nunca dispara (ADV-R03)."
-          />
-          <Chip valor={chips.p1} rotulo="prioridade P1" tom="erro" />
-          <Chip
-            valor={chips.semSaldo}
-            rotulo="ativos sem saldo"
-            tom={chips.semSaldo > 0 ? 'erro' : 'neutro'}
-            titulo="Recebem aviso de lead novo e não conseguem comprar nenhum."
-          />
-          <Chip valor={chips.congelados} rotulo="congelados" tom="info" />
+          {visao === 'funil' ? (
+            <>
+              <Chip valor={noQuadro.length} rotulo="no funil" />
+              <Chip valor={chips.potencial} rotulo="leads/mês de potencial" tom="marca" />
+              <Chip
+                valor={chips.porConferir}
+                rotulo="inscrição por conferir"
+                tom={chips.porConferir > 0 ? 'atencao' : 'neutro'}
+                titulo="Sem a inscrição conferida não se libera acesso (INV-12)."
+              />
+              <Chip
+                valor={chips.semTese}
+                rotulo="sem tese"
+                tom={chips.semTese > 0 ? 'atencao' : 'neutro'}
+                titulo="Sem tese o painel abre vazio e o aviso de lead novo nunca dispara (ADV-R03)."
+              />
+              <Chip valor={chips.p1} rotulo="prioridade P1" tom="erro" />
+              <Chip
+                valor={chips.semSaldo}
+                rotulo="ativos sem saldo"
+                tom={chips.semSaldo > 0 ? 'erro' : 'neutro'}
+                titulo="Recebem aviso de lead novo e não conseguem comprar nenhum."
+              />
+              <Chip valor={chips.congelados} rotulo="congelados" tom="info" />
+            </>
+          ) : (
+            <>
+              <Chip valor={totaisDoRanking.leads} rotulo="leads entregues no período" tom="marca" />
+              <Chip valor={totaisDoRanking.compradores} rotulo="compraram no período" tom="sucesso" />
+              <Chip
+                valor={brl.format(totaisDoRanking.entregue)}
+                rotulo="consumo a preço de tabela"
+                titulo="Não é receita: no modelo de crédito o dinheiro entrou na recarga."
+              />
+              <Chip
+                valor={totaisDoRanking.inertes}
+                rotulo="ativos sem compra"
+                tom={totaisDoRanking.inertes > 0 ? 'erro' : 'neutro'}
+                titulo="Pagaram pelo acesso e não estão consumindo — é o sinal mais barato de cancelamento."
+              />
+            </>
+          )}
         </div>
 
         {/* Filtros -------------------------------------------------------- */}
@@ -202,21 +249,19 @@ export function AdvogadosView() {
             />
           </div>
 
-          {!minhaCarteira && (
-            <select
-              value={filtroResp}
-              onChange={(e) => setFiltroResp(e.target.value)}
-              aria-label="Filtrar por responsável"
-              className={seletor}
-            >
-              <option value="">Todos os responsáveis</option>
-              {[...new Set(daCarteira.map((a) => a.responsavelId))].map((id) => (
-                <option key={id} value={id}>
-                  {nomePorId[id] ?? 'Sem responsável'}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            value={filtroResp}
+            onChange={(e) => setFiltroResp(e.target.value)}
+            aria-label="Filtrar por responsável"
+            className={seletor}
+          >
+            <option value="">Todos os responsáveis</option>
+            {[...new Set(advogados.map((a) => a.responsavelId))].map((id) => (
+              <option key={id} value={id}>
+                {nomePorId[id] ?? 'Sem responsável'}
+              </option>
+            ))}
+          </select>
 
           <select
             value={filtroTese}
@@ -232,17 +277,32 @@ export function AdvogadosView() {
             ))}
           </select>
 
-          {desfechos.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setMostrarDesfechos((v) => !v)}
-              aria-pressed={mostrarDesfechos}
-              className={`btn px-3 ${
-                mostrarDesfechos ? 'border border-roxo-300 bg-roxo-50 text-roxo-800' : 'btn-secundario'
-              }`}
+          {visao === 'ranking' ? (
+            <select
+              value={String(janela)}
+              onChange={(e) => setJanela(e.target.value === 'null' ? null : Number(e.target.value))}
+              aria-label="Período do ranking"
+              className={seletor}
             >
-              Encerrados ({desfechos.length})
-            </button>
+              {JANELAS_DO_RANKING.map((j) => (
+                <option key={j.rotulo} value={String(j.dias)}>
+                  {j.rotulo}
+                </option>
+              ))}
+            </select>
+          ) : (
+            desfechos.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMostrarDesfechos((v) => !v)}
+                aria-pressed={mostrarDesfechos}
+                className={`btn px-3 ${
+                  mostrarDesfechos ? 'border border-roxo-300 bg-roxo-50 text-roxo-800' : 'btn-secundario'
+                }`}
+              >
+                Encerrados ({desfechos.length})
+              </button>
+            )
           )}
 
           {temFiltro && (
@@ -263,123 +323,25 @@ export function AdvogadosView() {
       </div>
 
       {/* Conteúdo --------------------------------------------------------- */}
-      {visao === 'kanban' ? (
-        <div className="flex-1 min-h-0 overflow-x-auto px-4 sm:px-6 pb-6">
-          <div className="flex gap-3 h-full min-w-max">
-            {COLUNAS.map((coluna) => {
-              const cartoes = noQuadro.filter((a) => a.status === coluna);
-              const potencial = cartoes.reduce((s, a) => s + a.potencialMensal, 0);
-              const alvo = colunaAlvo === coluna;
-
-              return (
-                <section
-                  key={coluna}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    setColunaAlvo(coluna);
-                  }}
-                  onDragLeave={() => setColunaAlvo((c) => (c === coluna ? null : c))}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    soltarEm(coluna);
-                  }}
-                  className={`w-72 shrink-0 flex flex-col rounded-xl border transition-colors ${
-                    alvo ? 'border-roxo-400 bg-roxo-50/60' : 'border-stone-200 bg-stone-50/60'
-                  }`}
-                >
-                  <header className="shrink-0 px-3 py-2.5 border-b border-stone-200/70">
-                    <div className="flex items-center gap-2">
-                      <span className={`ponto-estado size-2 ${COR_COLUNA[coluna]}`} />
-                      <h2 className="text-[12px] font-semibold text-roxo-900 truncate">
-                        {ADVOGADO_STATUS_LABEL[coluna]}
-                      </h2>
-                      <span className="ml-auto text-[11px] text-stone-500 tabular">
-                        {cartoes.length}
-                      </span>
-                    </div>
-                    <div className="nota tabular mt-0.5">{potencial} leads/mês</div>
-                  </header>
-
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {cartoes.map((a) => (
-                      <AdvogadoCard
-                        key={a.id}
-                        advogado={a}
-                        responsavel={nomePorId[a.responsavelId] ?? '—'}
-                        arrastavel
-                        aoIniciarArraste={() => setArrastando(a.id)}
-                        aoTerminarArraste={() => {
-                          setArrastando(null);
-                          setColunaAlvo(null);
-                        }}
-                        aoAbrirMenu={(e) => {
-                          e.preventDefault();
-                          setMenu({ advogado: a, x: e.clientX, y: e.clientY });
-                        }}
-                      />
-                    ))}
-
-                    {cartoes.length === 0 && (
-                      <p className="nota text-center py-6">{alvo ? 'Solte aqui' : 'Vazia'}</p>
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-
-            {mostrarDesfechos && (
-              <section className="w-72 shrink-0 flex flex-col rounded-xl border border-stone-200 bg-stone-100/70">
-                <header className="shrink-0 px-3 py-2.5 border-b border-stone-200/70">
-                  <div className="flex items-center gap-2">
-                    <span className={`ponto-estado size-2 ${ESTILO_PONTO.neutro}`} />
-                    <h2 className="text-[12px] font-semibold text-roxo-900">Encerrados</h2>
-                    <span className="ml-auto text-[11px] text-stone-500 tabular">
-                      {desfechos.length}
-                    </span>
-                  </div>
-                  <div className="nota mt-0.5">Perdidos, recusados e pausados</div>
-                </header>
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                  {desfechos.map((a) => (
-                    <div key={a.id} className="opacity-70">
-                      <AdvogadoCard
-                        advogado={a}
-                        responsavel={nomePorId[a.responsavelId] ?? '—'}
-                        arrastavel={false}
-                        aoIniciarArraste={() => {}}
-                        aoTerminarArraste={() => {}}
-                        aoAbrirMenu={(e) => {
-                          e.preventDefault();
-                          setMenu({ advogado: a, x: e.clientX, y: e.clientY });
-                        }}
-                      />
-                      <div className="nota text-[10px] px-3 pt-1">
-                        {ADVOGADO_STATUS_LABEL[a.status]}
-                        {a.motivoPerda && ` · ${a.motivoPerda}`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-24">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-24">
+        {visao === 'funil' ? (
           <TabelaAdvogados
             advogados={mostrarDesfechos ? filtrados : noQuadro}
             nomePorId={nomePorId}
             aoAbrirMenu={(a, e) => setMenu({ advogado: a, x: e.clientX, y: e.clientY })}
           />
-        </div>
-      )}
+        ) : (
+          <RankingAdvogados
+            linhas={ranking}
+            aoAbrirMenu={(a, e) => setMenu({ advogado: a, x: e.clientX, y: e.clientY })}
+          />
+        )}
+      </div>
 
       <p className="nota shrink-0 px-4 sm:px-6 pb-3">
-        {visao === 'kanban'
-          ? 'Arraste o cartão para mudar de etapa, ou clique com o botão direito para o menu de ações.'
-          : 'Clique em ⋯ para o menu de ações. As colunas ordenam ao clicar no título.'}
-        {minhaCarteira && ' Você enxerga apenas os advogados sob sua responsabilidade.'}
+        {visao === 'funil'
+          ? 'Clique em ⋯ para o menu de ações. As colunas ordenam ao clicar no título.'
+          : 'Ordenado por leads comprados no período. Consumo a preço de tabela não é receita — no modelo de crédito o dinheiro entrou na recarga.'}
       </p>
 
       {/* Sobreposições ---------------------------------------------------- */}
