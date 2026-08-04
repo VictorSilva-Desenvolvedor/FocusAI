@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:teste": "vite --mode teste",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
@@ -12,6 +13,7 @@
     "smoke": "node scripts/smoke-usuarios.mjs && node scripts/smoke-advogados.mjs && node scripts/smoke-leads.mjs",
     "smoke:rls": "node scripts/smoke-rls.mjs",
     "contas:teste": "node scripts/contas-de-teste.mjs",
+    "banco:teste": "node scripts/banco-de-teste.mjs",
     "tipos:banco": "node scripts/tipos-banco.mjs",
     "n8n:fluxos": "node scripts/n8n-fluxos.mjs",
     "meta:eventos": "node scripts/meta-eventos.mjs",

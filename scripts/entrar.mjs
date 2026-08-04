@@ -8,17 +8,21 @@
  *
  * As senhas vêm de `.secrets/supabase.env`, que não é versionado.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { lerSegredos } from './segredos.mjs';
 
-const env = Object.fromEntries(
-  readFileSync('.secrets/supabase.env', 'utf8')
-    .split('\n')
-    .filter((l) => l.trim() && !l.trim().startsWith('#') && l.includes('='))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    }),
-);
+/*
+ * De qual projeto vêm as senhas.
+ *
+ * `FOCUS_AMBIENTE=teste npm run smoke` aponta para o banco de teste, onde a
+ * seed é reaplicável. Sem a variável, segue o projeto de trabalho — quem já
+ * usava o smoke não muda nada.
+ */
+const ARQUIVO = process.env.FOCUS_AMBIENTE
+  ? `.secrets/supabase-${process.env.FOCUS_AMBIENTE}.env`
+  : '.secrets/supabase.env';
+
+const env = existsSync(ARQUIVO) ? lerSegredos(ARQUIVO) : {};
 
 export const CONTA_PADRAO = 'victorpaulodev@focus.ai';
 

@@ -16,25 +16,31 @@
  *
  * Idempotente: rodar de novo reaplica a senha e o perfil, sem duplicar conta.
  */
-import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { lerSegredos, exigir } from './segredos.mjs';
 
-const env = Object.fromEntries(
-  readFileSync('.secrets/supabase.env', 'utf8')
-    .split('\n')
-    .filter((l) => l.trim() && !l.trim().startsWith('#') && l.includes('='))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    }),
+/*
+ * Qual projeto recebe as contas.
+ *
+ *   npm run contas:teste                  # o projeto de trabalho
+ *   npm run contas:teste -- --ambiente teste
+ *
+ * O segundo existe para o banco de teste, onde a seed pode ser reaplicada sem
+ * consumir lead de verdade. Sem o parâmetro nada muda: quem já usava o script
+ * continua apontando para o mesmo lugar.
+ */
+const ambiente = process.argv.includes('--ambiente')
+  ? process.argv[process.argv.indexOf('--ambiente') + 1]
+  : null;
+const ARQUIVO = ambiente ? `.secrets/supabase-${ambiente}.env` : '.secrets/supabase.env';
+
+const env = lerSegredos(ARQUIVO);
+exigir(
+  env,
+  ['SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'SUPABASE_SENHA_TESTE', 'SUPABASE_SENHA_ADMIN'],
+  ARQUIVO,
 );
-
-for (const chave of ['SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'SUPABASE_SENHA_TESTE', 'SUPABASE_SENHA_ADMIN']) {
-  if (!env[chave]) {
-    console.error(`Falta ${chave} em .secrets/supabase.env.`);
-    process.exit(1);
-  }
-}
+console.log(`Contas em ${env.SUPABASE_URL}\n`);
 
 /*
  * Os advogados semeados por supabase/migrations/0004_seed.sql. A restrição
