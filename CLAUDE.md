@@ -83,12 +83,56 @@ npm run contas:teste # cria/atualiza uma conta de acesso por papel
 npm run shot       # captura headless (precisa do dev rodando)
 npm run smoke      # usuários + advogados + leads (precisa do dev rodando)
 npm run smoke:rls  # política de acesso, direto contra o banco
+npm run smoke:qualificacao # a cadeia de voz, direto contra o banco (só no de teste)
 npm run n8n:fluxos # exporta os fluxos do n8n para automacoes/n8n/ (API-R16)
 npm run meta:eventos # envia a fila de conversões para a Meta (automacoes/meta/)
 npm run tally:preparar # confere os campos ocultos dos formulários (--valer aplica)
 ```
 
 `npm run typecheck` é o portão mínimo antes de encerrar qualquer mudança.
+
+### O banco de teste
+
+Há **dois projetos Supabase**: o de trabalho, onde os leads reais caem, e um só
+para teste. A separação não é conforto — é o que torna a suíte executável mais
+de uma vez.
+
+O motivo está nos invariantes. `npm run smoke` compra e devolve lead, e o que
+isso grava não se desfaz: `INV-13` proíbe alterar o carimbo do comprador e
+`INV-15` proíbe apagar movimento de crédito. Medido: a segunda execução já
+encontra o funil diferente, e a terceira não acha o que comprar. Some-se que a
+seed usa datas relativas — uma semana depois, as reuniões do catálogo estão
+vencidas e não há o que vender.
+
+```bash
+npm run banco:teste                  # relata o que aplicaria e para
+npm run banco:teste -- --valer       # aplica as migrations e cria as contas
+npm run banco:reiniciar -- --valer   # derruba tudo e reaplica, com seed nova
+npm run dev:teste                    # dev server apontado para o banco de teste
+
+FOCUS_AMBIENTE=teste FOCUS_BASE_URL=http://localhost:5175 npm run smoke
+```
+
+`FOCUS_AMBIENTE=teste` faz os scripts lerem `.secrets/supabase-teste.env` em vez
+de `.secrets/supabase.env`; `FOCUS_BASE_URL` aponta para o dev server certo — o
+Vite pula para 5174 e 5175 quando as portas anteriores estão ocupadas, e sem
+isso o smoke abre a aplicação errada e falha esperando um seletor que nunca vai
+existir.
+
+Duas travas que valem conhecer, porque as duas evitam estrago irreversível:
+
+- **O reinício recusa rodar** se o projeto de teste apontar para o mesmo
+  endereço do de trabalho. Um `.env` copiado e esquecido reaplicaria a seed onde
+  os leads reais moram.
+- **Migration que se declara `NÃO APLICADA`** no cabeçalho é adiada. O banco de
+  teste só vale como teste se tiver o esquema que a produção tem; aplicar ali
+  uma migration que lá não rodou faria o smoke passar sobre um banco que ninguém
+  opera.
+
+`npm run smoke:qualificacao` escreve, e o que escreve não se apaga — por isso
+recusa rodar fora de `FOCUS_AMBIENTE=teste`. É a única verificação que percorre
+a cadeia inteira: ligação, qualificação, agendamento e o lead aparecendo no
+catálogo de um advogado da tese e da região.
 
 Para conferir mudança de layout sem abrir navegador:
 
@@ -514,8 +558,16 @@ Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
 `ADV-R10` (`src/lib/advogados.ts`), `TES-R01` a `TES-R07` (`src/lib/teses.ts`),
 `CRE-R01` a `CRE-R07` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
-(`src/lib/qualificacao.ts`), `ASS-R02` (`AssistenteButton`), `CMP-R01` a
-`CMP-R06` (`supabase/migrations/0006_atribuicao_meta.sql`).
+(`src/lib/qualificacao.ts` e `supabase/migrations/0010_qualificacao_por_voz.sql`),
+`ASS-R02` (`AssistenteButton`), `CMP-R01` a `CMP-R06`
+(`supabase/migrations/0006_atribuicao_meta.sql`).
+
+`LED-R01` vive em dois lugares de propósito: `elegibilidadeDoLead()` decide na
+tela, e `filtros_pendentes()` decide no banco
+(`supabase/migrations/0011_agendamento_da_reuniao.sql`). Não é duplicação por
+descuido — quem publica um lead é a automação da voz, com chave de serviço, e
+ela nunca passa pelo código da view. A regra é do módulo, não da tela, e a tela
+não é o único caminho até ela (`API-R06`).
 
 ## Camada de dados — contrato para quando o backend entrar
 
