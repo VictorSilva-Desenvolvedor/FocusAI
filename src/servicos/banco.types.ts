@@ -710,6 +710,24 @@ export type Database = {
         Args: { p_advogado_id: string; p_creditos: number; p_motivo: string }
         Returns: Json
       }
+      alterar_status_usuarios: {
+        Args: {
+          p_ids: string[]
+          p_status: Database["public"]["Enums"]["status_usuario"]
+        }
+        Returns: Json
+      }
+      atualizar_usuario: {
+        Args: {
+          p_departamento?: string
+          p_email: string
+          p_id: string
+          p_nome: string
+          p_papel: Database["public"]["Enums"]["papel_usuario"]
+          p_permissoes?: string[]
+        }
+        Returns: Json
+      }
       avaliar_lead: {
         Args: { p_comentario: string; p_lead_id: string; p_nota: number }
         Returns: Json
@@ -763,6 +781,7 @@ export type Database = {
       hash_meta: { Args: { valor: string }; Returns: string }
       hash_meta_lista: { Args: { valor: string }; Returns: Json }
       inet_ou_nulo: { Args: { valor: string }; Returns: unknown }
+      iniciais_do_nome: { Args: { p_nome: string }; Returns: string }
       liberar_reserva: { Args: { p_lead_id: string }; Returns: undefined }
       marcar_evento_meta: {
         Args: { p_erro?: string; p_id: string }
