@@ -37,21 +37,20 @@ for (const chave of ['SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'SUPABASE_SENHA_TEST
 }
 
 /*
- * Os advogados semeados por supabase/migrations/0004_seed.sql. A restrição
+ * O único advogado semeado por supabase/migrations/0004_seed.sql que
+ * sobrou depois da limpeza do resto da seed fictícia. A restrição
  * `vinculo_coerente_com_papel` exige vínculo para o papel externo e o proíbe
  * para os internos — advogado sem carteira não enxerga nada e não compra nada.
  */
 const PREV_FACIL = 'a0000000-0000-4000-8000-000000000001';
-const GOMES = 'a0000000-0000-4000-8000-000000000002';
-const TEIXEIRA = 'a0000000-0000-4000-8000-000000000003';
 
 const TESTE = env.SUPABASE_SENHA_TESTE;
 
 /*
- * Nome, departamento e permissões espelham `USUARIOS_SEED` de
- * src/lib/mockData.ts, porque é a seed local que ainda alimenta as telas: o
- * Supabase autentica e diz o papel, e o perfil é casado com a seed pelo
- * e-mail. Divergir aqui faria a conta entrar com um nome e operar com outro.
+ * Nome, departamento e permissões definem o perfil de cada papel — é a única
+ * fonte, porque `perfis` lê e grava direto no banco (não há mais seed local
+ * para casar por e-mail). Divergir daqui faria a conta entrar com um nome e
+ * operar com outro.
  */
 const CONTAS = [
   {
@@ -145,9 +144,12 @@ const CONTAS = [
   },
 
   /*
-   * Três advogados, não um. `LED-R06` só é demonstrável com mais de uma
-   * carteira — uma sozinha não prova isolamento nenhum — e o saldo zerado do
-   * Teixeira é o caso que prova `CRE-R04`.
+   * `LED-R06` (isolamento entre carteiras) precisava de mais de um advogado
+   * para ser demonstrável, mas os outros dois (Gomes & Cia, Teixeira
+   * Bancário) eram seed fictícia junto de leads que atrapalhavam a leitura
+   * do catálogo depois que a captação real começou a entregar lead de
+   * verdade — foram apagados. Só este continua, como conta de acesso do
+   * papel externo.
    */
   {
     email: 'advogado@focus.ai',
@@ -158,26 +160,6 @@ const CONTAS = [
     iniciais: 'PA',
     permissoes: [],
     advogado_id: PREV_FACIL,
-  },
-  {
-    email: 'advogado2@focus.ai',
-    senha: TESTE,
-    nome: 'Gomes & Cia',
-    papel: 'advogado',
-    departamento: null,
-    iniciais: 'GC',
-    permissoes: [],
-    advogado_id: GOMES,
-  },
-  {
-    email: 'advogado3@focus.ai',
-    senha: TESTE,
-    nome: 'Teixeira Bancário',
-    papel: 'advogado',
-    departamento: null,
-    iniciais: 'TB',
-    permissoes: [],
-    advogado_id: TEIXEIRA,
   },
 ];
 
