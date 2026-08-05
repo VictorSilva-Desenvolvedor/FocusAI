@@ -527,8 +527,9 @@ Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
 `ADV-R10` (`src/lib/advogados.ts`), `TES-R01` a `TES-R07` (`src/lib/teses.ts`),
 `CRE-R01` a `CRE-R07` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
-(`src/lib/qualificacao.ts`), `ASS-R02` (`AssistenteButton`), `CMP-R01` a
-`CMP-R06` (`supabase/migrations/0006_atribuicao_meta.sql`).
+(`src/lib/qualificacao.ts`), `QUA-R04` (`supabase/migrations/0010_qualificacao_por_voz.sql`),
+`ASS-R02` (`AssistenteButton`), `CMP-R01` a `CMP-R06`
+(`supabase/migrations/0006_atribuicao_meta.sql`).
 
 ## Camada de dados — contrato para quando o backend entrar
 
@@ -658,6 +659,10 @@ forem a demanda.
   esse arquivo ao mínimo (ele ainda precisaria decidir o que fazer quando o
   papel do banco diverge de um cadastro local, mas não mais o `advogado_id`,
   que já vem do banco).
+- **`0009` não está aplicada em nenhum dos dois bancos** (não é para rodar sem
+  seguir o cabeçalho dela — closer/sdr primeiro saem de qualquer `perfis`).
+  `0010` e `0011` nasceram direto no banco de teste, sem passar por arquivo, e
+  foram reconstituídas por introspecção — ver os dois arquivos.
 - **Cadastro público ainda aberto no projeto Supabase.** `disable_signup` precisa
   ir para `true` (Authentication › Sign In / Providers). Conta criada por fora
   não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas

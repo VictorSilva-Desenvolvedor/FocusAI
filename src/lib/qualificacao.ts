@@ -7,7 +7,14 @@ import type { Tom } from '@/src/lib/estilo';
  */
 export const NOME_DA_IA = 'Helena';
 
-/** Três tentativas antes de desistir. A quarta ligação já é insistência. */
+/**
+ * `QUA-R04` — três tentativas antes de desistir. A quarta ligação já é
+ * insistência. Esgotadas sem falar com a pessoa, o lead vira `expirado` — não
+ * `desqualificado`, porque ninguém avaliou o caso, só não se conseguiu
+ * contato. Aplicada em `registrar_qualificacao`
+ * (`supabase/migrations/0010_qualificacao_por_voz.sql`); o número aqui é só
+ * leitura, o valor que vale é o hardcoded na função.
+ */
 export const MAX_TENTATIVAS = 3;
 
 export const TOM_RESULTADO: Record<ResultadoLigacao, Tom> = {
