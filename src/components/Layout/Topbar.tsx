@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, Menu, Search, X, Zap } from 'lucide-react';
+import { Bell, Menu, Search, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { modulosVisiveis } from '@/src/lib/navigation';
 import { MenuDoUsuario } from './MenuDoUsuario';
@@ -43,9 +43,7 @@ export function Topbar() {
       <div className="h-14 flex items-center gap-2 px-3 sm:px-4">
         {/* Marca */}
         <NavLink to="/" className="flex items-center gap-2.5 shrink-0 pr-2">
-          <div className="size-8 rounded-lg bg-roxo-600 grid place-items-center">
-            <Zap className="size-4.5 text-white" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.png" alt="Focus AI" className="size-8" />
           <div className="hidden sm:block leading-none">
             <div className="font-semibold text-[15px] text-white tracking-tight">Focus AI</div>
             <div className="text-[9px] text-roxo-300 tracking-[0.12em] uppercase mt-0.5">

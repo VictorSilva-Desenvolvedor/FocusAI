@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Campo, entrada } from '@/src/components/ui/Campo';
 import { ESTILO_BLOCO, ESTILO_TEXTO } from '@/src/lib/estilo';
 import { confirmarRecuperacao, redefinirSenha } from '@/src/servicos/perfil';
@@ -65,9 +65,7 @@ export function RedefinirSenhaView() {
     <div className="min-h-screen bg-fundo grid place-items-center px-4 py-10">
       <div className="w-full max-w-sm animate-entrada-suave">
         <div className="flex flex-col items-center gap-3 mb-7">
-          <div className="size-12 rounded-xl bg-grafite-900 grid place-items-center shadow-flutuante">
-            <Zap className="size-6 text-roxo-400" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.png" alt="Focus AI" className="size-14 shadow-flutuante rounded-full" />
           <div className="text-center leading-none">
             <div className="font-semibold text-xl text-grafite-900 tracking-tight">Focus AI</div>
             <div className="text-[10px] text-stone-500 tracking-[0.12em] uppercase mt-1.5">
