@@ -40,39 +40,34 @@ Maquete de front-end **com autenticação de verdade**. Entrar é entrar: e-mail
 senha contra o Supabase Auth, sessão que sobrevive ao recarregamento, e nenhuma
 rota abre sem ela (`ACC-R08`).
 
-Leads, advogados e créditos passaram a ler e gravar no banco de verdade, por
-`src/servicos/leads.ts`, `src/servicos/advogados.ts` e `src/servicos/creditos.ts`
-— política de acesso do Postgres decidindo o que sai, contato mascarado antes de
-chegar ao cliente, compra como transação única. `src/contexts/dadosDaSessao.ts`
-carrega essas listas só depois que existe sessão, e recarrega quando ela muda:
-os provedores são pais do `AuthProvider` em `App.tsx`, então consultam antes de
-haver `auth.uid()` se não esperarem por esse sinal — sem erro nenhum, porque
-`API-R05` faz a política simplesmente não casar e o PostgREST responder `200`
-com lista vazia.
+Leads, advogados, créditos e usuários leem e gravam no banco de verdade, por
+`src/servicos/leads.ts`, `src/servicos/advogados.ts`, `src/servicos/creditos.ts`
+e `src/servicos/usuarios.ts` — política de acesso do Postgres decidindo o que
+sai, contato mascarado antes de chegar ao cliente, compra como transação única.
+`src/contexts/dadosDaSessao.ts` carrega essas listas só depois que existe
+sessão, e recarrega quando ela muda: os provedores são pais do `AuthProvider`
+em `App.tsx`, então consultam antes de haver `auth.uid()` se não esperarem por
+esse sinal — sem erro nenhum, porque `API-R05` faz a política simplesmente não
+casar e o PostgREST responder `200` com lista vazia.
 
-Só **usuários** ainda é maquete: `localStorage` (`focus.usuarios.v1`); limpar a
-chave restaura os dados semeados.
+`criar`/`criarParaAdvogado` de usuário são a exceção: criar linha em
+`auth.users` exige a Admin API, que só roda com privilégio de servidor
+(`API-R03`), então passam pela função de borda `supabase/functions/criar-usuario`
+em vez de uma função no banco — o resto (`atualizar`, `alterarStatus`) é função
+Postgres comum, no mesmo desenho de `advogados`. `src/lib/sessao.ts` existia só
+para casar o perfil vindo do banco (uuid) com a seed local de usuários (slug);
+sem seed nenhuma dos dois lados, não há mais dois mundos para casar, e o
+arquivo foi apagado — `carregarSessao()`, em `src/servicos/perfil.ts`, já
+devolve o perfil completo e correto direto do banco.
 
-**Os dois mundos se encontram em `src/lib/sessao.ts`.** O perfil que volta do
-banco traz identificador em uuid; a seed de usuários usa slug. `perfilLocal()`
-casa os dois pelo e-mail — por isso o e-mail de `USUARIOS_SEED` **é** o e-mail
-de login, e mudar um sem mudar o outro faz a conta entrar com o nome errado.
-Sessão que não resolve num perfil vira bloqueada, nunca aberta. O `advogado_id`
-devolvido é sempre o do banco (uuid), nunca o slug da seed: a lista de
-advogados já vem em uuid, e manter o slug aqui faz o painel do advogado abrir
-com "Acesso ainda não vinculado" por a carteira procurada não existir na lista
-carregada.
-
-`npm run contas:teste` cria uma conta de acesso por papel; as senhas estão em
-`.secrets/supabase.env`. Não há seletor de perfil: trocar de papel é sair e
-entrar com outra conta.
+`npm run contas:teste` cria uma conta de acesso por papel (login **e** perfil);
+as senhas estão em `.secrets/supabase.env`. Não há seletor de perfil: trocar de
+papel é sair e entrar com outra conta.
 
 **Conta nominal — de pessoa real — não entra no script.** Nome, e-mail e senha
 vêm de variável em `.secrets/supabase.env`, e o script pula a conta se elas
-faltarem. É a mesma regra que mantém a seed fictícia: dado real fica fora do Git,
-inclusive e-mail de colega. Quem entra por uma conta assim não tem par na seed e
-cai no primeiro perfil do mesmo papel — `perfilLocal()` mantém o nome e o e-mail
-do banco justamente para a barra superior não mostrar outra pessoa.
+faltarem. É a mesma regra que mantém a seed fictícia: dado real fica fora do
+Git, inclusive e-mail de colega.
 
 Todos os onze módulos têm tela construída. Os números que não saem dos stores
 reais vêm de seeds em `src/lib/*Seed.ts` — plausíveis, não reais, e fictícios por
@@ -136,7 +131,7 @@ src/
   components/Assistente/         Assistente interno
   contexts/AuthContext.tsx       Sessão, perfil ativo, permissões, departamento
   servicos/perfil.ts             Entrar, sair e carregar a sessão do Supabase
-  lib/sessao.ts                  Casa o perfil autenticado com a seed local
+  servicos/usuarios.ts           Ler, atualizar e mudar status de usuário no banco
   contexts/UsuariosContext.tsx   Cadastro de usuários
   contexts/AdvogadosContext.tsx  Funil de aquisição do advogado
   contexts/LeadsContext.tsx      Catálogo de leads
@@ -523,7 +518,7 @@ cai como bloqueada (`ACC-R08`) e não enxerga nada —, mas é furo.
 Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `ACC-R21` e `ACC-R22` (`UsuariosContext`), `ACC-R01` e `ACC-R07`
 (`src/lib/navigation.ts` + `GuardaDeRota`), `ACC-R08` (`PortaoDeSessao` +
-`src/lib/sessao.ts`), `ACC-R09` (`src/servicos/perfil.ts`), `CNF-R21` (`AuthContext` +
+`src/servicos/perfil.ts`), `ACC-R09` (`src/servicos/perfil.ts`), `CNF-R21` (`AuthContext` +
 `views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
 `ADV-R10` (`src/lib/advogados.ts`), `TES-R01` a `TES-R07` (`src/lib/teses.ts`),
 `CRE-R01` a `CRE-R07` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
@@ -531,14 +526,13 @@ Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `ASS-R02` (`AssistenteButton`), `CMP-R01` a `CMP-R06`
 (`supabase/migrations/0006_atribuicao_meta.sql`).
 
-## Camada de dados — contrato para quando o backend entrar
+## Camada de dados — o contrato já em vigor
 
-O backend já existe e já é usado numa frente: a autenticação. Os dados das telas
-continuam em `localStorage`. As regras abaixo **não são hipótese** — são o
-desenho já decidido (Supabase: tabelas com política de acesso,
-funções no banco para operação transacional, funções de borda para o que exige
-segredo, automações externas para o que exige IP fixo ou modelo oficial). Valem
-a partir do commit em que a primeira consulta real existir, e valem antes disso
+O backend já cobre autenticação, leads, advogados, créditos e usuários. As
+regras abaixo **não são hipótese** — são o desenho já em uso (Supabase: tabelas
+com política de acesso, funções no banco para operação transacional, funções de
+borda para o que exige segredo, automações externas para o que exige IP fixo ou
+modelo oficial). Valem para toda consulta real já escrita, e valem antes disso
 para quem for desenhar a tela que vai consumi-la.
 
 Cada uma existe porque o custo dela já foi pago em produção em outro lugar.
@@ -652,13 +646,6 @@ forem a demanda.
   especialista em ética profissional **antes do lançamento comercial**. Não
   impede construir; impede lançar. Está visível no módulo de Conformidade e no
   painel.
-- **Usuários ainda em maquete.** Leads, advogados e créditos já leem e gravam no
-  banco (`src/servicos/`); só o cadastro de usuários segue em `localStorage`.
-  `src/lib/sessao.ts` casa o perfil autenticado com a seed de usuários pelo
-  e-mail — migrar `UsuariosContext` para `src/servicos/` é a demanda que reduz
-  esse arquivo ao mínimo (ele ainda precisaria decidir o que fazer quando o
-  papel do banco diverge de um cadastro local, mas não mais o `advogado_id`,
-  que já vem do banco).
 - **`0009` não está aplicada em nenhum dos dois bancos** (não é para rodar sem
   seguir o cabeçalho dela — closer/sdr primeiro saem de qualquer `perfis`).
   `0010` e `0011` nasceram direto no banco de teste, sem passar por arquivo, e
