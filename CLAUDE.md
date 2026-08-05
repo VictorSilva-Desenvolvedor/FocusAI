@@ -40,15 +40,28 @@ Maquete de front-end **com autenticação de verdade**. Entrar é entrar: e-mail
 senha contra o Supabase Auth, sessão que sobrevive ao recarregamento, e nenhuma
 rota abre sem ela (`ACC-R08`).
 
-Os dados das telas, porém, ainda são de maquete: `localStorage`
-(`focus.leads.v1`, `focus.advogados.v1`, `focus.usuarios.v1`,
-`focus.creditos.v1`); limpar a chave restaura os dados semeados.
+Leads, advogados e créditos passaram a ler e gravar no banco de verdade, por
+`src/servicos/leads.ts`, `src/servicos/advogados.ts` e `src/servicos/creditos.ts`
+— política de acesso do Postgres decidindo o que sai, contato mascarado antes de
+chegar ao cliente, compra como transação única. `src/contexts/dadosDaSessao.ts`
+carrega essas listas só depois que existe sessão, e recarrega quando ela muda:
+os provedores são pais do `AuthProvider` em `App.tsx`, então consultam antes de
+haver `auth.uid()` se não esperarem por esse sinal — sem erro nenhum, porque
+`API-R05` faz a política simplesmente não casar e o PostgREST responder `200`
+com lista vazia.
+
+Só **usuários** ainda é maquete: `localStorage` (`focus.usuarios.v1`); limpar a
+chave restaura os dados semeados.
 
 **Os dois mundos se encontram em `src/lib/sessao.ts`.** O perfil que volta do
-banco traz identificador em uuid; a seed usa slug. `perfilLocal()` casa os dois
-pelo e-mail — por isso o e-mail de `USUARIOS_SEED` **é** o e-mail de login, e
-mudar um sem mudar o outro faz a conta entrar com o nome errado. Sessão que não
-resolve num perfil vira bloqueada, nunca aberta.
+banco traz identificador em uuid; a seed de usuários usa slug. `perfilLocal()`
+casa os dois pelo e-mail — por isso o e-mail de `USUARIOS_SEED` **é** o e-mail
+de login, e mudar um sem mudar o outro faz a conta entrar com o nome errado.
+Sessão que não resolve num perfil vira bloqueada, nunca aberta. O `advogado_id`
+devolvido é sempre o do banco (uuid), nunca o slug da seed: a lista de
+advogados já vem em uuid, e manter o slug aqui faz o painel do advogado abrir
+com "Acesso ainda não vinculado" por a carteira procurada não existir na lista
+carregada.
 
 `npm run contas:teste` cria uma conta de acesso por papel; as senhas estão em
 `.secrets/supabase.env`. Não há seletor de perfil: trocar de papel é sair e
@@ -638,10 +651,13 @@ forem a demanda.
   especialista em ética profissional **antes do lançamento comercial**. Não
   impede construir; impede lançar. Está visível no módulo de Conformidade e no
   painel.
-- **Sessão real, dados de maquete.** O login autentica contra o Supabase, mas
-  leads, advogados, créditos e usuários seguem em `localStorage`. `src/lib/sessao.ts`
-  casa o perfil autenticado com a seed pelo e-mail; migrar os quatro contextos
-  para `src/servicos/` é a demanda que apaga esse arquivo.
+- **Usuários ainda em maquete.** Leads, advogados e créditos já leem e gravam no
+  banco (`src/servicos/`); só o cadastro de usuários segue em `localStorage`.
+  `src/lib/sessao.ts` casa o perfil autenticado com a seed de usuários pelo
+  e-mail — migrar `UsuariosContext` para `src/servicos/` é a demanda que reduz
+  esse arquivo ao mínimo (ele ainda precisaria decidir o que fazer quando o
+  papel do banco diverge de um cadastro local, mas não mais o `advogado_id`,
+  que já vem do banco).
 - **Cadastro público ainda aberto no projeto Supabase.** `disable_signup` precisa
   ir para `true` (Authentication › Sign In / Providers). Conta criada por fora
   não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas
