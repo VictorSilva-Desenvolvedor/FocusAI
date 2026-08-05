@@ -119,6 +119,47 @@ export type Database = {
           },
         ]
       }
+      auditoria: {
+        Row: {
+          antes: Json | null
+          ator_id: string | null
+          criado_em: string
+          depois: Json | null
+          id: string
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Insert: {
+          antes?: Json | null
+          ator_id?: string | null
+          criado_em?: string
+          depois?: Json | null
+          id?: string
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Update: {
+          antes?: Json | null
+          ator_id?: string | null
+          criado_em?: string
+          depois?: Json | null
+          id?: string
+          operacao?: string
+          registro_id?: string
+          tabela?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_ator_id_fkey"
+            columns: ["ator_id"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       captacoes: {
         Row: {
           agente_usuario: string | null
@@ -476,6 +517,7 @@ export type Database = {
       movimentos_creditos: {
         Row: {
           advogado_id: string
+          ator_id: string | null
           creditos: number
           descricao: string
           em: string
@@ -487,6 +529,7 @@ export type Database = {
         }
         Insert: {
           advogado_id: string
+          ator_id?: string | null
           creditos: number
           descricao: string
           em?: string
@@ -498,6 +541,7 @@ export type Database = {
         }
         Update: {
           advogado_id?: string
+          ator_id?: string | null
           creditos?: number
           descricao?: string
           em?: string
@@ -520,6 +564,13 @@ export type Database = {
             columns: ["advogado_id"]
             isOneToOne: false
             referencedRelation: "advogados_com_saldo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentos_creditos_ator_id_fkey"
+            columns: ["ator_id"]
+            isOneToOne: false
+            referencedRelation: "perfis"
             referencedColumns: ["id"]
           },
           {
@@ -783,6 +834,7 @@ export type Database = {
       inet_ou_nulo: { Args: { valor: string }; Returns: unknown }
       iniciais_do_nome: { Args: { p_nome: string }; Returns: string }
       liberar_reserva: { Args: { p_lead_id: string }; Returns: undefined }
+      limpar_reservas_expiradas: { Args: never; Returns: undefined }
       marcar_evento_meta: {
         Args: { p_erro?: string; p_id: string }
         Returns: undefined
@@ -903,7 +955,12 @@ export type Database = {
         | "no_show"
         | "expirado"
       status_usuario: "ativo" | "convite_pendente" | "inativo"
-      tese: "polo_passivo" | "vinculo_empregaticio" | "juros_abusivos"
+      tese:
+        | "polo_passivo"
+        | "vinculo_empregaticio"
+        | "juros_abusivos"
+        | "auxilio_doenca"
+        | "salario_maternidade"
       tipo_movimento: "compra" | "consumo" | "devolucao" | "ajuste"
     }
     CompositeTypes: {
@@ -1079,7 +1136,13 @@ export const Constants = {
         "expirado",
       ],
       status_usuario: ["ativo", "convite_pendente", "inativo"],
-      tese: ["polo_passivo", "vinculo_empregaticio", "juros_abusivos"],
+      tese: [
+        "polo_passivo",
+        "vinculo_empregaticio",
+        "juros_abusivos",
+        "auxilio_doenca",
+        "salario_maternidade",
+      ],
       tipo_movimento: ["compra", "consumo", "devolucao", "ajuste"],
     },
   },
