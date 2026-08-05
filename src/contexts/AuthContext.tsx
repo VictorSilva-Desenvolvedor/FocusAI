@@ -1,6 +1,4 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useUsuarios } from '@/src/contexts/UsuariosContext';
-import { perfilLocal } from '@/src/lib/sessao';
 import { aoMudarSessao, carregarSessao, sair, type EstadoDaSessao } from '@/src/servicos/perfil';
 import type { NamedPermission, Usuario } from '@/types';
 
@@ -44,7 +42,6 @@ function normalizarDepartamento(valor: string | null): string {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { usuarios } = useUsuarios();
   const [remoto, setRemoto] = useState<EstadoDaSessao>({ estado: 'carregando' });
 
   useEffect(() => {
@@ -82,22 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /*
    * ACC-R08 — sessão autenticada que não resolve num perfil vira bloqueada.
    *
-   * É o caso de uma conta que existe no banco com papel que a seed local não
-   * tem. Deixar passar com perfil indefinido é o que `API-R05` proíbe: papel
-   * indefinido não está em lista nenhuma, e todo guard que bloqueia por papel
-   * deixa de bloquear.
+   * `carregarSessao()` já garante isso: sem linha em `perfis`, ou com
+   * `status = 'inativo'`, o estado que ela devolve já é `bloqueado` — não há
+   * mais o que verificar aqui. (Até usuários migrar para o banco, este trecho
+   * também cruzava `remoto.perfil` contra a seed local por e-mail; sem seed,
+   * não há mais dois mundos para casar.)
    */
-  const perfil = remoto.estado === 'autenticado' ? perfilLocal(remoto.perfil, usuarios) : null;
+  const perfil = remoto.estado === 'autenticado' ? remoto.perfil : null;
 
-  const estado: EstadoDaSessao =
-    remoto.estado === 'autenticado' && !perfil
-      ? {
-          estado: 'bloqueado',
-          motivo: 'Esta conta não tem perfil correspondente nesta instalação.',
-        }
-      : remoto;
-
-  const sessao = useMemo<SessaoValue>(() => ({ estado, encerrarSessao }), [estado, encerrarSessao]);
+  const sessao = useMemo<SessaoValue>(() => ({ estado: remoto, encerrarSessao }), [remoto, encerrarSessao]);
 
   const auth = useMemo<AuthValue | null>(() => {
     if (!perfil) return null;
