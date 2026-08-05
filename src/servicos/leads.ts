@@ -167,7 +167,8 @@ type FuncaoDeLead =
   | 'devolver_lead'
   | 'reservar_lead'
   | 'encerrar_reuniao'
-  | 'avaliar_lead';
+  | 'avaliar_lead'
+  | 'excluir_lead';
 
 async function chamar(
   nome: FuncaoDeLead,
@@ -201,3 +202,9 @@ export const avaliarLead = (leadId: string, nota: number, comentario: string | n
 export async function liberarReserva(leadId: string): Promise<void> {
   await supabase.rpc('liberar_reserva', { p_lead_id: leadId });
 }
+
+/**
+ * Só para administrador, e só para lead que nunca virou produto — a função no
+ * banco recusa lead vendido ou com ligação registrada (`INV-13`).
+ */
+export const excluirLead = (leadId: string) => chamar('excluir_lead', { p_lead_id: leadId });
