@@ -4,6 +4,7 @@ import {
   avaliarLead,
   comprarLead,
   devolverLead,
+  excluirLead,
   liberarReserva as liberarReservaNoBanco,
   listarLeads,
   reservarLead,
@@ -64,6 +65,11 @@ interface LeadsValue {
   devolver: (id: string, motivo: string) => Promise<ResultadoCompra>;
   /** LED-R08 — nota do comprador depois da consulta. Refazer sobrescreve. */
   avaliar: (id: string, nota: number, comentario: string) => Promise<ResultadoCompra>;
+  /**
+   * Só administrador, e só lead que nunca virou produto — a função no banco
+   * recusa lead vendido ou com ligação registrada (`INV-13`).
+   */
+  excluir: (id: string) => Promise<{ ok: true } | { ok: false; motivo: string }>;
   /** Busca de novo no banco e devolve a lista. */
   recarregar: () => Promise<Lead[]>;
 }
@@ -260,6 +266,15 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
     [aplicarNoBanco],
   );
 
+  const excluir = useCallback(
+    async (id: string) => {
+      const r = await excluirLead(id);
+      if (r.ok) await recarregar();
+      return r;
+    },
+    [recarregar],
+  );
+
   const value = useMemo<LeadsValue>(
     () => ({
       leads,
@@ -274,6 +289,7 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
       comprar,
       devolver,
       avaliar,
+      excluir,
       recarregar,
     }),
     [
@@ -289,6 +305,7 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
       comprar,
       devolver,
       avaliar,
+      excluir,
       recarregar,
     ],
   );

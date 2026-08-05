@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { KanbanSquare, Search, Table2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { KanbanSquare, Search, Table2, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
@@ -26,7 +26,7 @@ import { TabelaLeads } from './TabelaLeads';
 
 export function LeadsView() {
   const { perfil, ehAdvogado, advogadoId } = useAuth();
-  const { leads, mover, comprar, devolver, reservar, liberarReserva } = useLeads();
+  const { leads, mover, comprar, devolver, reservar, liberarReserva, excluir } = useLeads();
   // O saldo vem da view `advogados_com_saldo`, somado do extrato: depois de uma
   // compra ou devolução os dois precisam ser relidos, porque quem os mudou foi
   // a função do banco, não esta tela.
@@ -42,6 +42,7 @@ export function LeadsView() {
   const [menu, setMenu] = useState<{ lead: Lead; x: number; y: number } | null>(null);
   const [detalhe, setDetalhe] = useState<Lead | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
+  const [paraExcluir, setParaExcluir] = useState<Lead | null>(null);
 
   const advogadoDoPerfil = useMemo(
     () => advogados.find((a) => a.id === advogadoId) ?? null,
@@ -199,6 +200,20 @@ export function LeadsView() {
     if (!id) return;
     const l = leads.find((x) => x.id === id);
     if (l) tentarMover(l, destino);
+  }
+
+  /** Só administrador — a função no banco recusa lead vendido ou já ligado (INV-13). */
+  async function confirmarExclusao() {
+    if (!paraExcluir) return;
+    const lead = paraExcluir;
+    setParaExcluir(null);
+    const resultado = await excluir(lead.id);
+    if (!resultado.ok) {
+      setAviso({ texto: resultado.motivo, tom: 'erro' });
+      return;
+    }
+    if (detalhe?.id === lead.id) setDetalhe(null);
+    setAviso({ texto: `${lead.nome} excluído.` });
   }
 
   const temFiltro = Boolean(busca || filtroTese);
@@ -468,6 +483,31 @@ export function LeadsView() {
             setMenu(null);
             tentarMover(menu.lead, destino);
           }}
+          acoes={
+            perfil.role === 'adm' ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  const lead = menu.lead;
+                  setMenu(null);
+                  setParaExcluir(lead);
+                }}
+                className="item-menu text-erro-700 hover:bg-erro-50"
+              >
+                <Trash2 size={14} className="inline -mt-0.5 mr-1.5" />
+                Excluir
+              </button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {paraExcluir && (
+        <ConfirmarExclusao
+          lead={paraExcluir}
+          aoCancelar={() => setParaExcluir(null)}
+          aoConfirmar={confirmarExclusao}
         />
       )}
 
@@ -489,6 +529,44 @@ export function LeadsView() {
 }
 
 // ---------------------------------------------------------------------------
+
+function ConfirmarExclusao({
+  lead,
+  aoCancelar,
+  aoConfirmar,
+}: {
+  lead: Lead;
+  aoCancelar: () => void;
+  aoConfirmar: () => void;
+}) {
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => e.key === 'Escape' && aoCancelar();
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [aoCancelar]);
+
+  return (
+    <div className="pilha-dialogo grid place-items-center p-4">
+      <button type="button" aria-label="Cancelar" onClick={aoCancelar} className="veu" />
+      <div role="alertdialog" aria-modal="true" className="dialogo max-w-md p-6">
+        <h2 className="text-[15px] font-semibold text-roxo-900">Excluir {lead.nome}?</h2>
+        <p className="text-[13px] text-stone-600 mt-2 leading-relaxed">
+          Não é devolução: o lead some da base, sem crédito para devolver. Só funciona porque este
+          lead nunca foi vendido nem teve ligação registrada — nesses casos o registro é protegido
+          (INV-13). Não é reversível.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <button type="button" onClick={aoCancelar} className="btn btn-fantasma">
+            Cancelar
+          </button>
+          <button type="button" onClick={aoConfirmar} autoFocus className="btn btn-perigo">
+            Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Chip({
   valor,

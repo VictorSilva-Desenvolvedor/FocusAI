@@ -828,6 +828,7 @@ export type Database = {
           payload: Json
         }[]
       }
+      excluir_lead: { Args: { p_lead_id: string }; Returns: Json }
       filtros_pendentes: { Args: { p_lead_id: string }; Returns: string[] }
       hash_meta: { Args: { valor: string }; Returns: string }
       hash_meta_lista: { Args: { valor: string }; Returns: Json }
