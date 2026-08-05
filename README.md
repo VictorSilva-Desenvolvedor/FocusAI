@@ -13,8 +13,9 @@ A entidade que atravessa tudo é o **Lead**: é ele que a campanha produz, que a
 IA qualifica, que carrega a reunião, que consome crédito ao ser comprado e que
 responde, perante a OAB, como aquele cliente chegou àquele advogado.
 
-Estado atual: **maquete com login de verdade**. A autenticação é real, contra o
-Supabase; os dados das telas ainda vêm de `localStorage`.
+Estado atual: autenticação, leads, advogados, créditos e usuários leem e gravam
+no Supabase de verdade. Os números que não saem desses stores reais vêm de
+seeds fictícias em `src/lib/*Seed.ts`.
 
 ## Rodando
 
@@ -112,7 +113,7 @@ src/
   components/Assistente/         Assistente interno
   contexts/AuthContext.tsx       Sessão, perfil ativo, permissões, departamento
   servicos/perfil.ts             Entrar, sair e carregar a sessão do Supabase
-  lib/sessao.ts                  Casa o perfil autenticado com a seed local
+  servicos/usuarios.ts           Ler, atualizar e mudar status de usuário no banco
   contexts/UsuariosContext.tsx   Cadastro de usuários
   contexts/AdvogadosContext.tsx  Funil de aquisição do advogado
   contexts/LeadsContext.tsx      Catálogo de leads
@@ -157,9 +158,8 @@ scripts/
 | Integrações | `/integracoes` | Saúde da voz, do anúncio, do pagamento e do WhatsApp |
 | Configurações | `/config/usuarios` | Usuários, papéis e permissões |
 
-Estado em `localStorage`: `focus.leads.v1`, `focus.advogados.v1`,
-`focus.usuarios.v1`, `focus.creditos.v1`. Limpar a chave restaura os dados
-semeados — que são fictícios.
+Leads, advogados, créditos e usuários leem e gravam no banco de verdade, por
+`src/servicos/`. O que não vem de lá são seeds fictícias em `src/lib/*Seed.ts`.
 
 ## As regras que o sistema impõe
 
@@ -256,12 +256,6 @@ não são renumerados: regra removida deixa o ID aposentado.
   advogados acesso a dados de possíveis clientes levanta questão de captação de
   clientela. Precisa de revisão por especialista em ética profissional **antes do
   lançamento comercial**. Não impede construir; impede lançar.
-- **Sessão real, dados de maquete.** O login autentica contra o Supabase, mas
-  leads, advogados, créditos e usuários ainda vivem em `localStorage`. O perfil
-  autenticado é casado com a seed local pelo e-mail (`src/lib/sessao.ts`) — sem
-  isso o advogado entraria num painel vazio, porque o `advogado_id` do banco é
-  uuid e o da seed é slug. Migrar os quatro contextos para os serviços de
-  `src/servicos/` é a demanda que apaga esse arquivo.
 - **Cadastro público ainda aberto no projeto Supabase.** Conta criada por fora
   não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas
   `disable_signup` precisa ir para `true` em Authentication › Sign In / Providers.

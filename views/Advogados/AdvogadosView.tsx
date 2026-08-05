@@ -153,13 +153,21 @@ export function AdvogadosView() {
     let complemento = '';
     if (destino === 'acesso_liberado' && !advogado.usuarioId) {
       const existente = usuarios.find((u) => u.advogado_id === advogado.id);
-      const conta = existente ?? criarParaAdvogado(contaDoAdvogado(advogado), advogado.id, perfil.id);
-      const elo = await vincularUsuario(advogado.id, conta.id);
-      complemento = !elo.ok
-        ? ` Movido, mas a conta não foi vinculada: ${elo.motivo}`
-        : existente
-          ? ' Conta existente revinculada.'
-          : ` Conta criada para ${conta.email}, como convite pendente.`;
+      const dadosConta = contaDoAdvogado(advogado);
+      const contaId = existente
+        ? { ok: true as const, id: existente.id }
+        : await criarParaAdvogado(dadosConta, advogado.id);
+
+      if (!contaId.ok) {
+        complemento = ` Movido, mas a conta não foi criada: ${contaId.motivo}`;
+      } else {
+        const elo = await vincularUsuario(advogado.id, contaId.id);
+        complemento = !elo.ok
+          ? ` Movido, mas a conta não foi vinculada: ${elo.motivo}`
+          : existente
+            ? ' Conta existente revinculada.'
+            : ` Conta criada para ${dadosConta.email}, como convite pendente.`;
+      }
     }
 
     setAviso({ texto: `${advogado.nome} → ${ADVOGADO_STATUS_LABEL[destino]}.${complemento}` });

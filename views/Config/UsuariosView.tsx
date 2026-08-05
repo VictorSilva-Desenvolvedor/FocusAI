@@ -169,14 +169,20 @@ export function UsuariosView() {
       setConfirmacao({ ids, status });
       return;
     }
-    aplicarMudancaStatus(ids, status);
+    void aplicarMudancaStatus(ids, status);
   }
 
-  function aplicarMudancaStatus(ids: string[], status: UserStatus) {
-    alterarStatus(ids, status);
+  async function aplicarMudancaStatus(ids: string[], status: UserStatus) {
+    const n = ids.length;
+    const r = await alterarStatus(ids, status);
     setSelecao(new Set());
     setConfirmacao(null);
-    const n = ids.length;
+
+    if (!r.ok) {
+      setToast(r.motivo);
+      return;
+    }
+
     setToast(
       status === 'inativo'
         ? `${n} ${n === 1 ? 'conta desativada' : 'contas desativadas'}. O histórico foi preservado.`
@@ -465,7 +471,7 @@ export function UsuariosView() {
         <ConfirmarDesativacao
           quantidade={confirmacao.ids.length}
           aoCancelar={() => setConfirmacao(null)}
-          aoConfirmar={() => aplicarMudancaStatus(confirmacao.ids, confirmacao.status)}
+          aoConfirmar={() => void aplicarMudancaStatus(confirmacao.ids, confirmacao.status)}
         />
       )}
 
