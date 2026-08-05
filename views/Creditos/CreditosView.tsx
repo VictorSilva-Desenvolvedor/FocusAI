@@ -313,13 +313,14 @@ function PainelDaOperacao({
  */
 function AjusteManual({ advogados }: { advogados: Advogado[] }) {
   const { perfil, temPermissao } = useAuth();
-  const { creditar, debitarCreditos } = useAdvogados();
-  const { registrar } = useCreditos();
+  const { recarregar: recarregarAdvogados } = useAdvogados();
+  const { ajustar } = useCreditos();
   const idBase = useId();
 
   const [advogadoId, setAdvogadoId] = useState('');
   const [creditos, setCreditos] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [lancando, setLancando] = useState(false);
   const [aviso, setAviso] = useState<Aviso | null>(null);
 
   // A tela inteira some para quem não tem a permissão: um formulário visível e
@@ -330,21 +331,22 @@ function AjusteManual({ advogados }: { advogados: Advogado[] }) {
   const quantidade = Number(creditos);
   const recusa = alvo ? motivoParaNaoAjustar(perfil, alvo, quantidade, motivo) : null;
 
-  function lancar() {
-    if (!alvo || recusa) return;
+  async function lancar() {
+    if (!alvo || recusa || lancando) return;
 
-    if (quantidade > 0) creditar(alvo.id, quantidade);
-    else debitarCreditos(alvo.id, Math.abs(quantidade));
+    setLancando(true);
+    // `CRE-R06` — a validação de verdade mora em `ajustar_creditos_advogado`;
+    // `recusa` acima é só o freio da tela, mais barato de mostrar na hora.
+    const r = await ajustar(alvo.id, quantidade, motivo);
+    setLancando(false);
 
-    registrar({
-      advogadoId: alvo.id,
-      tipo: 'ajuste',
-      creditos: quantidade,
-      // Valor zero de propósito: ajuste não é dinheiro entrando. Contar como
-      // receita aqui somaria duas vezes o que já entrou na compra do pacote.
-      descricao: motivo.trim(),
-    });
+    if (!r.ok) {
+      setAviso({ texto: r.motivo, tom: 'erro' });
+      return;
+    }
 
+    // O saldo do advogado vem da view — recarregar é o que traz o número novo.
+    await recarregarAdvogados();
     setAviso({
       texto: `${quantidade > 0 ? '+' : ''}${quantidade} créditos para ${alvo.nome}, com motivo registrado.`,
     });
@@ -403,10 +405,10 @@ function AjusteManual({ advogados }: { advogados: Advogado[] }) {
           <button
             type="button"
             onClick={lancar}
-            disabled={!alvo || recusa !== null}
+            disabled={!alvo || recusa !== null || lancando}
             className="btn btn-primario w-full sm:w-auto"
           >
-            Lançar
+            {lancando ? 'Lançando…' : 'Lançar'}
           </button>
         </div>
       </div>

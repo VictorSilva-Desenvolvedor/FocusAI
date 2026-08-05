@@ -53,6 +53,28 @@ export async function listarMovimentos(pagina = 0): Promise<MovimentoCredito[]> 
   return (data as LinhaMovimento[]).map(paraDominio);
 }
 
+export type Resultado = { ok: true } | { ok: false; motivo: string };
+
+/**
+ * `CRE-R06` — a porta legítima para mexer no saldo à mão. `tipo` não é
+ * parâmetro: esta função só lança `'ajuste'`, nunca se disfarça de compra ou
+ * consumo. A validação — permissão, motivo, saldo que não fica negativo —
+ * mora na função (`0013_ajuste_manual_de_credito.sql`), não aqui.
+ */
+export async function ajustarCreditos(
+  advogadoId: string,
+  creditos: number,
+  motivo: string,
+): Promise<Resultado> {
+  const { data, error } = await supabase.rpc('ajustar_creditos_advogado', {
+    p_advogado_id: advogadoId,
+    p_creditos: creditos,
+    p_motivo: motivo,
+  });
+  if (error) return { ok: false, motivo: error.message };
+  return data as Resultado;
+}
+
 /**
  * O extrato de um advogado.
  *

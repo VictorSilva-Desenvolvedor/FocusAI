@@ -24,10 +24,10 @@ export type ResultadoAdvogado = { ok: true } | { ok: false; motivo: string };
  * Depois de qualquer escrita a verdade vem do banco, nunca de adivinhar o que
  * ele fez (`API-R14`): por isso cada operação recarrega a lista ao terminar.
  *
- * `debitarCreditos` e `creditar` continuam locais e **não têm substituta
- * direta**: no banco não existe "mexer no saldo", porque saldo não é coluna. O
- * que existe é lançar movimento — e isso acontece dentro de `comprar_lead` e
- * `devolver_lead`, na mesma transação da escrita no lead.
+ * `debitarCreditos`/`creditar` saíram: não existem mais no banco porque saldo
+ * não é coluna. O ajuste manual (`CRE-R06`) lança direto no extrato, em
+ * `CreditosContext.ajustar`, e o saldo novo chega pelo próximo `recarregar`
+ * daqui — não há mais um segundo número para manter sincronizado.
  */
 
 interface AdvogadosValue {
@@ -47,9 +47,6 @@ interface AdvogadosValue {
    * abre sem carteira e ninguém descobre por que.
    */
   vincularUsuario: (id: string, usuarioId: string) => Promise<ResultadoAdvogado>;
-  /** CRE-R02 — o débito de crédito e a venda do lead acontecem juntos. */
-  debitarCreditos: (id: string, creditos: number) => void;
-  creditar: (id: string, creditos: number) => void;
   /** Busca de novo no banco e devolve a lista. */
   recarregar: () => Promise<Advogado[]>;
 }
@@ -114,42 +111,6 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
     [recarregar],
   );
 
-  const debitarCreditos = useCallback(
-    (id: string, creditos: number) => {
-      // CRE-R04 — o saldo nunca fica negativo. A checagem de saldo é de quem
-      // chama; aqui o piso existe como última linha, não como validação.
-      aplicar((atual) =>
-        atual.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                saldoCreditos: Math.max(0, a.saldoCreditos - creditos),
-                ultimaAtividade: new Date().toISOString(),
-              }
-            : a,
-        ),
-      );
-    },
-    [aplicar],
-  );
-
-  const creditar = useCallback(
-    (id: string, creditos: number) => {
-      aplicar((atual) =>
-        atual.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                saldoCreditos: a.saldoCreditos + creditos,
-                ultimaAtividade: new Date().toISOString(),
-              }
-            : a,
-        ),
-      );
-    },
-    [aplicar],
-  );
-
   const value = useMemo<AdvogadosValue>(
     () => ({
       advogados,
@@ -160,23 +121,9 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
       definirPrioridade,
       conferirOab,
       vincularUsuario,
-      debitarCreditos,
-      creditar,
       recarregar,
     }),
-    [
-      advogados,
-      carregando,
-      erro,
-      criar,
-      mover,
-      definirPrioridade,
-      conferirOab,
-      vincularUsuario,
-      debitarCreditos,
-      creditar,
-      recarregar,
-    ],
+    [advogados, carregando, erro, criar, mover, definirPrioridade, conferirOab, vincularUsuario, recarregar],
   );
 
   return <AdvogadosContext value={value}>{children}</AdvogadosContext>;
