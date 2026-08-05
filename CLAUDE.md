@@ -721,15 +721,14 @@ forem a demanda.
   customer…"* é o `analysis.summary` do assistente na Vapi, e vira
   `resumo_qualificacao` — o texto que o advogado lê para decidir a compra.
   Config na Vapi, fora do banco e do n8n.
-- **Agendamento por chamada de ferramenta não grava `registrar_agendamento`
-  ainda.** Quando a Helena usa `marcarhorario` durante a ligação, o compromisso
-  entra no Google Calendar de verdade (via `AI Agent1` e o node
-  `marca_horario1`, nos três fluxos com captação), mas nada chama
-  `registrar_agendamento` — o lead não é publicado no catálogo por essa via.
-  Não é omissão: mexer no ramo que já está marcando compromisso real sem
-  entender o formato de saída do agente é risco desnecessário. Falta encontrar
-  um jeito seguro de capturar o sucesso da ferramenta antes de tocar nesse
-  trecho do fluxo.
+- ~~Agendamento por chamada de ferramenta não grava `registrar_agendamento`~~
+  — resolvido. `AI Agent1` (e os dois equivalentes) ganharam
+  `returnIntermediateSteps`, e um nó novo depois do agente lê o resultado real
+  de `marca_horario1` — sem tocar no prompt nem no que a Vapi ouve durante a
+  ligação. `Respond to Webhook` passou a ler `$('AI Agent1').item.json.output`
+  em vez de `$json.output`, para não depender de os nós novos preservarem esse
+  campo. Verificado com dados simulados (sucesso, só consulta, sem tool-call,
+  tool que falha) antes de aplicar nos 3 fluxos reais.
 - **`npm run dev:teste`, `banco:reiniciar` e `smoke:qualificacao` não existem
   no repositório.** São citados como parte do fluxo de verificação da cadeia de
   voz, mas nunca foram commitados — mesmo destino de `0010`/`0011` antes de
