@@ -701,11 +701,16 @@ forem a demanda.
   medindo conversão ainda. Fora isso, quem chama o script de tempos em tempos é
   decisão de operação, e o que falhou só aparece consultando `eventos_meta`. A
   tela de Integrações é onde a etapa pulada deveria aparecer (`API-R10`).
-- **Assinatura do Tally não é verificada nos webhooks.** Nenhum dos seis
-  confere `Tally-Signature`. Quem souber a URL injeta lead falso — e nos fluxos
-  da Helena isso dispara ligação da Vapi no crédito da conta. Depende de
-  habilitar "Sign requests" em cada formulário, no dashboard do Tally, e trazer
-  o segredo gerado.
+- ~~Assinatura do Tally não é verificada nos webhooks~~ — resolvido. Os 5
+  webhooks de captação (não o sexto, de outro uso) assinam com HMAC-SHA256
+  desde então; cada fluxo confere `Tally-Signature` antes de `Extrair
+  Telefone`, e recusa para o fluxo em vez de deixar passar. O segredo é
+  compartilhado entre os 5 e mora só em `.secrets/tally.env`
+  (`TALLY_WEBHOOK_SIGNING_SECRET`) e dentro de cada nó `Verificar assinatura
+  Tally` — não em código versionado. `require('node:crypto')` está bloqueado
+  nesta instância de n8n (testado), por isso o HMAC-SHA256 é implementação
+  própria em JS puro, verificada byte a byte contra `crypto.createHmac` antes
+  de aplicar.
 - **Gravação de ligação em balde de terceiro.** `ligacoes.gravacao_url`
   aponta para a URL que a Vapi devolve, e é dela — `API-R15` avisa que balde
   público serve URL permanente e pode expirar sem aviso, e `INV-13` depende de
