@@ -714,10 +714,13 @@ forem a demanda.
   a gravação continuar acessível. O balde próprio seria R2, mas a conta
   Cloudflare não tem R2 habilitado (`.secrets/cloudflare.env`: erro `10042`,
   "habilite pelo dashboard") e a chave salva está incompleta.
-- **Resumos da Helena saem em inglês.** *"Helena from Focus Jurídico called a
-  customer…"* é o `analysis.summary` do assistente na Vapi, e vira
-  `resumo_qualificacao` — o texto que o advogado lê para decidir a compra.
-  Config na Vapi, fora do banco e do n8n.
+- ~~Resumos da Helena saem em inglês~~ — corrigido nos 5 assistentes
+  (`analysisPlan.summaryPlan`, via API da Vapi — `.secrets/vapi.env`), com
+  prompt pedindo resumo em português, em até 4 frases, focado no que o
+  advogado precisa para decidir a compra, e proibido de inventar o que não
+  foi dito na ligação. Confirmado pelo eco da própria API em cada um dos 5;
+  não dá para testar a saída de verdade sem uma ligação real acontecer — a
+  Vapi não tem endpoint para reprocessar transcrição antiga.
 - ~~Agendamento por chamada de ferramenta não grava `registrar_agendamento`~~
   — resolvido. `AI Agent1` (e os dois equivalentes) ganharam
   `returnIntermediateSteps`, e um nó novo depois do agente lê o resultado real
