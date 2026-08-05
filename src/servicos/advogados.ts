@@ -82,17 +82,26 @@ function paraDominio(linha: LinhaAdvogado): Advogado {
  *
  * A view é `security_invoker`, então a política de acesso da tabela vale
  * normalmente: o advogado enxerga só o próprio cadastro.
+ *
+ * `API-R07` — pagina sozinha, por dentro, até esgotar a tabela: o corte
+ * padrão do PostgREST é silencioso, e quem chama precisa da carteira
+ * inteira, nunca de um recorte que parece completo e não é.
  */
-export async function listarAdvogados(pagina = 0): Promise<Advogado[]> {
-  const de = pagina * POR_PAGINA;
-  const { data, error } = await supabase
-    .from('advogados_com_saldo')
-    .select(CAMPOS)
-    .order('ultima_atividade', { ascending: false })
-    .range(de, de + POR_PAGINA - 1);
+export async function listarAdvogados(): Promise<Advogado[]> {
+  const tudo: Advogado[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const de = pagina * POR_PAGINA;
+    const { data, error } = await supabase
+      .from('advogados_com_saldo')
+      .select(CAMPOS)
+      .order('ultima_atividade', { ascending: false })
+      .range(de, de + POR_PAGINA - 1);
 
-  if (error) throw new Error(`Falha ao carregar advogados: ${error.message}`);
-  return (data as LinhaAdvogado[]).map(paraDominio);
+    if (error) throw new Error(`Falha ao carregar advogados: ${error.message}`);
+    const linhas = data as LinhaAdvogado[];
+    tudo.push(...linhas.map(paraDominio));
+    if (linhas.length < POR_PAGINA) return tudo;
+  }
 }
 
 /** O cadastro do advogado logado. Nulo para o time interno. */
