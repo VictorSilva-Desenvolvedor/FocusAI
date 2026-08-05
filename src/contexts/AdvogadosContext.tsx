@@ -1,26 +1,28 @@
 import { createContext, use, useCallback, useMemo, type ReactNode } from 'react';
-import { cidadesDoTexto, type AdvogadoFormData } from '@/src/lib/advogados';
-import { listarAdvogados } from '@/src/servicos/advogados';
+import type { AdvogadoFormData } from '@/src/lib/advogados';
+import {
+  conferirOabAdvogado,
+  criarAdvogado,
+  listarAdvogados,
+  moverAdvogado,
+  vincularUsuarioAdvogado,
+} from '@/src/servicos/advogados';
 import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
-import type {
-  Advogado,
-  AdvogadoStatus,
-  ModeloPagamento,
-  PorteEscritorio,
-  PrioridadeAdvogado,
-} from '@/types';
+import type { Advogado, AdvogadoStatus, PrioridadeAdvogado } from '@/types';
+
+export type ResultadoAdvogado = { ok: true } | { ok: false; motivo: string };
 
 /*
- * MIGRAÇÃO PARCIAL — leitura no banco, escrita ainda em memória.
+ * Leitura e escrita no banco. A leitura sai de `advogados_com_saldo`, nunca da
+ * tabela crua: é a view que soma o extrato (`INV-15`). Consultar `advogados`
+ * direto devolveria o cadastro sem saldo, e o sintoma seria zero crédito para
+ * quem tem cento e quarenta.
  *
- * Veio junto com `LeadsContext` por necessidade, não por conveniência: o lead
- * aponta para o comprador por `uuid`, e a seed local usa slug (`adv-a1b2`). Com
- * um lado no banco e o outro no navegador, o elo quebra em silêncio — a carteira
- * do advogado abre vazia e nenhum erro aparece.
- *
- * A leitura sai de `advogados_com_saldo`, nunca da tabela crua: é a view que
- * soma o extrato (`INV-15`). Consultar `advogados` direto devolveria o cadastro
- * sem saldo, e o sintoma seria zero crédito para quem tem cento e quarenta.
+ * `criar`, `mover`, `conferirOab` e `vincularUsuario` validam no banco
+ * (`0012_escrita_real_de_advogados.sql`), não aqui — `API-R02`: a tela decide
+ * cedo, para dar o aviso na hora, mas quem decide de verdade é a função.
+ * Depois de qualquer escrita a verdade vem do banco, nunca de adivinhar o que
+ * ele fez (`API-R14`): por isso cada operação recarrega a lista ao terminar.
  *
  * `debitarCreditos` e `creditar` continuam locais e **não têm substituta
  * direta**: no banco não existe "mexer no saldo", porque saldo não é coluna. O
@@ -34,17 +36,17 @@ interface AdvogadosValue {
   carregando: boolean;
   /** Mensagem da falha de carregamento, ou nulo. */
   erro: string | null;
-  criar: (dados: AdvogadoFormData, autorId: string) => Advogado;
-  mover: (id: string, status: AdvogadoStatus, motivoPerda?: string) => void;
+  criar: (dados: AdvogadoFormData) => Promise<ResultadoAdvogado>;
+  mover: (id: string, status: AdvogadoStatus, motivoPerda?: string) => Promise<ResultadoAdvogado>;
   definirPrioridade: (id: string, p: PrioridadeAdvogado | null) => void;
   /** INV-12 — carimba a conferência da inscrição. É pré-requisito do acesso. */
-  conferirOab: (id: string) => void;
+  conferirOab: (id: string) => Promise<ResultadoAdvogado>;
   /**
    * ADV-R09 — amarra a ficha à conta criada na liberação de acesso. Sem este
    * elo, o advogado existe no funil e não existe no aplicativo: o painel dele
    * abre sem carteira e ninguém descobre por que.
    */
-  vincularUsuario: (id: string, usuarioId: string) => void;
+  vincularUsuario: (id: string, usuarioId: string) => Promise<ResultadoAdvogado>;
   /** CRE-R02 — o débito de crédito e a venda do lead acontecem juntos. */
   debitarCreditos: (id: string, creditos: number) => void;
   creditar: (id: string, creditos: number) => void;
@@ -64,62 +66,29 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
   } = useDadosDaSessao(listarAdvogados, 'advogados');
 
   const criar = useCallback(
-    (dados: AdvogadoFormData, autorId: string): Advogado => {
-      const agora = new Date().toISOString();
-      const novo: Advogado = {
-        id: `adv-${crypto.randomUUID().slice(0, 8)}`,
-        nome: dados.nome.trim(),
-        oab: dados.oab.trim().toUpperCase(),
-        // INV-12 — nasce sempre por conferir. Conferência é ato de alguém do
-        // time, nunca consequência de o formulário ter sido preenchido.
-        oabConferidaEm: null,
-        email: dados.email.trim().toLowerCase(),
-        whatsapp: dados.whatsapp.trim(),
-        uf: dados.uf,
-        teses: [...dados.teses],
-        // LED-R06 — lista vazia significa o estado inteiro, não "nenhuma".
-        cidades: cidadesDoTexto(dados.cidades),
-        porte: dados.porte as PorteEscritorio,
-        status: 'novo',
-        modeloPagamento: (dados.modeloPagamento || null) as ModeloPagamento | null,
-        potencialMensal: Number(dados.potencialMensal),
-        saldoCreditos: 0,
-        usuarioId: null,
-        prioridadeManual: null,
-        responsavelId: dados.responsavelId,
-        criadoPor: autorId,
-        criadoEm: agora,
-        ultimaAtividade: agora,
-        motivoPerda: null,
-      };
-      aplicar((atual) => [novo, ...atual]);
-      return novo;
+    async (dados: AdvogadoFormData): Promise<ResultadoAdvogado> => {
+      const r = await criarAdvogado(dados);
+      if (!r.ok) return r;
+      await recarregar();
+      return { ok: true };
     },
-    [aplicar],
+    [recarregar],
   );
 
   const mover = useCallback(
-    (id: string, status: AdvogadoStatus, motivoPerda?: string) => {
-      // ADV-R06 — mudança de etapa conta como atividade e tira do congelamento.
-      aplicar((atual) =>
-        atual.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                status,
-                ultimaAtividade: new Date().toISOString(),
-                motivoPerda:
-                  status === 'perdido' || status === 'recusado'
-                    ? (motivoPerda ?? a.motivoPerda)
-                    : null,
-              }
-            : a,
-        ),
-      );
+    async (id: string, status: AdvogadoStatus, motivoPerda?: string): Promise<ResultadoAdvogado> => {
+      const r = await moverAdvogado(id, status, motivoPerda);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar],
+    [recarregar],
   );
 
+  /*
+   * Sem função no banco ainda: nada chama isto hoje (não há tela para o gestor
+   * sobrescrever P1/P2/P3 à mão). Fica local até existir o primeiro chamador —
+   * daí sim vale desenhar a validação junto.
+   */
   const definirPrioridade = useCallback(
     (id: string, p: PrioridadeAdvogado | null) => {
       aplicar((atual) => atual.map((a) => (a.id === id ? { ...a, prioridadeManual: p } : a)));
@@ -128,34 +97,21 @@ export function AdvogadosProvider({ children }: { children: ReactNode }) {
   );
 
   const conferirOab = useCallback(
-    (id: string) => {
-      const agora = new Date().toISOString();
-      aplicar((atual) =>
-        atual.map((a) =>
-          // INV-13 — a data da conferência não é reescrita. Ela responde
-          // quando o time atestou que aquele comprador era mesmo advogado.
-          a.id === id && !a.oabConferidaEm
-            ? { ...a, oabConferidaEm: agora, ultimaAtividade: agora }
-            : a,
-        ),
-      );
+    async (id: string): Promise<ResultadoAdvogado> => {
+      const r = await conferirOabAdvogado(id);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar],
+    [recarregar],
   );
 
   const vincularUsuario = useCallback(
-    (id: string, usuarioId: string) => {
-      const agora = new Date().toISOString();
-      // O vínculo não é reescrito: a conta que passou a enxergar a carteira é a
-      // que responde por ela depois. Trocar apontamento em silêncio deixaria
-      // dois acessos com histórico pela metade.
-      aplicar((atual) =>
-        atual.map((a) =>
-          a.id === id && !a.usuarioId ? { ...a, usuarioId, ultimaAtividade: agora } : a,
-        ),
-      );
+    async (id: string, usuarioId: string): Promise<ResultadoAdvogado> => {
+      const r = await vincularUsuarioAdvogado(id, usuarioId);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar],
+    [recarregar],
   );
 
   const debitarCreditos = useCallback(
