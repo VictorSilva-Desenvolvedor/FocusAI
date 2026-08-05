@@ -4,9 +4,12 @@ import {
   CalendarCheck,
   CalendarClock,
   Check,
+  ChevronDown,
   Lock,
+  Mic,
   MicOff,
   Phone,
+  PhoneOff,
   ShoppingCart,
   Star,
   Undo2,
@@ -15,7 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
-import { ESTILO_BLOCO, ESTILO_TEXTO } from '@/src/lib/estilo';
+import { listarLigacoesDoLead } from '@/src/servicos/qualificacao';
+import { ESTILO_BLOCO, ESTILO_ETIQUETA, ESTILO_TEXTO } from '@/src/lib/estilo';
 import {
   ESTILO_TESE,
   NOTA_MAXIMA,
@@ -25,10 +29,19 @@ import {
   podeAvaliar,
   podeEncerrarReuniao,
 } from '@/src/lib/leads';
+import { MAX_TENTATIVAS, TOM_RESULTADO, formatarDuracao } from '@/src/lib/qualificacao';
 import { MOTIVOS_DEVOLUCAO, podeDevolver } from '@/src/lib/creditos';
 import { TESE_POR_ID } from '@/src/lib/teses';
 import { formatarDataHora } from '@/src/lib/format';
-import { LEAD_STATUS_LABEL, ORIGEM_LEAD_LABEL, TESE_CURTA, type Advogado, type Lead } from '@/types';
+import {
+  LEAD_STATUS_LABEL,
+  ORIGEM_LEAD_LABEL,
+  RESULTADO_LIGACAO_LABEL,
+  TESE_CURTA,
+  type Advogado,
+  type Lead,
+  type LigacaoDetalhada,
+} from '@/types';
 import { formatarReuniao } from './LeadCard';
 
 interface Props {
@@ -56,6 +69,21 @@ export function LeadDrawer({
   const { responderFiltro } = useLeads();
   const idBase = useId();
   const [devolvendo, setDevolvendo] = useState(false);
+  const [ligacoes, setLigacoes] = useState<LigacaoDetalhada[] | null>(null);
+
+  useEffect(() => {
+    // Só o time interno — o resumo já visível ao advogado basta para decidir a
+    // compra; a transcrição bruta é detalhe de operação, não do catálogo.
+    if (ehAdvogado) return;
+    let vivo = true;
+    setLigacoes(null);
+    void listarLigacoesDoLead(lead.id).then((r) => {
+      if (vivo) setLigacoes(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [lead.id, ehAdvogado]);
 
   const tese = TESE_POR_ID[lead.tese];
   const { elegivel, pendentes } = elegibilidadeDoLead(lead);
@@ -150,6 +178,22 @@ export function LeadDrawer({
               </p>
             )}
           </section>
+
+          {/* Histórico de ligações ---------------------------------------- */}
+          {!ehAdvogado && (ligacoes === null || ligacoes.length > 0) && (
+            <section>
+              <h3 className="label-eyebrow mb-2">Histórico de ligações</h3>
+              {ligacoes === null ? (
+                <p className="nota">Carregando…</p>
+              ) : (
+                <ul className="space-y-2">
+                  {ligacoes.map((lig) => (
+                    <LinhaLigacao key={lig.id} ligacao={lig} />
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           {/* Elegibilidade ----------------------------------------------- */}
           <section>
@@ -335,6 +379,50 @@ const brl = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
   maximumFractionDigits: 0,
 });
+
+/** Uma tentativa no histórico — resultado, duração, e a transcrição sob demanda. */
+function LinhaLigacao({ ligacao }: { ligacao: LigacaoDetalhada }) {
+  return (
+    <li className={`rounded-lg border p-2.5 ${ESTILO_BLOCO.neutro}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] text-stone-500 tabular">
+          {ligacao.tentativa}/{MAX_TENTATIVAS}
+        </span>
+        <span className={`etiqueta ${ESTILO_ETIQUETA[TOM_RESULTADO[ligacao.resultado]]}`}>
+          {RESULTADO_LIGACAO_LABEL[ligacao.resultado]}
+        </span>
+        <span className="nota">{formatarDuracao(ligacao.duracao)}</span>
+        <span className="nota ml-auto">{formatarDataHora(ligacao.em)}</span>
+        {ligacao.temGravacao ? (
+          <Mic className="size-3 text-stone-400 shrink-0" aria-label="Com gravação" />
+        ) : (
+          <PhoneOff className="size-3 text-stone-400 shrink-0" aria-label="Sem gravação" />
+        )}
+      </div>
+
+      {ligacao.motivoEncerramento && (
+        <p className="text-[12px] text-stone-600 mt-1.5">{ligacao.motivoEncerramento}</p>
+      )}
+
+      {ligacao.gravacaoUrl && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption -- é ligação telefônica, não há legenda a gerar.
+        <audio controls src={ligacao.gravacaoUrl} className="w-full h-8 mt-2" />
+      )}
+
+      {ligacao.transcricao && (
+        <details className="mt-2 group">
+          <summary className="flex items-center gap-1 text-[11px] text-roxo-700 cursor-pointer select-none">
+            <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+            Ver transcrição
+          </summary>
+          <p className="text-[12px] text-stone-700 leading-relaxed mt-2 whitespace-pre-line">
+            {ligacao.transcricao}
+          </p>
+        </details>
+      )}
+    </li>
+  );
+}
 
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (

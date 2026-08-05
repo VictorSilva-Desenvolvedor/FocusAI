@@ -1,58 +1,7 @@
-import type { Campanha, Ligacao, Parecer } from '@/types';
+import type { Campanha, Parecer } from '@/types';
 
 const horas = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 const dias = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
-
-/**
- * Fila de ligações de exemplo. Dado fictício, e continua fictício.
- *
- * Há dois casos plantados de propósito: uma ligação qualificada sem gravação
- * capturada — a pendência de `QUA-R03` — e um lead na terceira tentativa sem
- * atendimento, que é onde a régua para.
- */
-export const LIGACOES_SEED: Ligacao[] = [
-  g('lead-roberto-nunes-filho', 'Roberto Nunes Filho', 'polo_passivo', 1, 'em_andamento', 0, true, 0.2),
-  g('lead-cleusa-martins-barbosa', 'Cleusa Martins Barbosa', 'juros_abusivos', 2, 'em_andamento', 0, true, 0.5),
-  g('lead-jonas-ribeiro-teles', 'Jonas Ribeiro Teles', 'vinculo_empregaticio', 1, 'qualificado', 284, true, 3),
-  g('lead-eliane-prado-moura', 'Eliane Prado Moura', 'vinculo_empregaticio', 2, 'reagendar', 96, true, 5),
-  g('lead-osvaldo-fernandes-pinto', 'Osvaldo Fernandes Pinto', 'juros_abusivos', 1, 'reagendar', 143, true, 7),
-  g('lead-maria-de-lourdes-campos', 'Maria de Lourdes Campos', 'juros_abusivos', 1, 'qualificado', 412, true, 20),
-  g('lead-carlos-eduardo-ramos', 'Carlos Eduardo Ramos', 'polo_passivo', 2, 'qualificado', 356, true, 26),
-  g('lead-terezinha-gomes-da-silva', 'Terezinha Gomes da Silva', 'juros_abusivos', 1, 'qualificado', 488, true, 30),
-  g('lead-fabio-henrique-braga', 'Fábio Henrique Braga', 'vinculo_empregaticio', 1, 'qualificado', 301, true, 34),
-  g('lead-neusa-aparecida-lopes', 'Neusa Aparecida Lopes', 'polo_passivo', 1, 'qualificado', 264, true, 40),
-  g('lead-juliana-castro-mendes', 'Juliana Castro Mendes', 'vinculo_empregaticio', 1, 'qualificado', 233, true, 12),
-  // QUA-R03 — qualificado, virou produto, e a gravação não foi capturada.
-  g('lead-marcos-vinicius-tavares', 'Marcos Vinícius Tavares', 'vinculo_empregaticio', 1, 'qualificado', 276, false, 190),
-  g('lead-paulo-sergio-batista', 'Paulo Sérgio Batista', 'vinculo_empregaticio', 1, 'desqualificado', 122, true, 140),
-  g('lead-ivone-ribeiro-santos', 'Ivone Ribeiro Santos', 'vinculo_empregaticio', 1, 'desqualificado', 158, true, 260),
-  g('lead-edson-carvalho-pinto', 'Edson Carvalho Pinto', 'polo_passivo', 3, 'nao_atendeu', 0, false, 160),
-  g('lead-edson-carvalho-pinto', 'Edson Carvalho Pinto', 'polo_passivo', 2, 'nao_atendeu', 0, false, 168),
-  g('lead-edson-carvalho-pinto', 'Edson Carvalho Pinto', 'polo_passivo', 1, 'nao_atendeu', 0, false, 176),
-];
-
-function g(
-  leadId: string,
-  leadNome: string,
-  tese: Ligacao['tese'],
-  tentativa: number,
-  resultado: Ligacao['resultado'],
-  duracao: number,
-  temGravacao: boolean,
-  horasAtras: number,
-): Ligacao {
-  return {
-    id: `lig-${leadId.slice(5, 24)}-${tentativa}`,
-    leadId,
-    leadNome,
-    tese,
-    tentativa,
-    resultado,
-    duracao,
-    temGravacao,
-    em: horas(horasAtras),
-  };
-}
 
 /**
  * Campanhas de exemplo. O número que decide é o custo por lead **qualificado**:

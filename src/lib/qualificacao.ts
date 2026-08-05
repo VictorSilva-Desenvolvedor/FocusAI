@@ -53,11 +53,18 @@ export function taxaPorTese(ligacoes: Ligacao[], tese: TeseId): number {
   return taxaDeQualificacao(ligacoes.filter((l) => l.tese === tese));
 }
 
-/** "4 min 12 s". Zero vira travessão: não atendeu não tem duração. */
+/**
+ * "4 min 12 s". Zero vira travessão: não atendeu não tem duração.
+ *
+ * Arredonda antes de separar minuto de segundo — a duração real da Vapi vem
+ * com casas decimais (432.761), e sem isso o resto da divisão por 60 herda a
+ * imprecisão de ponto flutuante e mostra algo como "12.760999999999999 s".
+ */
 export function formatarDuracao(segundos: number): string {
   if (segundos <= 0) return '—';
-  const min = Math.floor(segundos / 60);
-  const seg = segundos % 60;
+  const total = Math.round(segundos);
+  const min = Math.floor(total / 60);
+  const seg = total % 60;
   if (min === 0) return `${seg} s`;
   return `${min} min ${String(seg).padStart(2, '0')} s`;
 }

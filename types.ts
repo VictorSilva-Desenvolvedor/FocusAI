@@ -575,6 +575,20 @@ export interface Ligacao {
   em: string;
 }
 
+/**
+ * Uma ligação com o detalhe completo — o que a ficha do lead mostra, não a
+ * fila. Fica separada de `Ligacao` de propósito: a fila lista muitas linhas de
+ * uma vez e não precisa carregar transcrição de cada uma, só a ficha do lead
+ * aberto precisa do detalhe inteiro.
+ */
+export interface LigacaoDetalhada extends Ligacao {
+  resumo: string | null;
+  /** INV-13 — a prova de como a ligação foi conduzida. */
+  transcricao: string | null;
+  gravacaoUrl: string | null;
+  motivoEncerramento: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Integrações
 // ---------------------------------------------------------------------------
