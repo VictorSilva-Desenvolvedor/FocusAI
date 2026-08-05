@@ -870,8 +870,6 @@ export type Database = {
         | "criativo"
         | "analista_conformidade"
         | "operador_ia"
-        | "closer"
-        | "sdr"
         | "cs"
         | "financeiro"
         | "advogado"
@@ -1044,8 +1042,6 @@ export const Constants = {
         "criativo",
         "analista_conformidade",
         "operador_ia",
-        "closer",
-        "sdr",
         "cs",
         "financeiro",
         "advogado",
