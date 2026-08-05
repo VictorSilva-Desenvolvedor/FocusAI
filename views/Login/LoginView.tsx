@@ -4,10 +4,11 @@ import { AlertCircle, Eye, EyeOff, Loader2, Zap } from 'lucide-react';
 import { Campo, entrada } from '@/src/components/ui/Campo';
 import { useSessao } from '@/src/contexts/AuthContext';
 import { ESTILO_BLOCO, ESTILO_TEXTO } from '@/src/lib/estilo';
-import { entrar } from '@/src/servicos/perfil';
+import { entrar, solicitarRedefinicaoDeSenha } from '@/src/servicos/perfil';
 
 /**
- * A porta de entrada. Única rota que existe sem sessão.
+ * A porta de entrada. Uma das duas rotas que existem sem sessão — a outra é
+ * `/redefinir-senha`, o destino do link de recuperação.
  *
  * Não há "criar conta", e a ausência é a regra: `INV-12` — advogado não se
  * cadastra sozinho, a conta nasce de um registro que passou pelo funil com a
@@ -21,6 +22,7 @@ export function LoginView() {
   const [visivel, setVisivel] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [recuperando, setRecuperando] = useState(false);
 
   // Quem já tem sessão não fica olhando o formulário. O portão trata o inverso.
   if (estado.estado === 'autenticado') return <Navigate to="/" replace />;
@@ -46,6 +48,10 @@ export function LoginView() {
   }
 
   const bloqueada = estado.estado === 'bloqueado';
+
+  if (recuperando) {
+    return <RecuperarSenha aoVoltar={() => setRecuperando(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-fundo grid place-items-center px-4 py-10">
@@ -111,6 +117,14 @@ export function LoginView() {
             </div>
           </Campo>
 
+          <button
+            type="button"
+            onClick={() => setRecuperando(true)}
+            className="text-[13px] text-roxo-600 hover:text-roxo-700 -mt-1"
+          >
+            Esqueci minha senha
+          </button>
+
           {/*
             ACC-R09 — a recusa não distingue e-mail inexistente de senha errada.
             É a única mensagem, e ela vem pronta de `entrar()`: separar os dois
@@ -138,6 +152,104 @@ export function LoginView() {
             conferência da inscrição na OAB.
           </p>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * O pedido de link de recuperação, dentro da mesma tela de login — não é rota
+ * própria porque não precisa: ninguém chega aqui de fora, só clicando.
+ *
+ * Sempre mostra sucesso, exista ou não a conta com aquele e-mail — mesma
+ * lógica de `entrar()`, que não distingue e-mail inexistente de senha errada
+ * (`ACC-R09`): um erro específico aqui viraria um jeito de descobrir quem tem
+ * conta.
+ */
+function RecuperarSenha({ aoVoltar }: { aoVoltar: () => void }) {
+  const [email, setEmail] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+
+  async function aoEnviar(evento: FormEvent) {
+    evento.preventDefault();
+    setEnviando(true);
+    await solicitarRedefinicaoDeSenha(email.trim());
+    setEnviando(false);
+    setEnviado(true);
+  }
+
+  return (
+    <div className="min-h-screen bg-fundo grid place-items-center px-4 py-10">
+      <div className="w-full max-w-sm animate-entrada-suave">
+        <div className="flex flex-col items-center gap-3 mb-7">
+          <div className="size-12 rounded-xl bg-grafite-900 grid place-items-center shadow-flutuante">
+            <Zap className="size-6 text-roxo-400" strokeWidth={2.5} />
+          </div>
+          <div className="text-center leading-none">
+            <div className="font-semibold text-xl text-grafite-900 tracking-tight">Focus AI</div>
+            <div className="text-[10px] text-stone-500 tracking-[0.12em] uppercase mt-1.5">
+              Leads qualificados
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-6 space-y-4">
+          {enviado ? (
+            <>
+              <div>
+                <h1 className="card-title">Verifique seu e-mail</h1>
+                <p className="nota mt-1">
+                  Se existir uma conta com esse e-mail, o link de redefinição já foi enviado.
+                </p>
+              </div>
+              <button type="button" onClick={aoVoltar} className="btn btn-secundario w-full">
+                Voltar ao login
+              </button>
+            </>
+          ) : (
+            <form onSubmit={aoEnviar} className="space-y-4" noValidate>
+              <div>
+                <h1 className="card-title">Esqueci minha senha</h1>
+                <p className="nota mt-1">
+                  Informe o e-mail da sua conta. Mandamos um link para escolher uma senha nova.
+                </p>
+              </div>
+
+              <Campo id="recuperar-email" rotulo="E-mail">
+                <input
+                  id="recuperar-email"
+                  type="email"
+                  autoComplete="username"
+                  autoFocus
+                  placeholder="voce@focus.ai"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={entrada()}
+                />
+              </Campo>
+
+              <button
+                type="submit"
+                disabled={enviando || !email.trim()}
+                className="btn btn-primario w-full"
+              >
+                {enviando ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Enviando…
+                  </>
+                ) : (
+                  'Enviar link de redefinição'
+                )}
+              </button>
+
+              <button type="button" onClick={aoVoltar} className="btn btn-fantasma w-full">
+                Voltar ao login
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

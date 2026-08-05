@@ -646,18 +646,26 @@ forem a demanda.
   especialista em ética profissional **antes do lançamento comercial**. Não
   impede construir; impede lançar. Está visível no módulo de Conformidade e no
   painel.
-- **`0009` não está aplicada em nenhum dos dois bancos** (não é para rodar sem
-  seguir o cabeçalho dela — closer/sdr primeiro saem de qualquer `perfis`).
-  `0010` e `0011` nasceram direto no banco de teste, sem passar por arquivo, e
-  foram reconstituídas por introspecção — ver os dois arquivos.
+- **`0010` e `0011` nasceram direto no banco de teste**, sem passar por
+  arquivo, e foram reconstituídas por introspecção — ver os dois arquivos.
 - **Cadastro público ainda aberto no projeto Supabase.** `disable_signup` precisa
   ir para `true` (Authentication › Sign In / Providers). Conta criada por fora
   não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas
   `INV-12` diz que ninguém se cadastra sozinho, e isso se fecha na configuração.
-- **Sem recuperação de senha.** Trocar senha é por `npm run contas:teste` ou pelo
-  painel do Supabase.
-- **Convite não sai de verdade.** A conta do advogado já nasce da liberação de
-  acesso (`ADV-R09`), mas o e-mail com o acesso depende do serviço de envio.
+- ~~Sem recuperação de senha~~ — resolvido. "Esqueci minha senha" no login
+  chama `resetPasswordForEmail`, sempre com a mesma mensagem de sucesso,
+  exista ou não a conta (`ACC-R09`); `/redefinir-senha`, rota nova fora do
+  `PortaoDeSessao`, troca o `token_hash` do link por sessão de recuperação via
+  `verifyOtp` e deixa escolher a senha nova. `detectSessionInUrl` é `false`
+  porque o `HashRouter` já usa `#` para rota — a sessão não nasce sozinha da
+  URL. `site_url`/`uri_allow_list` do projeto Supabase, ainda em
+  `localhost:3000` (config padrão nunca ajustada), viraram `focus-ai.pages.dev`
+  e `localhost:5173`.
+- **Convite e recuperação de senha saem, mas pelo mailer de teste.** A conta do
+  advogado já nasce da liberação de acesso (`ADV-R09`) e o e-mail chama a Admin
+  API de verdade — mas o projeto usa o mailer padrão do Supabase, com limite
+  baixo de envios por hora. Falta configurar um provedor SMTP de verdade para
+  aguentar volume de produção.
 - **Aviso de lead novo não sai.** O painel do advogado promete o aviso em três
   lugares; a integração de WhatsApp está como não configurada e a etapa pulada
   aparece na tela de Integrações (`API-R10`). Falta o disparo — e ele depende
@@ -666,28 +674,30 @@ forem a demanda.
   provedor ainda não existe: o botão de recarregar, na tela de Preços, está
   desabilitado de propósito. O caminho interno para destravar alguém é o ajuste
   manual (`CRE-R06`), que exige permissão e motivo.
-- **O banco ainda conhece `closer` e `sdr`.** O app não: os dois papéis saíram
-  do vocabulário, e quem conduz o funil do advogado é Customer Success. A
-  migration `0009_papeis_sem_vendas_humana.sql` está escrita e **não aplicada**
-  — ela recria o enum `papel_usuario`, e antes de rodar é preciso decidir o
-  destino das contas que ainda estiverem com esses papéis, apagar
-  `closer@focus.ai` e `sdr@focus.ai` do Supabase Auth e regerar
-  `src/servicos/banco.types.ts`. Enquanto isso não acontece, uma conta com papel
-  removido entra e cai como bloqueada (`ACC-R08`) — fecha, não abre, mas o
-  motivo não aparece na tela.
-- **Duas frentes de captação fora das três teses.** Os formulários de auxílio
-  por incapacidade e de salário-maternidade estão no ar e têm fluxo de voz
-  próprio, mas são previdenciários e não existem no enum `tese` — nem em
-  `FOCUS-AI.md`, que descreve três. `registrar_captacao` recusa a captação
-  deles com motivo, então nada entra classificado errado. Resolver é decisão de
-  produto: ampliar as teses ou tirar os formulários do ar.
-- **A fila de conversões da Meta não tem tela nem agendador — e nem tem o que
-  enviar.** As funções e os gatilhos existem (`CMP-R01` a `CMP-R06`), e
-  `npm run meta:eventos` esvazia a fila — mas `META_PIXEL_ID` e
-  `META_CAPI_TOKEN` (`.secrets/meta.env`) estão vazios, então não há campanha
-  medindo conversão ainda. Fora isso, quem chama o script de tempos em tempos é
-  decisão de operação, e o que falhou só aparece consultando `eventos_meta`. A
-  tela de Integrações é onde a etapa pulada deveria aparecer (`API-R10`).
+- ~~O banco ainda conhece `closer` e `sdr`~~ — resolvido. `0009` corrigida e
+  aplicada: a versão original só soltava a política de `advogados` antes de
+  recriar o enum, e `papel_atual()`, a constraint `vinculo_coerente_com_papel`
+  e mais três políticas (`leads`, `leads_contato`, `movimentos_creditos`,
+  `perfis`) também referenciavam o tipo e travavam o `drop`. As duas contas de
+  teste foram movidas para `cs` e apagadas do Supabase Auth;
+  `src/servicos/banco.types.ts` regenerado.
+- **Duas frentes de captação fora das três teses — ampliação escolhida, ainda
+  incompleta.** O enum `tese` ganhou `auxilio_doenca` e `salario_maternidade`
+  (`0016`), e `formularios_captacao` já mapeia os dois formulários reais
+  (`obYGpO`, `ZjXaWe`). Falta o que não dá para supor: `TeseId`/`TESES`
+  (`types.ts`, `src/lib/teses.ts`) e a wiring de `Registrar captação` nos dois
+  fluxos do n8n, no mesmo padrão dos três já ligados, dependem de público,
+  oferta, filtros de elegibilidade e preço reais das duas frentes
+  previdenciárias — conteúdo que não nasce de suposição sobre regra do INSS.
+  `FOCUS-AI.md` também segue descrevendo três teses e precisa da mesma
+  decisão.
+- **A fila de conversões da Meta enche sozinha, mas não tem com o que enviar
+  nem quem esvazie.** `enfileirar_eventos_do_lead` grava em `eventos_meta` a
+  cada transição real (`LeadQualificado`, `Schedule`, `Purchase`), e
+  `npm run meta:eventos` já sabe esvaziá-la — mas `META_CAPI_TOKEN`
+  (`.secrets/meta.env`) está vazio, então não há campanha medindo conversão
+  ainda, e sem agendador chamando o script, também não há quem esvazie
+  sozinho. A etapa pulada aparece na tela de Integrações (`API-R10`).
 - ~~Assinatura do Tally não é verificada nos webhooks~~ — resolvido. Os 5
   webhooks de captação (não o sexto, de outro uso) assinam com HMAC-SHA256
   desde então; cada fluxo confere `Tally-Signature` antes de `Extrair
@@ -722,12 +732,23 @@ forem a demanda.
   serem reconstituídas. Precisam ser reescritos: um `.env.teste.local`
   apontando para o projeto de teste, um script que reaplica a seed nele, e o
   smoke da qualificação em si.
-- **Sem paginação** nas listas de leads e de advogados.
-- **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
-  devolução de crédito.
-- **Reserva de lead expira só na leitura.** `reservaAtiva` calcula contra o
-  relógio a cada render; não há rotina que limpe trava órfã no armazenamento.
-  Funciona na maquete, não sobrevive a múltiplos clientes.
+- ~~Sem paginação~~ — resolvido. `listarLeads`, `listarAdvogados`,
+  `listarUsuarios`, `listarMovimentos` e `extratoDoAdvogado`
+  (`src/servicos/`) percorrem as páginas por dentro até esgotar a tabela;
+  quem chama recebe a lista inteira, nunca um recorte que parece completo e
+  não é.
+- ~~Sem trilha de auditoria~~ — resolvido para papel e para movimento de
+  crédito. `auditoria` mais um gatilho em `perfis` (`0018`) registram quem
+  mudou o papel de quem, de que para que; `movimentos_creditos` ganhou
+  `ator_id`, preenchido por `comprar_lead`, `devolver_lead` e
+  `ajustar_creditos_advogado`. Preço por tese fica de fora de propósito:
+  `custoCreditos`/`precoAvulso` são constante versionada em
+  `src/lib/teses.ts`, e o `git log` do arquivo já é a auditoria dela.
+- ~~Reserva de lead expira só na leitura~~ — resolvido. `reservaAtiva`
+  continua calculando contra o relógio a cada render — é o que faz a tela
+  reagir na hora —, mas `limpar_reservas_expiradas()` agora roda a cada 5
+  minutos via `pg_cron` (habilitado no projeto nesta migration, `0017`), e a
+  linha não fica com valor velho para sempre.
 
 ## Documentação
 

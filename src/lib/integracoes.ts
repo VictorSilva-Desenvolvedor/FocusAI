@@ -51,6 +51,43 @@ export const INTEGRACOES_ATIVAS: IntegracaoAtiva[] = [
     // API-R16 — a configuração de build fica versionada, não dentro do painel.
     regras: ['API-R10', 'API-R16'],
   },
+  {
+    id: 'banco-telas',
+    nome: 'Banco como fonte dos dados de tela',
+    papel: 'Leads, advogados, créditos e usuários lidos e gravados no Postgres, não no navegador',
+    onde: 'src/servicos/leads.ts · src/servicos/advogados.ts · src/servicos/creditos.ts · src/servicos/usuarios.ts',
+    verificacao:
+      'Cada leitura pagina sozinha até esgotar a tabela; cada escrita transacional passa por função no banco — comprar, reservar, devolver, mover, ajustar crédito',
+    regras: ['API-R06', 'API-R07', 'API-R08'],
+  },
+  {
+    id: 'funcoes-de-borda',
+    nome: 'Funções de borda',
+    papel: 'Executa o que exige segredo de servidor — hoje, criar login de usuário via Admin API',
+    onde: 'supabase/functions/criar-usuario/',
+    verificacao: 'A conta nasce com convite pendente em perfis, ou a chamada devolve o motivo da recusa',
+    regras: ['API-R01', 'API-R03', 'API-R04', 'INV-12'],
+  },
+  {
+    id: 'n8n',
+    nome: 'n8n — orquestrador de automações',
+    papel:
+      'Amarra os fluxos entre terceiros: webhook do Tally verificado e registrado, chamada da Vapi, resultado da qualificação e do agendamento gravados no banco',
+    onde: 'automacoes/n8n/ (exportado) · instância em Coolify',
+    verificacao: 'npm run n8n:fluxos exporta o estado vivo dos fluxos para o repositório (API-R16)',
+    // API-R13 — a assinatura HMAC do Tally é conferida em cada um dos 5 fluxos
+    // de captação antes de extrair qualquer dado do corpo.
+    regras: ['API-R13', 'API-R16'],
+  },
+  {
+    id: 'voz',
+    nome: 'Ferramenta de voz (SDR de IA)',
+    papel: 'Liga, conduz o roteiro da tese e devolve o resultado da qualificação e do agendamento',
+    onde: 'Vapi, acionada e correlacionada pelos fluxos do n8n · supabase/migrations/0010_*, 0011_*, 0014_*',
+    verificacao:
+      'registrar_qualificacao e registrar_agendamento resolvem o lead pelo chamada_id de chamadas_iniciadas, deduplicado — reenvio da Vapi não vira segunda tentativa',
+    regras: ['QUA-R01', 'QUA-R02', 'QUA-R04', 'API-R13'],
+  },
 ];
 
 /**
@@ -61,45 +98,14 @@ export const INTEGRACOES_ATIVAS: IntegracaoAtiva[] = [
  */
 export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
   {
-    id: 'banco-telas',
-    nome: 'Banco como fonte dos dados de tela',
-    frente: 'plataforma',
-    dependencia: 'codigo_proprio',
-    papel: 'Leads, advogados, créditos e usuários lidos do Postgres em vez do navegador',
-    semEla:
-      'As migrations, as políticas e as funções transacionais já existem — comprar, reservar, devolver —, mas os quatro contextos ainda leem localStorage. Limpar a chave do navegador restaura os dados semeados, e dois computadores nunca veem o mesmo catálogo.',
-    regras: ['API-R06', 'API-R07', 'API-R08'],
-  },
-  {
-    id: 'funcoes-de-borda',
-    nome: 'Funções de borda',
-    frente: 'plataforma',
-    dependencia: 'codigo_proprio',
-    papel: 'Executa o que exige segredo de servidor — criar conta, receber webhook, falar com API paga',
-    semEla:
-      'Não há onde guardar chave nenhuma: no navegador só existe a chave publicável, e toda variável com prefixo VITE_ entra no pacote. Metade das integrações abaixo não tem onde morar até esta existir. Quem usa privilégio elevado reimplementa o isolamento sozinha — a política do banco não vale para ela.',
-    regras: ['API-R01', 'API-R03', 'API-R04', 'INV-12'],
-  },
-  {
-    id: 'n8n',
-    nome: 'n8n — orquestrador de automações',
-    frente: 'plataforma',
-    dependencia: 'servico_externo',
-    papel:
-      'Amarra os fluxos entre terceiros: evento de voz no banco, gasto de anúncio na campanha, lead novo no aviso',
-    semEla:
-      'Cada integração vira código de encanamento próprio, refeito uma vez por serviço. É também onde vive o que exige IP fixo, que função de borda não entrega. Nasce com dívida declarada: fluxo que só existe dentro da ferramenta é lógica de negócio fora do repositório, sem revisão e sem histórico — ou versiona a exportação, ou registra que é dívida.',
-    regras: ['API-R16', 'API-R11'],
-  },
-  {
     id: 'agendador',
-    nome: 'Agendador de rotinas',
+    nome: 'Reconciliação de evento perdido',
     frente: 'plataforma',
     dependencia: 'codigo_proprio',
-    papel: 'Roda sozinho o que ninguém aciona: reconciliação, expiração de reserva, varredura de pendência',
+    papel: 'Roda sozinho o que ninguém aciona: conferir o que a Vapi ou o agendamento não confirmaram',
     semEla:
-      'Reserva de lead expira só na leitura — o cálculo é contra o relógio a cada render, e trava órfã fica no armazenamento para sempre. Nenhuma reconciliação roda, então evento perdido continua perdido. É a rotina que a versão anterior desta tela mostrava como existente.',
-    regras: ['LED-R04', 'API-R12'],
+      'A expiração da reserva de lead já roda sozinha (limpar_reservas_expiradas, a cada 5 minutos por pg_cron) — o que falta é a outra metade: nenhuma reconciliação confere o que ficou para trás quando um provedor de entrega única falha em reenviar. Evento perdido continua perdido até alguém notar pela reclamação.',
+    regras: ['API-R12'],
   },
   {
     id: 'tempo-real',
@@ -151,14 +157,14 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     regras: ['API-R13'],
   },
   {
-    id: 'voz',
-    nome: 'Ferramenta de voz (SDR de IA)',
-    frente: 'qualificar',
+    id: 'meta-eventos',
+    nome: 'Fila de eventos da Meta (Conversions API)',
+    frente: 'captar',
     dependencia: 'servico_externo',
-    papel: 'Liga, conduz o roteiro da tese e devolve o resultado da qualificação',
+    papel: 'Envia LeadQualificado, Schedule e Purchase para a Meta otimizar a campanha pelo que vira negócio, não só pelo clique',
     semEla:
-      'É a máquina do meio: sem ela não existe lead qualificado, e lead qualificado é o produto que o advogado compra. Nasce com deduplicação por (identificador, tipo de evento) — evento repetido vira segunda tentativa e o lead é descartado por excesso — e com a reconciliação junto.',
-    regras: ['QUA-R01', 'QUA-R02', 'API-R12', 'API-R13'],
+      'A fila enche sozinha — enfileirar_eventos_do_lead grava em eventos_meta a cada transição real, e npm run meta:eventos já sabe esvaziá-la —, mas META_CAPI_TOKEN está vazio (.secrets/meta.env), então não há com o que autenticar o envio. Sem agendador chamando o script, também não há quem esvazie sozinho.',
+    regras: ['CMP-R01', 'API-R10'],
   },
   {
     id: 'gravacao',
@@ -207,7 +213,7 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     dependencia: 'servico_externo',
     papel: 'Leva o convite de acesso ao advogado liberado e o link de recuperação de senha',
     semEla:
-      'A conta já nasce da liberação de acesso, mas o e-mail com o acesso não sai: hoje conta se cria por script, e trocar senha é pelo painel do provedor.',
+      'O convite e a recuperação de senha já chamam a Admin API e o mailer padrão do Supabase entrega os dois — mas esse mailer é de teste, com limite baixo de envios por hora, e não aguenta volume de produção. Falta um provedor SMTP de verdade configurado no projeto.',
     regras: ['ADV-R09', 'INV-12'],
   },
 ];

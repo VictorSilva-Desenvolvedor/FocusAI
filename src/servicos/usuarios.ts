@@ -51,19 +51,25 @@ function paraDominio(linha: LinhaPerfil): Usuario {
 
 /**
  * `API-R07` — lista grande exige paginação explícita. Hoje o time inteiro
- * cabe bem abaixo do corte de 1.000; o parâmetro existe para o dia em que não
- * couber mais.
+ * cabe bem abaixo do corte de 1.000, mas a função pagina sozinha, por dentro,
+ * até esgotar a tabela — para o dia em que não couber mais, sem precisar
+ * lembrar de mudar quem chama.
  */
-export async function listarUsuarios(pagina = 0): Promise<Usuario[]> {
-  const de = pagina * POR_PAGINA;
-  const { data, error } = await supabase
-    .from('perfis')
-    .select(CAMPOS)
-    .order('criado_em', { ascending: false })
-    .range(de, de + POR_PAGINA - 1);
+export async function listarUsuarios(): Promise<Usuario[]> {
+  const tudo: Usuario[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const de = pagina * POR_PAGINA;
+    const { data, error } = await supabase
+      .from('perfis')
+      .select(CAMPOS)
+      .order('criado_em', { ascending: false })
+      .range(de, de + POR_PAGINA - 1);
 
-  if (error) throw new Error(`Falha ao carregar usuários: ${error.message}`);
-  return (data as LinhaPerfil[]).map(paraDominio);
+    if (error) throw new Error(`Falha ao carregar usuários: ${error.message}`);
+    const linhas = data as LinhaPerfil[];
+    tudo.push(...linhas.map(paraDominio));
+    if (linhas.length < POR_PAGINA) return tudo;
+  }
 }
 
 // ---------------------------------------------------------------------------
