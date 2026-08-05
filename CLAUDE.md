@@ -694,11 +694,43 @@ forem a demanda.
   `FOCUS-AI.md`, que descreve três. `registrar_captacao` recusa a captação
   deles com motivo, então nada entra classificado errado. Resolver é decisão de
   produto: ampliar as teses ou tirar os formulários do ar.
-- **A fila de conversões da Meta não tem tela nem agendador.** As funções e os
-  gatilhos existem (`CMP-R01` a `CMP-R06`), e `npm run meta:eventos` esvazia a
-  fila — mas quem chama isso de tempos em tempos ainda é decisão de operação, e
-  o que falhou só aparece consultando `eventos_meta`. A tela de Integrações é
-  onde a etapa pulada deveria aparecer (`API-R10`).
+- **A fila de conversões da Meta não tem tela nem agendador — e nem tem o que
+  enviar.** As funções e os gatilhos existem (`CMP-R01` a `CMP-R06`), e
+  `npm run meta:eventos` esvazia a fila — mas `META_PIXEL_ID` e
+  `META_CAPI_TOKEN` (`.secrets/meta.env`) estão vazios, então não há campanha
+  medindo conversão ainda. Fora isso, quem chama o script de tempos em tempos é
+  decisão de operação, e o que falhou só aparece consultando `eventos_meta`. A
+  tela de Integrações é onde a etapa pulada deveria aparecer (`API-R10`).
+- **Assinatura do Tally não é verificada nos webhooks.** Nenhum dos seis
+  confere `Tally-Signature`. Quem souber a URL injeta lead falso — e nos fluxos
+  da Helena isso dispara ligação da Vapi no crédito da conta. Depende de
+  habilitar "Sign requests" em cada formulário, no dashboard do Tally, e trazer
+  o segredo gerado.
+- **Gravação de ligação em balde de terceiro.** `ligacoes.gravacao_url`
+  aponta para a URL que a Vapi devolve, e é dela — `API-R15` avisa que balde
+  público serve URL permanente e pode expirar sem aviso, e `INV-13` depende de
+  a gravação continuar acessível. O balde próprio seria R2, mas a conta
+  Cloudflare não tem R2 habilitado (`.secrets/cloudflare.env`: erro `10042`,
+  "habilite pelo dashboard") e a chave salva está incompleta.
+- **Resumos da Helena saem em inglês.** *"Helena from Focus Jurídico called a
+  customer…"* é o `analysis.summary` do assistente na Vapi, e vira
+  `resumo_qualificacao` — o texto que o advogado lê para decidir a compra.
+  Config na Vapi, fora do banco e do n8n.
+- **Agendamento por chamada de ferramenta não grava `registrar_agendamento`
+  ainda.** Quando a Helena usa `marcarhorario` durante a ligação, o compromisso
+  entra no Google Calendar de verdade (via `AI Agent1` e o node
+  `marca_horario1`, nos três fluxos com captação), mas nada chama
+  `registrar_agendamento` — o lead não é publicado no catálogo por essa via.
+  Não é omissão: mexer no ramo que já está marcando compromisso real sem
+  entender o formato de saída do agente é risco desnecessário. Falta encontrar
+  um jeito seguro de capturar o sucesso da ferramenta antes de tocar nesse
+  trecho do fluxo.
+- **`npm run dev:teste`, `banco:reiniciar` e `smoke:qualificacao` não existem
+  no repositório.** São citados como parte do fluxo de verificação da cadeia de
+  voz, mas nunca foram commitados — mesmo destino de `0010`/`0011` antes de
+  serem reconstituídas. Precisam ser reescritos: um `.env.teste.local`
+  apontando para o projeto de teste, um script que reaplica a seed nele, e o
+  smoke da qualificação em si.
 - **Sem paginação** nas listas de leads e de advogados.
 - **Sem trilha de auditoria** de mudança de papel, de preço por tese e de
   devolução de crédito.
