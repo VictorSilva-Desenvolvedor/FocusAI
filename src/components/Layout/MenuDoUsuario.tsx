@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, LogOut, UserCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { ROLE_CURTO } from '@/src/lib/usuarios';
 
@@ -12,6 +13,7 @@ import { ROLE_CURTO } from '@/src/lib/usuarios';
  */
 export function MenuDoUsuario() {
   const { perfil, ehAdvogado, encerrarSessao } = useAuth();
+  const navegar = useNavigate();
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -72,6 +74,21 @@ export function MenuDoUsuario() {
             <div className="label-eyebrow">Papel</div>
             <div className="text-[13px] text-stone-700 mt-0.5">{ROLE_CURTO[perfil.role]}</div>
             {perfil.departamento && <div className="nota">{perfil.departamento}</div>}
+          </div>
+
+          <div className="py-1 border-b border-stone-100">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setAberto(false);
+                navegar('/config/perfil');
+              }}
+              className="item-menu flex items-center gap-2.5 text-stone-700 hover:bg-stone-50"
+            >
+              <UserCircle size={16} className="text-stone-400" />
+              Meu perfil
+            </button>
           </div>
 
           <div className="py-1">

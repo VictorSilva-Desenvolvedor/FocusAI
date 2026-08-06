@@ -155,6 +155,17 @@ export async function redefinirSenha(novaSenha: string): Promise<{ erro: string 
   return { erro: error.message };
 }
 
+/**
+ * `ACC-R03` — o único caminho para editar a própria conta. Só troca o nome
+ * (as iniciais do avatar saem dele); nunca papel, nunca permissão — é o que
+ * impede autopromoção pela própria tela de perfil.
+ */
+export async function atualizarProprioPerfil(nome: string): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  const { data, error } = await supabase.rpc('atualizar_proprio_perfil', { p_nome: nome });
+  if (error) return { ok: false, motivo: error.message };
+  return data as { ok: true } | { ok: false; motivo: string };
+}
+
 /** Reage a login, logout e renovação de token em outra aba. */
 export function aoMudarSessao(callback: () => void): () => void {
   const { data } = supabase.auth.onAuthStateChange(() => callback());

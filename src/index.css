@@ -318,6 +318,26 @@
     @apply text-[11px] text-erro-600 mt-1.5;
   }
 
+  /* --- Abas --------------------------------------------------------------
+   * Navegação por sub-seção dentro de um módulo (hoje só Configurações).
+   * Sublinha embaixo em vez de pílula: é o que deixa ler como navegação, não
+   * como filtro — pílula já é o padrão de `.etiqueta`/`.chip` na base.
+   */
+
+  .abas {
+    @apply flex items-center gap-1 overflow-x-auto border-b border-stone-200;
+  }
+
+  .aba {
+    @apply relative shrink-0 whitespace-nowrap px-3 py-2.5 text-[13px] font-medium
+      text-stone-500 border-b-2 border-transparent transition-colors
+      hover:text-roxo-800;
+  }
+
+  .aba-ativa {
+    @apply text-roxo-800 border-roxo-600;
+  }
+
   /* --- Etiquetas e contadores ------------------------------------------- */
 
   /* EST-R04 — etiqueta é sempre `rounded-full`. A cor vem de src/lib/estilo. */

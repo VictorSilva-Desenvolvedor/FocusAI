@@ -768,6 +768,10 @@ export type Database = {
         }
         Returns: Json
       }
+      atualizar_proprio_perfil: {
+        Args: { p_nome: string }
+        Returns: Json
+      }
       atualizar_usuario: {
         Args: {
           p_departamento?: string

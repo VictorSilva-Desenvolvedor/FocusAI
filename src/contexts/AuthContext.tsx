@@ -21,6 +21,8 @@ interface AuthValue {
    */
   advogadoId: string | null;
   encerrarSessao: () => Promise<void>;
+  /** Relê `perfis` depois de uma escrita própria (ex.: trocar o nome na tela de perfil). */
+  recarregarPerfil: () => Promise<void>;
 }
 
 interface SessaoValue {
@@ -43,6 +45,12 @@ function normalizarDepartamento(valor: string | null): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [remoto, setRemoto] = useState<EstadoDaSessao>({ estado: 'carregando' });
+
+  /** Busca `perfis` de novo e substitui o estado. Usado pelo ouvinte e por quem escreveu o próprio perfil. */
+  const recarregarPerfil = useCallback(async () => {
+    const estado = await carregarSessao();
+    setRemoto(estado);
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -98,8 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ehAdvogado: perfil.role === 'advogado',
       advogadoId: perfil.advogado_id,
       encerrarSessao,
+      recarregarPerfil,
     };
-  }, [perfil, encerrarSessao]);
+  }, [perfil, encerrarSessao, recarregarPerfil]);
 
   return (
     <SessaoContext value={sessao}>

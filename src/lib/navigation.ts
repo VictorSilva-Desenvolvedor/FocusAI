@@ -132,8 +132,16 @@ export const MODULOS: ModuleDef[] = [
     id: 'config',
     rotulo: 'Configurações',
     rota: '/config',
-    descricao: 'Usuários, papéis e permissões',
+    descricao: 'Usuários, papéis, permissões e a conta de quem está logado',
     papeis: ['adm', 'gerente'],
+    /*
+     * `advogado` entra aqui de propósito, e restrito — mesmo desenho de
+     * `creditos`: a aba de Conta & Perfil é de quem está logado, papel
+     * nenhum fica de fora dela. As abas de administração (Usuários e
+     * Permissões, e as que vierem depois) continuam fechadas para quem não
+     * tem nível `full`; é o `ConfigLayout` que faz a diferença, não o guard
+     * de rota (`INV-05`).
+     */
     papeisRestritos: [
       'gestor_trafego',
       'criativo',
@@ -141,6 +149,7 @@ export const MODULOS: ModuleDef[] = [
       'operador_ia',
       'cs',
       'financeiro',
+      'advogado',
     ],
     grupo: 'sistema',
   },

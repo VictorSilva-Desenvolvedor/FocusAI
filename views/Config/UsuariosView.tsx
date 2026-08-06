@@ -225,7 +225,7 @@ export function UsuariosView() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24 animate-entrada-suave">
+    <div>
       {/* Cabeçalho ------------------------------------------------------- */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
