@@ -668,6 +668,31 @@ export interface IntegracaoPendente {
 }
 
 // ---------------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------------
+
+/**
+ * Uma linha da trilha de auditoria (`0018_trilha_de_auditoria.sql`).
+ *
+ * `tabela` e `operacao` são texto livre de propósito: a tabela é genérica —
+ * hoje só `perfis`/`papel` grava aqui, pelo gatilho `auditar_papel()`, mas o
+ * desenho já é para mais de uma origem. `antes`/`depois` guardam só os campos
+ * que mudaram, não a linha inteira.
+ */
+export interface RegistroAuditoria {
+  id: string;
+  tabela: string;
+  registroId: string;
+  operacao: string;
+  antes: Record<string, unknown> | null;
+  depois: Record<string, unknown> | null;
+  /** ISO. Imutável — é o próprio registro de auditoria. */
+  criadoEm: string;
+  /** Nulo quando a mudança rodou fora de sessão de usuário (script ou chave de serviço) — `auth.uid()` era nulo no gatilho. */
+  ator: { nome: string; avatarIniciais: string } | null;
+}
+
+// ---------------------------------------------------------------------------
 // Painel de entrada
 // ---------------------------------------------------------------------------
 
