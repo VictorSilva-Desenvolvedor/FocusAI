@@ -586,6 +586,7 @@ export type Database = {
         Row: {
           advogado_id: string | null
           avatar_iniciais: string
+          avisar_lead_novo: boolean
           criado_em: string
           criado_por: string | null
           departamento: string | null
@@ -600,6 +601,7 @@ export type Database = {
         Insert: {
           advogado_id?: string | null
           avatar_iniciais: string
+          avisar_lead_novo?: boolean
           criado_em?: string
           criado_por?: string | null
           departamento?: string | null
@@ -614,6 +616,7 @@ export type Database = {
         Update: {
           advogado_id?: string | null
           avatar_iniciais?: string
+          avisar_lead_novo?: boolean
           criado_em?: string
           criado_por?: string | null
           departamento?: string | null
@@ -803,6 +806,10 @@ export type Database = {
           p_uf: string
           p_whatsapp: string
         }
+        Returns: Json
+      }
+      definir_aviso_lead_novo: {
+        Args: { p_ativo: boolean }
         Returns: Json
       }
       devolver_lead: {
