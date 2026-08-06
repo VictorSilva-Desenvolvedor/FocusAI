@@ -206,12 +206,54 @@ export function visiveisPara(leads: Lead[], perfil: Profile, advogado: Advogado 
   return leads.filter((lead) => {
     if (lead.compradoPor === advogado.id) return true;
     if (!estaNoCatalogo(lead)) return false;
+    // LED-R09 — entrega exclusiva estreita o catálogo para um só advogado.
+    if (lead.direcionadoPara && lead.direcionadoPara !== advogado.id) return false;
     if (!advogado.teses.includes(lead.tese)) return false;
     if (lead.uf !== advogado.uf) return false;
     // Lista de cidades vazia significa o estado inteiro.
     if (advogado.cidades.length > 0 && !advogado.cidades.includes(lead.cidade)) return false;
     return true;
   });
+}
+
+// ---------------------------------------------------------------------------
+// LED-R09 — agendamento manual e entrega exclusiva
+// ---------------------------------------------------------------------------
+
+/**
+ * O que a tela usa para **não desenhar** o botão de agendar manualmente —
+ * mesmo espírito de `motivoParaNaoComprar` (`CRE-R04`).
+ *
+ * Espelha as duas recusas que `registrar_agendamento` já aplica no banco
+ * (`supabase/migrations/0011_agendamento_da_reuniao.sql`): sem isso a tela
+ * publicaria no catálogo um lead que a automação teria recusado, e a operadora
+ * só descobriria a divergência quando o advogado tentasse comprar.
+ */
+export function motivoParaNaoAgendarManualmente(lead: Lead, reuniaoEm: string): string | null {
+  if (lead.compradoPor) return 'Lead já vendido não é reagendado por aqui.';
+  if (!reuniaoEm) return 'Informe a data e a hora da reunião.';
+  if (Date.parse(reuniaoEm) <= Date.now()) {
+    return 'A reunião não pode ser marcada para um horário que já passou.';
+  }
+  const { elegivel, pendentes } = elegibilidadeDoLead(lead);
+  if (!elegivel) {
+    return `Não publica no catálogo — falta confirmar: ${pendentes.join('; ').toLowerCase()}.`;
+  }
+  return null;
+}
+
+/**
+ * Quem pode receber este lead com exclusividade: mesma tese e mesma região que
+ * `visiveisPara` já exige do catálogo aberto. Entrega exclusiva restringe quem
+ * vê — não é um atalho para entregar fora da elegibilidade normal.
+ */
+export function advogadosElegiveisParaEntrega(lead: Lead, advogados: Advogado[]): Advogado[] {
+  return advogados.filter(
+    (a) =>
+      a.teses.includes(lead.tese) &&
+      a.uf === lead.uf &&
+      (a.cidades.length === 0 || a.cidades.includes(lead.cidade)),
+  );
 }
 
 // ---------------------------------------------------------------------------

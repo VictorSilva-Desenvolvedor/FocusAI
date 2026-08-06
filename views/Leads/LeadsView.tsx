@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { KanbanSquare, Search, Table2, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
@@ -12,21 +12,39 @@ import {
   COR_COLUNA,
   DESFECHOS,
   estaNoCatalogo,
+  motivoParaNaoAgendarManualmente,
   motivoParaNaoEncerrarReuniao,
   motivoParaRecusarMovimento,
   venceEmBreve,
   visiveisPara,
 } from '@/src/lib/leads';
+import { leadsComUltimaNaoAtendida } from '@/src/lib/qualificacao';
+import { listarLigacoes } from '@/src/servicos/qualificacao';
 import { TESES } from '@/src/lib/teses';
-import { LEAD_STATUS_LABEL, TESE_CURTA, type Lead, type LeadStatus } from '@/types';
+import {
+  LEAD_STATUS_LABEL,
+  ORIGEM_LEAD_LABEL,
+  TESE_CURTA,
+  type Ligacao,
+  type Lead,
+  type LeadStatus,
+  type OrigemLead,
+} from '@/types';
 import { LeadCard } from './LeadCard';
 import { LeadDrawer } from './LeadDrawer';
 import { CatalogoAdvogado } from './CatalogoAdvogado';
 import { TabelaLeads } from './TabelaLeads';
 
+/**
+ * `nao_atendeu` fica fora do select de etapa: escolher uma etapa só restringe
+ * a mostrar, nunca exclui — e o que essa etapa precisa é o oposto, excluir por
+ * padrão. Ela tem o próprio filtro (`ocultarNaoAtendidas`).
+ */
+const ETAPAS_DESFECHO_FILTRAVEIS = DESFECHOS.filter((s) => s !== 'nao_atendeu');
+
 export function LeadsView() {
   const { perfil, ehAdvogado, advogadoId } = useAuth();
-  const { leads, mover, comprar, devolver, reservar, liberarReserva, excluir } = useLeads();
+  const { leads, mover, agendar, comprar, devolver, reservar, liberarReserva, excluir } = useLeads();
   // O saldo vem da view `advogados_com_saldo`, somado do extrato: depois de uma
   // compra ou devolução os dois precisam ser relidos, porque quem os mudou foi
   // a função do banco, não esta tela.
@@ -36,13 +54,44 @@ export function LeadsView() {
   const [visao, setVisao] = useState<'kanban' | 'tabela'>('kanban');
   const [busca, setBusca] = useState('');
   const [filtroTese, setFiltroTese] = useState('');
+  const [filtroEtapa, setFiltroEtapa] = useState<LeadStatus | ''>('');
+  const [filtroOrigem, setFiltroOrigem] = useState<OrigemLead | ''>('');
+  const [filtroUf, setFiltroUf] = useState('');
   const [mostrarDesfechos, setMostrarDesfechos] = useState(false);
+  /*
+   * Toda tentativa sem atender vira desfecho na hora (`registrar_qualificacao`,
+   * 0010) — mas não é um caso encerrado, é um que ainda vai tentar de novo, e
+   * não carrega nenhuma informação nova sobre o cliente. Por isso é filtro
+   * próprio, fora do select de etapa (onde escolher só mostraria, nunca
+   * excluiria) e fora de "Encerrados" (não depende de abri-lo) — oculto por
+   * padrão para a tela focar no que ainda dá para tocar.
+   */
+  const [ocultarNaoAtendidas, setOcultarNaoAtendidas] = useState(true);
   const [arrastando, setArrastando] = useState<string | null>(null);
   const [colunaAlvo, setColunaAlvo] = useState<LeadStatus | null>(null);
   const [menu, setMenu] = useState<{ lead: Lead; x: number; y: number } | null>(null);
   const [detalhe, setDetalhe] = useState<Lead | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [paraExcluir, setParaExcluir] = useState<Lead | null>(null);
+  const [ligacoes, setLigacoes] = useState<Ligacao[]>([]);
+
+  /*
+   * `eh_time_interno()` é quem lê `ligacoes` (política em 0010) — para
+   * advogado a consulta voltaria vazia mesmo, e o catálogo dele nem usa
+   * `noQuadro`/`desfechos`, então não vale a viagem de rede.
+   */
+  useEffect(() => {
+    if (ehAdvogado) return;
+    let vivo = true;
+    void listarLigacoes().then((r) => {
+      if (vivo) setLigacoes(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [ehAdvogado]);
+
+  const leadsSemAtender = useMemo(() => leadsComUltimaNaoAtendida(ligacoes), [ligacoes]);
 
   const advogadoDoPerfil = useMemo(
     () => advogados.find((a) => a.id === advogadoId) ?? null,
@@ -61,10 +110,22 @@ export function LeadsView() {
     [leads, perfil, advogadoDoPerfil],
   );
 
-  const filtrados = useMemo(() => {
+  const ufsDisponiveis = useMemo(
+    () => Array.from(new Set(daCarteira.map((l) => l.uf))).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [daCarteira],
+  );
+
+  /**
+   * Os filtros de categoria, sem a exclusão de não atendidas — é sobre este
+   * conjunto que `naoAtendidas` conta quantas existem para excluir.
+   */
+  const semOcultarNaoAtendidas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return daCarteira.filter((l) => {
       if (filtroTese && l.tese !== filtroTese) return false;
+      if (filtroEtapa && l.status !== filtroEtapa) return false;
+      if (filtroOrigem && l.origem !== filtroOrigem) return false;
+      if (filtroUf && l.uf !== filtroUf) return false;
       if (!termo) return true;
       return (
         l.nome.toLowerCase().includes(termo) ||
@@ -73,10 +134,45 @@ export function LeadsView() {
         l.resumoQualificacao.toLowerCase().includes(termo)
       );
     });
-  }, [daCarteira, busca, filtroTese]);
+  }, [daCarteira, busca, filtroTese, filtroEtapa, filtroOrigem, filtroUf]);
+
+  /**
+   * `nao_atendeu` no `status` é o sinal previsto (`QUA-R04`), mas a automação
+   * não está aplicando essa transição na prática — o sinal de verdade é a
+   * ligação mais recente (`leadsComUltimaNaoAtendida`). Os dois juntos cobrem
+   * tanto o caso real quanto o caso em que a automação for corrigida.
+   */
+  const semInformacaoNova = useCallback(
+    (l: Lead) => l.status === 'nao_atendeu' || leadsSemAtender.has(l.id),
+    [leadsSemAtender],
+  );
+
+  const naoAtendidas = useMemo(
+    () => semOcultarNaoAtendidas.filter(semInformacaoNova).length,
+    [semOcultarNaoAtendidas, semInformacaoNova],
+  );
+
+  /*
+   * Filtro próprio, aplicado no mesmo nível que tese/etapa/origem/UF — e não
+   * só dentro de "Encerrados", porque a maioria do que ele exclui hoje está
+   * em `novo`/`em_qualificacao`, não nos desfechos (ver o comentário acima).
+   */
+  const filtrados = useMemo(
+    () => (ocultarNaoAtendidas ? semOcultarNaoAtendidas.filter((l) => !semInformacaoNova(l)) : semOcultarNaoAtendidas),
+    [semOcultarNaoAtendidas, ocultarNaoAtendidas, semInformacaoNova],
+  );
 
   const noQuadro = useMemo(() => filtrados.filter((l) => !DESFECHOS.includes(l.status)), [filtrados]);
-  const desfechos = useMemo(() => filtrados.filter((l) => DESFECHOS.includes(l.status)), [filtrados]);
+  const desfechos = useMemo(
+    () => filtrados.filter((l) => DESFECHOS.includes(l.status)),
+    [filtrados],
+  );
+  // Só para o botão "Encerrados" não sumir quando ocultar não atendidas zera
+  // o que sobra do desfecho filtrado — ele precisa continuar clicável.
+  const desfechosTodos = useMemo(
+    () => semOcultarNaoAtendidas.filter((l) => DESFECHOS.includes(l.status)),
+    [semOcultarNaoAtendidas],
+  );
 
   const chips = useMemo(() => {
     const catalogo = noQuadro.filter(estaNoCatalogo).length;
@@ -202,6 +298,35 @@ export function LeadsView() {
     if (l) tentarMover(l, destino);
   }
 
+  /**
+   * LED-R09 — agendamento manual, com ou sem entrega exclusiva. Mesma régua
+   * que a automação já aplica no banco (`motivoParaNaoAgendarManualmente`
+   * espelha `registrar_agendamento`), então o que passa aqui também passaria
+   * lá — a diferença é só quem aciona.
+   */
+  function agendarManualmente(lead: Lead, reuniaoEm: string, direcionadoPara: string | null) {
+    const recusa = motivoParaNaoAgendarManualmente(lead, reuniaoEm);
+    if (recusa) {
+      setAviso({ texto: recusa, tom: 'erro' });
+      return;
+    }
+    agendar(lead.id, reuniaoEm, direcionadoPara);
+    const nomeExclusivo = direcionadoPara ? nomeDoAdvogado[direcionadoPara] : null;
+    setAviso({
+      texto: nomeExclusivo
+        ? `${lead.nome} agendado — entrega exclusiva para ${nomeExclusivo}.`
+        : `${lead.nome} agendado e publicado no catálogo.`,
+    });
+  }
+
+  /** Etapa de desfecho escolhida no filtro: sem isso o resultado fica escondido. */
+  function selecionarEtapa(valor: string) {
+    setFiltroEtapa(valor as LeadStatus | '');
+    if (valor && (DESFECHOS as string[]).includes(valor)) {
+      setMostrarDesfechos(true);
+    }
+  }
+
   /** Só administrador — a função no banco recusa lead vendido ou já ligado (INV-13). */
   async function confirmarExclusao() {
     if (!paraExcluir) return;
@@ -216,7 +341,15 @@ export function LeadsView() {
     setAviso({ texto: `${lead.nome} excluído.` });
   }
 
-  const temFiltro = Boolean(busca || filtroTese);
+  const temFiltro = Boolean(busca || filtroTese || filtroEtapa || filtroOrigem || filtroUf);
+
+  function limparFiltros() {
+    setBusca('');
+    setFiltroTese('');
+    setFiltroEtapa('');
+    setFiltroOrigem('');
+    setFiltroUf('');
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -309,7 +442,73 @@ export function LeadsView() {
             ))}
           </select>
 
-          {!ehAdvogado && desfechos.length > 0 && (
+          <select
+            value={filtroEtapa}
+            onChange={(e) => selecionarEtapa(e.target.value)}
+            aria-label="Filtrar por etapa"
+            className="campo w-auto"
+          >
+            <option value="">Todas as etapas</option>
+            {COLUNAS.map((s) => (
+              <option key={s} value={s}>
+                {LEAD_STATUS_LABEL[s]}
+              </option>
+            ))}
+            {ETAPAS_DESFECHO_FILTRAVEIS.map((s) => (
+              <option key={s} value={s}>
+                {LEAD_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filtroOrigem}
+            onChange={(e) => setFiltroOrigem(e.target.value as OrigemLead | '')}
+            aria-label="Filtrar por origem"
+            className="campo w-auto"
+          >
+            <option value="">Todas as origens</option>
+            {Object.entries(ORIGEM_LEAD_LABEL).map(([valor, rotulo]) => (
+              <option key={valor} value={valor}>
+                {rotulo}
+              </option>
+            ))}
+          </select>
+
+          {ufsDisponiveis.length > 1 && (
+            <select
+              value={filtroUf}
+              onChange={(e) => setFiltroUf(e.target.value)}
+              aria-label="Filtrar por UF"
+              className="campo w-auto"
+            >
+              <option value="">Todas as UFs</option>
+              {ufsDisponiveis.map((uf) => (
+                <option key={uf} value={uf}>
+                  {uf}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Filtro próprio, não uma opção de etapa: exclui, independente de
+              "Encerrados" estar aberto — é o que faz a diferença entre "só
+              mostrar" e "tirar do caminho". */}
+          {!ehAdvogado && naoAtendidas > 0 && (
+            <label className="flex items-center gap-1.5 text-[12px] text-stone-600 select-none">
+              <input
+                type="checkbox"
+                checked={ocultarNaoAtendidas}
+                onChange={(e) => setOcultarNaoAtendidas(e.target.checked)}
+                className="accent-roxo-600"
+              />
+              Ocultar não atendidas ({naoAtendidas})
+            </label>
+          )}
+
+          {/* Conta pelo total, não pelo filtrado — senão um funil só de "não
+              atendida" faz o botão sumir e leva a checkbox de revelar junto. */}
+          {!ehAdvogado && desfechosTodos.length > 0 && (
             <button
               type="button"
               onClick={() => setMostrarDesfechos((v) => !v)}
@@ -323,14 +522,7 @@ export function LeadsView() {
           )}
 
           {temFiltro && (
-            <button
-              type="button"
-              onClick={() => {
-                setBusca('');
-                setFiltroTese('');
-              }}
-              className="btn btn-fantasma px-3 gap-1.5"
-            >
+            <button type="button" onClick={limparFiltros} className="btn btn-fantasma px-3 gap-1.5">
               <X className="size-3.5" />
               Limpar
             </button>
@@ -451,7 +643,7 @@ export function LeadsView() {
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-24">
           <TabelaLeads
-            leads={mostrarDesfechos ? filtrados : noQuadro}
+            leads={mostrarDesfechos ? [...noQuadro, ...desfechos] : noQuadro}
             nomeDoAdvogado={nomeDoAdvogado}
             aoAbrirMenu={(l, e) => setMenu({ lead: l, x: e.clientX, y: e.clientY })}
             aoAbrir={abrirDetalhe}
@@ -520,6 +712,7 @@ export function LeadsView() {
           aoComprar={comprarLead}
           aoDevolver={devolverLead}
           aoEncerrar={encerrarReuniao}
+          aoAgendar={agendarManualmente}
         />
       )}
 

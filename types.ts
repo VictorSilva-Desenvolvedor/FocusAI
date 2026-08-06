@@ -134,7 +134,6 @@ export type ModuleId =
   | 'qualificacao'
   | 'campanhas'
   | 'conformidade'
-  | 'precos'
   | 'creditos'
   | 'integracoes'
   | 'config';
@@ -301,6 +300,12 @@ export interface Lead {
    */
   custoCreditos: number;
   precoAvulso: number;
+  /**
+   * `LED-R09` — id do advogado para quem este lead foi entregue com
+   * exclusividade, ou nulo para catálogo aberto. Ele ainda precisa comprar —
+   * isto só restringe quem enxerga, não substitui `comprarLead`.
+   */
+  direcionadoPara: string | null;
   /** LED-R03 — no máximo um comprador, para sempre. Nulo = ainda no catálogo. */
   compradoPor: string | null;
   /** ISO. Imutável — é o carimbo que prova quando e para quem o lead saiu. */

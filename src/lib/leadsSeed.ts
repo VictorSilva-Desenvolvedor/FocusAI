@@ -291,6 +291,7 @@ function l(
     reuniaoEm: extras.reuniao !== undefined ? emHoras(extras.reuniao) : null,
     custoCreditos: preco.creditos,
     precoAvulso: preco.avulso,
+    direcionadoPara: null,
     compradoPor: extras.compradoPor ?? null,
     compradoEm: extras.compradoHa !== undefined ? dias(extras.compradoHa) : null,
     reservadoPor: extras.reservadoPor ?? null,

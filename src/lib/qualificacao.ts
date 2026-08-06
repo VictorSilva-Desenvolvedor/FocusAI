@@ -54,6 +54,28 @@ export function taxaPorTese(ligacoes: Ligacao[], tese: TeseId): number {
 }
 
 /**
+ * `QUA-R04` promete `expirado` na terceira tentativa sem atender, mas a
+ * automação que chama `registrar_qualificacao` não está aplicando essa
+ * transição na prática — o lead fica em `novo`/`em_qualificacao` mesmo depois
+ * de várias tentativas sem sucesso (ver Pendências conhecidas). Por isso
+ * "sem informação nova" não se lê pelo `status` do lead — se lê pela ligação
+ * mais recente.
+ *
+ * `listarLigacoes()` já devolve mais recente primeiro, então a primeira
+ * ocorrência por lead nesta lista é a última tentativa.
+ */
+export function leadsComUltimaNaoAtendida(ligacoes: Ligacao[]): Set<string> {
+  const vistos = new Set<string>();
+  const naoAtendidos = new Set<string>();
+  for (const l of ligacoes) {
+    if (vistos.has(l.leadId)) continue;
+    vistos.add(l.leadId);
+    if (l.resultado === 'nao_atendeu') naoAtendidos.add(l.leadId);
+  }
+  return naoAtendidos;
+}
+
+/**
  * "4 min 12 s". Zero vira travessão: não atendeu não tem duração.
  *
  * Arredonda antes de separar minuto de segundo — a duração real da Vapi vem

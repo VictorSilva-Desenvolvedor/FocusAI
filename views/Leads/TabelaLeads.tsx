@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, MicOff, MoreHorizontal } from 'lucide-react';
+import { ArrowDown, ArrowUp, MicOff, MoreHorizontal, UserCheck } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { ESTILO_TESE, contatoVisivel, venceEmBreve } from '@/src/lib/leads';
 import { LEAD_STATUS_LABEL, TESE_CURTA, type Lead } from '@/types';
@@ -133,7 +133,18 @@ export function TabelaLeads({
                 </td>
 
                 <td className="px-3 py-3 text-stone-600 whitespace-nowrap tabular">
-                  {l.reuniaoEm ? formatarReuniao(l.reuniaoEm) : '—'}
+                  <div className="flex items-center gap-1.5">
+                    {l.reuniaoEm ? formatarReuniao(l.reuniaoEm) : '—'}
+                    {/* LED-R09 — entrega exclusiva: só este advogado enxerga no catálogo. */}
+                    {!l.compradoPor && l.direcionadoPara && (
+                      <span
+                        title={`Exclusivo para ${nomeDoAdvogado[l.direcionadoPara] ?? l.direcionadoPara}`}
+                        className="shrink-0"
+                      >
+                        <UserCheck className="size-3.5 text-roxo-600" />
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 <td className="px-3 py-3 text-stone-600 whitespace-nowrap">

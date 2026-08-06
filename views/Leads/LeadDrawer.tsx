@@ -13,18 +13,23 @@ import {
   ShoppingCart,
   Star,
   Undo2,
+  UserCheck,
   UserX,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
+import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { listarLigacoesDoLead } from '@/src/servicos/qualificacao';
+import { Campo } from '@/src/components/ui/Campo';
 import { ESTILO_BLOCO, ESTILO_ETIQUETA, ESTILO_TEXTO } from '@/src/lib/estilo';
 import {
   ESTILO_TESE,
   NOTA_MAXIMA,
+  advogadosElegiveisParaEntrega,
   contatoVisivel,
   elegibilidadeDoLead,
+  motivoParaNaoAgendarManualmente,
   motivoParaNaoComprar,
   podeAvaliar,
   podeEncerrarReuniao,
@@ -54,6 +59,8 @@ interface Props {
   aoDevolver: (lead: Lead, motivo: string) => void;
   /** LED-R07 — desfecho da reunião, registrado por quem esteve nela. */
   aoEncerrar: (lead: Lead, desfecho: 'atendido' | 'no_show') => void;
+  /** LED-R09 — agendamento manual, com entrega exclusiva opcional. */
+  aoAgendar: (lead: Lead, reuniaoEm: string, direcionadoPara: string | null) => void;
 }
 
 export function LeadDrawer({
@@ -64,11 +71,14 @@ export function LeadDrawer({
   aoComprar,
   aoDevolver,
   aoEncerrar,
+  aoAgendar,
 }: Props) {
   const { perfil, ehAdvogado } = useAuth();
   const { responderFiltro } = useLeads();
+  const { advogados } = useAdvogados();
   const idBase = useId();
   const [devolvendo, setDevolvendo] = useState(false);
+  const [agendando, setAgendando] = useState(false);
   const [ligacoes, setLigacoes] = useState<LigacaoDetalhada[] | null>(null);
 
   useEffect(() => {
@@ -90,6 +100,12 @@ export function LeadDrawer({
   const recusaCompra = motivoParaNaoComprar(lead, advogado);
   const meu = lead.compradoPor !== null && lead.compradoPor === perfil.advogado_id;
   const contato = contatoVisivel(lead, perfil);
+  // LED-R09 — só o time interno agenda manualmente, e só enquanto o lead
+  // segue sem comprador: depois da venda o horário já respondeu perante a OAB.
+  const podeAgendarManualmente = !ehAdvogado && !lead.compradoPor;
+  const nomeDoDirecionado = lead.direcionadoPara
+    ? (advogados.find((a) => a.id === lead.direcionadoPara)?.nome ?? lead.direcionadoPara)
+    : null;
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
@@ -128,8 +144,30 @@ export function LeadDrawer({
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Reunião ---------------------------------------------------- */}
           <section>
-            <h3 className="label-eyebrow mb-2">A reunião</h3>
-            {lead.reuniaoEm ? (
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="label-eyebrow">A reunião</h3>
+              {podeAgendarManualmente && !agendando && (
+                <button
+                  type="button"
+                  onClick={() => setAgendando(true)}
+                  className="text-[11px] font-medium text-roxo-700 hover:text-roxo-900"
+                >
+                  {lead.reuniaoEm ? 'Editar' : 'Agendar manualmente'}
+                </button>
+              )}
+            </div>
+
+            {agendando ? (
+              <FormularioAgendamento
+                lead={lead}
+                advogados={advogadosElegiveisParaEntrega(lead, advogados)}
+                aoCancelar={() => setAgendando(false)}
+                aoConfirmar={(reuniaoEm, direcionadoPara) => {
+                  aoAgendar(lead, reuniaoEm, direcionadoPara);
+                  setAgendando(false);
+                }}
+              />
+            ) : lead.reuniaoEm ? (
               <div className={`rounded-lg border p-3 ${ESTILO_BLOCO.marca}`}>
                 <div className="flex items-center gap-2 text-[14px] font-semibold text-roxo-900">
                   <CalendarClock className="size-4" />
@@ -138,6 +176,12 @@ export function LeadDrawer({
                 <p className="nota mt-1">
                   É a hora marcada que o advogado compra. Sem ela, o registro é só um contato.
                 </p>
+                {nomeDoDirecionado && (
+                  <p className="flex items-center gap-1.5 mt-1.5 text-[11px] font-medium text-roxo-700">
+                    <UserCheck className="size-3.5" />
+                    Entrega exclusiva para {nomeDoDirecionado} — só ele vê no catálogo.
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-[13px] text-stone-500">Ainda não agendada.</p>
@@ -555,6 +599,92 @@ function FormularioDevolucao({
           className="btn btn-primario"
         >
           Confirmar devolução
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** `YYYY-MM-DDTHH:mm` em hora local, o formato que `<input type="datetime-local">` lê e escreve. */
+function paraInputLocal(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/**
+ * LED-R09 — agendamento manual, espelhando `registrar_agendamento`: mesma
+ * recusa de horário passado e de filtro pendente, só que decidida na tela em
+ * vez de na automação. `advogados` já chega filtrado pela tese e pela região
+ * do lead — a entrega exclusiva restringe quem vê, não substitui a régua.
+ */
+function FormularioAgendamento({
+  lead,
+  advogados,
+  aoCancelar,
+  aoConfirmar,
+}: {
+  lead: Lead;
+  advogados: Advogado[];
+  aoCancelar: () => void;
+  aoConfirmar: (reuniaoEm: string, direcionadoPara: string | null) => void;
+}) {
+  const idBase = useId();
+  const [dataHora, setDataHora] = useState(() => paraInputLocal(lead.reuniaoEm));
+  const [advogadoId, setAdvogadoId] = useState(lead.direcionadoPara ?? '');
+
+  const reuniaoIso = dataHora ? new Date(dataHora).toISOString() : '';
+  const recusa = dataHora ? motivoParaNaoAgendarManualmente(lead, reuniaoIso) : null;
+
+  return (
+    <div className={`rounded-lg border p-3 ${ESTILO_BLOCO.neutro}`}>
+      <Campo id={`${idBase}-quando`} rotulo="Data e hora da reunião">
+        <input
+          id={`${idBase}-quando`}
+          type="datetime-local"
+          value={dataHora}
+          onChange={(e) => setDataHora(e.target.value)}
+          className="campo"
+        />
+      </Campo>
+
+      <div className="mt-2.5">
+        <label htmlFor={`${idBase}-advogado`} className="campo-rotulo">
+          Entrega
+        </label>
+        <select
+          id={`${idBase}-advogado`}
+          value={advogadoId}
+          onChange={(e) => setAdvogadoId(e.target.value)}
+          className="campo"
+        >
+          <option value="">Catálogo aberto — qualquer advogado elegível compra</option>
+          {advogados.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nome}
+            </option>
+          ))}
+        </select>
+        <p className="campo-dica">
+          Escolher um advogado torna o lead visível só para ele no catálogo. Ele ainda precisa
+          comprar — isto não debita crédito nem pula `comprarLead`.
+        </p>
+      </div>
+
+      {recusa && <p className="campo-mensagem-erro mt-2">{recusa}</p>}
+
+      <div className="flex justify-end gap-2 mt-3">
+        <button type="button" onClick={aoCancelar} className="btn btn-fantasma">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={!dataHora || Boolean(recusa)}
+          onClick={() => aoConfirmar(reuniaoIso, advogadoId || null)}
+          className="btn btn-primario"
+        >
+          Salvar
         </button>
       </div>
     </div>

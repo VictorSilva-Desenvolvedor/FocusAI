@@ -563,7 +563,7 @@ Regras já vivas no código: `ACC-R02` e `ACC-R03` (`src/lib/usuarios.ts`),
 `ACC-R21` e `ACC-R22` (`UsuariosContext`), `ACC-R01` e `ACC-R07`
 (`src/lib/navigation.ts` + `GuardaDeRota`), `ACC-R08` (`PortaoDeSessao` +
 `src/servicos/perfil.ts`), `ACC-R09` (`src/servicos/perfil.ts`), `CNF-R21` (`AuthContext` +
-`views/Conformidade/`), `LED-R01` a `LED-R08` (`src/lib/leads.ts`), `ADV-R01` a
+`views/Conformidade/`), `LED-R01` a `LED-R09` (`src/lib/leads.ts`), `ADV-R01` a
 `ADV-R10` (`src/lib/advogados.ts`), `TES-R01` a `TES-R07` (`src/lib/teses.ts`),
 `CRE-R01` a `CRE-R07` (`src/lib/creditos.ts`), `QUA-R01` a `QUA-R03`
 (`src/lib/qualificacao.ts`), `QUA-R04` (`supabase/migrations/0010_qualificacao_por_voz.sql`),
@@ -768,6 +768,13 @@ forem a demanda.
   ficha do lead (`LeadDrawer`) parou de tentar tocar a gravação inline — o
   `<audio>` apontava para essa mesma URL frágil e não reproduzia; o campo
   continua chegando da leitura, só não é mais renderizado como player.
+- **Entrega exclusiva e agendamento manual (`LED-R09`) são só locais.** Igual
+  a `agendar` antes dela, `direcionadoPara` não tem coluna no banco — a tela
+  restringe o catálogo pelo `advogado_id` guardado em memória, mas some no
+  recarregar e não é reforçada por política de acesso (`API-R02`): quem
+  chamar a tabela direto ainda vê o lead. Falta a coluna em `leads`, o ajuste
+  em `registrar_agendamento` para gravá-la, e repetir a mesma restrição na
+  política de `advogados` que já filtra por tese e UF.
 - ~~Resumos da Helena saem em inglês~~ — corrigido nos 5 assistentes
   (`analysisPlan.summaryPlan`, via API da Vapi — `.secrets/vapi.env`), com
   prompt pedindo resumo em português, em até 4 frases, focado no que o

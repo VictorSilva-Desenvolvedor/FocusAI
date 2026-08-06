@@ -50,7 +50,12 @@ interface LeadsValue {
   erro: string | null;
   criar: (dados: LeadFormData) => Lead;
   mover: (id: string, status: LeadStatus, motivo?: string) => void;
-  agendar: (id: string, reuniaoEm: string) => void;
+  /**
+   * `LED-R09` — agendamento manual. `direcionadoPara` é o advogado da entrega
+   * exclusiva, ou nulo para publicar no catálogo aberto (o comportamento de
+   * sempre).
+   */
+  agendar: (id: string, reuniaoEm: string, direcionadoPara?: string | null) => void;
   responderFiltro: (id: string, filtroId: string, valor: boolean) => void;
   reservar: (id: string) => Promise<boolean>;
   liberarReserva: (id: string) => Promise<void>;
@@ -131,6 +136,7 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
         // reescreve o que já está anunciado nem o que já foi vendido.
         custoCreditos: tese?.custoCreditos ?? 0,
         precoAvulso: tese?.precoAvulso ?? 0,
+        direcionadoPara: null,
         compradoPor: null,
         compradoEm: null,
         reservadoPor: null,
@@ -168,11 +174,17 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
   );
 
   const agendar = useCallback(
-    (id: string, reuniaoEm: string) => {
+    (id: string, reuniaoEm: string, direcionadoPara: string | null = null) => {
       aplicar((atual) =>
         atual.map((l) =>
           l.id === id
-            ? { ...l, reuniaoEm, status: 'agendado', ultimaAtividade: new Date().toISOString() }
+            ? {
+                ...l,
+                reuniaoEm,
+                status: 'agendado',
+                direcionadoPara,
+                ultimaAtividade: new Date().toISOString(),
+              }
             : l,
         ),
       );

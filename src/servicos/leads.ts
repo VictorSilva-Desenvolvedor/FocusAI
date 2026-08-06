@@ -88,6 +88,9 @@ function paraDominio(linha: LinhaLead): Lead {
     reuniaoEm: linha.reuniao_em,
     custoCreditos: linha.custo_creditos,
     precoAvulso: Number(linha.preco_avulso),
+    // LED-R09 — entrega exclusiva ainda não tem coluna no banco; agendamento
+    // manual grava isto só localmente, como `agendar` já faz com a reunião.
+    direcionadoPara: null,
     compradoPor: linha.comprado_por,
     compradoEm: linha.comprado_em,
     reservadoPor: linha.reservado_por,
