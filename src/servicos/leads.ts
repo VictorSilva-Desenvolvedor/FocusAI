@@ -126,26 +126,25 @@ export function mascaraDoBanco(linha: { telefone_mascarado: string | null }): st
 /**
  * `API-R07` — lista grande exige paginação explícita. O corte padrão é 1.000
  * linhas e o truncamento não vem como erro, vem como menos dado: filtro perde
- * opção e comparativo zera sem ninguém notar.
+ * opção e comparativo zera sem ninguém notar. Por isso a função pagina
+ * sozinha, por dentro, até esgotar a tabela — quem chama recebe a lista
+ * inteira, nunca um recorte silencioso.
  */
-export async function listarLeads(pagina = 0): Promise<Lead[]> {
-  const de = pagina * POR_PAGINA;
-  const { data, error } = await supabase
-    .from('leads')
-    .select(CAMPOS)
-    .order('ultima_atividade', { ascending: false })
-    .range(de, de + POR_PAGINA - 1);
+export async function listarLeads(): Promise<Lead[]> {
+  const tudo: Lead[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const de = pagina * POR_PAGINA;
+    const { data, error } = await supabase
+      .from('leads')
+      .select(CAMPOS)
+      .order('ultima_atividade', { ascending: false })
+      .range(de, de + POR_PAGINA - 1);
 
-  if (error) throw new Error(`Falha ao carregar leads: ${error.message}`);
-  return (data as unknown as LinhaLead[]).map(paraDominio);
-}
-
-export async function contarLeads(): Promise<number> {
-  const { count, error } = await supabase
-    .from('leads')
-    .select('id', { count: 'exact', head: true });
-  if (error) throw new Error(`Falha ao contar leads: ${error.message}`);
-  return count ?? 0;
+    if (error) throw new Error(`Falha ao carregar leads: ${error.message}`);
+    const linhas = data as unknown as LinhaLead[];
+    tudo.push(...linhas.map(paraDominio));
+    if (linhas.length < POR_PAGINA) return tudo;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +167,8 @@ type FuncaoDeLead =
   | 'devolver_lead'
   | 'reservar_lead'
   | 'encerrar_reuniao'
-  | 'avaliar_lead';
+  | 'avaliar_lead'
+  | 'excluir_lead';
 
 async function chamar(
   nome: FuncaoDeLead,
@@ -202,3 +202,9 @@ export const avaliarLead = (leadId: string, nota: number, comentario: string | n
 export async function liberarReserva(leadId: string): Promise<void> {
   await supabase.rpc('liberar_reserva', { p_lead_id: leadId });
 }
+
+/**
+ * Só para administrador, e só para lead que nunca virou produto — a função no
+ * banco recusa lead vendido ou com ligação registrada (`INV-13`).
+ */
+export const excluirLead = (leadId: string) => chamar('excluir_lead', { p_lead_id: leadId });

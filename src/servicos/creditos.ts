@@ -41,16 +41,43 @@ function paraDominio(linha: LinhaMovimento): MovimentoCredito {
  * ajuste manual — que é um tipo de movimento próprio, exige motivo e aparece no
  * extrato como tal. Não é atalho no gatilho.
  */
-export async function listarMovimentos(pagina = 0): Promise<MovimentoCredito[]> {
-  const de = pagina * POR_PAGINA;
-  const { data, error } = await supabase
-    .from('movimentos_creditos')
-    .select(CAMPOS)
-    .order('em', { ascending: false })
-    .range(de, de + POR_PAGINA - 1);
+export async function listarMovimentos(): Promise<MovimentoCredito[]> {
+  const tudo: MovimentoCredito[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const de = pagina * POR_PAGINA;
+    const { data, error } = await supabase
+      .from('movimentos_creditos')
+      .select(CAMPOS)
+      .order('em', { ascending: false })
+      .range(de, de + POR_PAGINA - 1);
 
-  if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
-  return (data as LinhaMovimento[]).map(paraDominio);
+    if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
+    const linhas = data as LinhaMovimento[];
+    tudo.push(...linhas.map(paraDominio));
+    if (linhas.length < POR_PAGINA) return tudo;
+  }
+}
+
+export type Resultado = { ok: true } | { ok: false; motivo: string };
+
+/**
+ * `CRE-R06` — a porta legítima para mexer no saldo à mão. `tipo` não é
+ * parâmetro: esta função só lança `'ajuste'`, nunca se disfarça de compra ou
+ * consumo. A validação — permissão, motivo, saldo que não fica negativo —
+ * mora na função (`0013_ajuste_manual_de_credito.sql`), não aqui.
+ */
+export async function ajustarCreditos(
+  advogadoId: string,
+  creditos: number,
+  motivo: string,
+): Promise<Resultado> {
+  const { data, error } = await supabase.rpc('ajustar_creditos_advogado', {
+    p_advogado_id: advogadoId,
+    p_creditos: creditos,
+    p_motivo: motivo,
+  });
+  if (error) return { ok: false, motivo: error.message };
+  return data as Resultado;
 }
 
 /**
@@ -62,13 +89,19 @@ export async function listarMovimentos(pagina = 0): Promise<MovimentoCredito[]> 
  * devolve lista vazia, não erro.
  */
 export async function extratoDoAdvogado(advogadoId: string): Promise<MovimentoCredito[]> {
-  const { data, error } = await supabase
-    .from('movimentos_creditos')
-    .select(CAMPOS)
-    .eq('advogado_id', advogadoId)
-    .order('em', { ascending: false })
-    .range(0, POR_PAGINA - 1);
+  const tudo: MovimentoCredito[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const de = pagina * POR_PAGINA;
+    const { data, error } = await supabase
+      .from('movimentos_creditos')
+      .select(CAMPOS)
+      .eq('advogado_id', advogadoId)
+      .order('em', { ascending: false })
+      .range(de, de + POR_PAGINA - 1);
 
-  if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
-  return (data as LinhaMovimento[]).map(paraDominio);
+    if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
+    const linhas = data as LinhaMovimento[];
+    tudo.push(...linhas.map(paraDominio));
+    if (linhas.length < POR_PAGINA) return tudo;
+  }
 }

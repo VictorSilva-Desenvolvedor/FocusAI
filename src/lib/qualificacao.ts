@@ -7,7 +7,14 @@ import type { Tom } from '@/src/lib/estilo';
  */
 export const NOME_DA_IA = 'Helena';
 
-/** Três tentativas antes de desistir. A quarta ligação já é insistência. */
+/**
+ * `QUA-R04` — três tentativas antes de desistir. A quarta ligação já é
+ * insistência. Esgotadas sem falar com a pessoa, o lead vira `expirado` — não
+ * `desqualificado`, porque ninguém avaliou o caso, só não se conseguiu
+ * contato. Aplicada em `registrar_qualificacao`
+ * (`supabase/migrations/0010_qualificacao_por_voz.sql`); o número aqui é só
+ * leitura, o valor que vale é o hardcoded na função.
+ */
 export const MAX_TENTATIVAS = 3;
 
 export const TOM_RESULTADO: Record<ResultadoLigacao, Tom> = {
@@ -46,11 +53,18 @@ export function taxaPorTese(ligacoes: Ligacao[], tese: TeseId): number {
   return taxaDeQualificacao(ligacoes.filter((l) => l.tese === tese));
 }
 
-/** "4 min 12 s". Zero vira travessão: não atendeu não tem duração. */
+/**
+ * "4 min 12 s". Zero vira travessão: não atendeu não tem duração.
+ *
+ * Arredonda antes de separar minuto de segundo — a duração real da Vapi vem
+ * com casas decimais (432.761), e sem isso o resto da divisão por 60 herda a
+ * imprecisão de ponto flutuante e mostra algo como "12.760999999999999 s".
+ */
 export function formatarDuracao(segundos: number): string {
   if (segundos <= 0) return '—';
-  const min = Math.floor(segundos / 60);
-  const seg = segundos % 60;
+  const total = Math.round(segundos);
+  const min = Math.floor(total / 60);
+  const seg = total % 60;
   if (min === 0) return `${seg} s`;
   return `${min} min ${String(seg).padStart(2, '0')} s`;
 }

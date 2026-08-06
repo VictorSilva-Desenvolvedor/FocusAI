@@ -1,28 +1,29 @@
--- ---------------------------------------------------------------------------
--- 0011 — a hora marcada, que é o que se vende
+-- O agendamento publica o lead no catálogo.
 --
--- Fecha o terceiro elo. A `0010` fez a qualificação chegar ao banco, e o teto
--- ficou em `qualificado`: o catálogo só mostra `agendado`, porque o que o
--- advogado compra é a reunião, não o telefone (`LED-R02`). Sem esta migration,
--- todo o resto funciona e ninguém compra nada.
+-- Reconstruída por introspecção do projeto de teste (`wqyzgdnxatrkjqdkhcum`),
+-- pelo mesmo motivo de `0010_qualificacao_por_voz.sql`: existia só no banco.
 --
--- O horário nasce durante a ligação, quando a Helena chama a ferramenta de
--- agenda. Essa chamada já passa pelo mesmo webhook do relatório de fim de
--- chamada, como mensagem do tipo `tool-calls`.
--- ---------------------------------------------------------------------------
+-- `registrar_agendamento` é o único lugar que muda `status` para `agendado` —
+-- e é `agendado` mais `comprado_por is null` que define o catálogo
+-- (`leads_catalogo_idx`, em `0001_fundacao.sql`). Antes deste carimbo o lead
+-- não é comprável; é por isso que `registrar_captacao` pode inserir com
+-- `custo_creditos`/`preco_avulso` no default de 0 sem que isso, sozinho, venda
+-- lead de graça — o preço real só passa a valer quando publica.
+--
+-- `TES-R07` — as três teses custam o mesmo: 30 créditos, ou R$ 40 avulso.
+-- A versão recuperada por introspecção carregava a tabela antiga (3/300,
+-- 2/250, 4/350 por tese): foi escrita antes da decisão que unificou o preço,
+-- na maquete. Corrigido aqui antes de versionar — sem isso, o primeiro lead
+-- publicado no banco de trabalho venderia pela tabela errada. Continua
+-- hardcoded, e não numa tabela `teses` no banco: `registrar_captacao` não lê
+-- preço nenhum (o valor só passa a existir na publicação), então hoje só este
+-- ponto precisa saber o número. Se um dia o preço divergir por tese de novo,
+-- é aqui — e em `src/lib/teses.ts` — que se muda.
 
 /*
- * `LED-R01` do lado do banco.
- *
- * A elegibilidade é da tese, não do lead: cada tese exige respostas próprias, e
- * publicar sem elas é anunciar caso que o advogado recusa na primeira leitura —
- * e cada recusa dessas custa a confiança no catálogo inteiro, não só naquele
- * lead.
- *
- * A regra já existe em `elegibilidadeDoLead()`, no cliente. Aqui ela é
- * reimplementada de propósito: quem publica é a automação, com chave de
- * serviço, e ela nunca passa pelo código da tela. `API-R06` — a regra é do
- * módulo, não da view, e a view não é o único caminho.
+ * As mesmas perguntas de elegibilidade que `TesesView` mostra, uma tabela só
+ * para as duas pontas não divergirem. `array_agg` em vez de `count`: a tela que
+ * chama isto precisa dizer QUAL filtro falta, não só quantos.
  */
 create function public.filtros_pendentes(p_lead_id uuid)
 returns text[]
@@ -46,21 +47,12 @@ as $$
 $$;
 
 revoke execute on function public.filtros_pendentes(uuid) from public, anon, authenticated;
-
--- ---------------------------------------------------------------------------
--- O agendamento
--- ---------------------------------------------------------------------------
+grant execute on function public.filtros_pendentes(uuid) to service_role;
 
 /*
- * `API-R08` — carimbar o horário e publicar no catálogo é um passo só.
- *
- * `API-R14` — o evento é gatilho, não fonte da verdade: quem decide se o lead
- * pode ser publicado é esta função, olhando a elegibilidade que está no banco.
- * O corpo do webhook informa o horário; não decide o status.
- *
- * `CRE-R03` — o preço é congelado aqui, no instante da publicação. Mexer na
- * tabela da tese depois não reescreve o que já está anunciado nem o que já foi
- * vendido; sem isso, o advogado veria um valor na tela e outro no débito.
+ * Publica o lead no catálogo. O corpo abaixo é o texto original recuperado do
+ * banco de teste — comentários inclusive, e a ressalva de preço do cabeçalho
+ * deste arquivo se aplica ao bloco `values` logo adiante.
  */
 create function public.registrar_agendamento(
   p_lead_id uuid,
@@ -112,11 +104,12 @@ begin
   end if;
 
   -- CRE-R03 — o preço de tabela da tese, congelado agora.
+  -- TES-R07 — as três teses custam o mesmo hoje: 30 créditos, R$ 40 avulso.
   select custo_creditos, preco_avulso into v_custo, v_preco
     from (values
-      ('polo_passivo'::public.tese, 3, 300::numeric),
-      ('vinculo_empregaticio', 2, 250),
-      ('juros_abusivos', 4, 350)
+      ('polo_passivo'::public.tese, 30, 40::numeric),
+      ('vinculo_empregaticio', 30, 40),
+      ('juros_abusivos', 30, 40)
     ) as t(tese, custo_creditos, preco_avulso)
    where t.tese = v_lead.tese;
 
@@ -153,3 +146,5 @@ $$;
 
 revoke execute on function public.registrar_agendamento(uuid, text, timestamptz)
   from public, anon, authenticated;
+grant execute on function public.registrar_agendamento(uuid, text, timestamptz)
+  to service_role;

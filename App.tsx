@@ -8,6 +8,7 @@ import { AppLayout } from '@/src/components/Layout/AppLayout';
 import { GuardaDeRota } from '@/src/components/Layout/GuardaDeRota';
 import { PortaoDeSessao } from '@/src/components/Layout/PortaoDeSessao';
 import { LoginView } from '@/views/Login/LoginView';
+import { RedefinirSenhaView } from '@/views/RedefinirSenha/RedefinirSenhaView';
 import { DashboardView } from '@/views/Dashboard/DashboardView';
 import { LeadsView } from '@/views/Leads/LeadsView';
 import { AdvogadosView } from '@/views/Advogados/AdvogadosView';
@@ -34,9 +35,10 @@ export default function App() {
             <HashRouter>
               <AuthProvider>
                 <Routes>
-                  {/* A única rota sem sessão. Fora da moldura: não há barra
+                  {/* As duas rotas sem sessão. Fora da moldura: não há barra
                       superior para desenhar quando não se sabe quem entrou. */}
                   <Route path="/login" element={<LoginView />} />
+                  <Route path="/redefinir-senha" element={<RedefinirSenhaView />} />
 
                   {/* ACC-R08 — o portão vem antes de tudo. Nada da aplicação
                       existe sem sessão autenticada e perfil resolvido. */}

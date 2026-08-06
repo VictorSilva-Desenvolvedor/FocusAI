@@ -47,6 +47,7 @@ export function AdvogadoDrawer({
   });
   const [erros, setErros] = useState<ErrosAdvogado>({});
   const [tentou, setTentou] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   const responsaveis = useMemo(
     () => usuarios.filter((u) => u.status !== 'inativo' && PAPEIS_COMERCIAIS.has(u.role)),
@@ -71,14 +72,25 @@ export function AdvogadoDrawer({
     }));
   }
 
-  function submeter(e: React.FormEvent) {
+  async function submeter(e: React.FormEvent) {
     e.preventDefault();
     setTentou(true);
     const novos = validarAdvogado(dados, advogados);
     setErros(novos);
-    if (temErro(novos)) return;
+    if (temErro(novos) || enviando) return;
 
-    criar(dados, perfil.id);
+    setEnviando(true);
+    const r = await criar(dados);
+    setEnviando(false);
+
+    // A mesma inscrição pode ter sido cadastrada por outra pessoa entre a
+    // validação na tela e o envio — a recusa do banco chega aqui como erro de
+    // OAB, no mesmo lugar onde a validação local já mostra as suas.
+    if (!r.ok) {
+      setErros((atual) => ({ ...atual, oab: r.motivo }));
+      return;
+    }
+
     aoSalvar(`${dados.nome.trim()} entrou no funil em "Novo".`);
     aoFechar();
   }
@@ -327,7 +339,7 @@ export function AdvogadoDrawer({
           <button type="button" onClick={aoFechar} className="btn btn-fantasma">
             Cancelar
           </button>
-          <button type="submit" className="btn btn-primario">
+          <button type="submit" disabled={enviando} className="btn btn-primario">
             Criar advogado
           </button>
         </footer>

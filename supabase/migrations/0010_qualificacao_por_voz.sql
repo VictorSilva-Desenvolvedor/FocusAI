@@ -1,57 +1,45 @@
--- ---------------------------------------------------------------------------
--- 0010 — o retorno da SDR de voz
+-- A ligação da SDR de voz vira registro no banco.
 --
--- Fecha o segundo elo da cadeia. A Helena liga, conduz o roteiro e encerra — e
--- até aqui o resultado morria no webhook: o `end-of-call-report` da VAPI chega
--- em `/webhook/agentecall` com resumo, transcrição, gravação e motivo de
--- encerramento, e não havia onde gravá-lo. Sem isso nenhum lead passa de `novo`,
--- e o catálogo, que só mostra `agendado`, nunca tem o que vender.
--- ---------------------------------------------------------------------------
+-- Reconstruída por introspecção do projeto de teste (`wqyzgdnxatrkjqdkhcum`):
+-- este arquivo nunca existiu no repositório — foi aplicado direto, numa sessão
+-- anterior, e ficou só no banco. `pg_get_functiondef` preserva o corpo original
+-- das funções, comentários incluídos; a tabela foi reconstruída a partir de
+-- `information_schema` e `pg_constraint`, que não guardam comentário de coluna.
+--
+-- `ligacoes` é o registro de cada tentativa de contato — append-only, porque é
+-- o que responde perante a OAB como o cliente foi conduzido (`INV-13`).
+-- Deduplicação por `chamada_id`: a VAPI reenvia o mesmo relatório quando não
+-- recebe 2xx, e sem a trava uma ligação viraria duas tentativas e o lead seria
+-- descartado por excesso (`QUA-R02`).
 
 create type public.resultado_ligacao as enum (
   'qualificado', 'desqualificado', 'nao_atendeu', 'reagendar', 'em_andamento'
 );
 
--- ---------------------------------------------------------------------------
--- O registro de cada tentativa
--- ---------------------------------------------------------------------------
-
-/*
- * `INV-13` — o registro da qualificação é imutável: é ele que responde, perante
- * a OAB, como aquele cliente foi conduzido até a reunião. Por isso a tabela é
- * append-only, com o mesmo gatilho que protege o extrato.
- *
- * `chamada_id` é único por causa de `API-R13`: a VAPI reenvia o mesmo
- * `end-of-call-report` quando não recebe 2xx, e sem a unicidade uma ligação
- * viraria duas tentativas — o lead seria descartado por excesso (`QUA-R02`)
- * por causa de uma retentativa de rede.
- */
 create table public.ligacoes (
   id uuid primary key default gen_random_uuid(),
   lead_id uuid not null references public.leads (id) on delete cascade,
-  chamada_id text not null unique,
+  chamada_id text not null,
   tentativa int not null check (tentativa > 0),
   resultado public.resultado_ligacao not null,
   resumo text,
   transcricao text,
-  -- `API-R15` — hoje é a URL do provedor. Balde privado próprio é a próxima
-  -- etapa; guardar a de terceiro sem prazo definido é dívida anotada, não
-  -- solução: quando ela expirar, `INV-13` fica sem a prova que promete.
   gravacao_url text,
   motivo_encerramento text,
-  duracao_segundos numeric(10, 2),
+  duracao_segundos numeric,
   iniciada_em timestamptz,
   encerrada_em timestamptz,
-  registrada_em timestamptz not null default now()
+  registrada_em timestamptz not null default now(),
+
+  -- API-R13 — o mesmo relatório de fim de chamada não vira duas tentativas.
+  constraint ligacoes_chamada_id_key unique (chamada_id)
 );
 
 create index ligacoes_por_lead_idx on public.ligacoes (lead_id, registrada_em desc);
 
 /*
- * Gatilho próprio, e não o `extrato_e_imutavel()` do crédito, por causa da
- * mensagem: reaproveitar o outro faz o banco recusar a escrita dizendo
- * "movimento de crédito não é alterado" sobre uma tabela de ligações, e quem
- * ler isso vai procurar o defeito no extrato.
+ * INV-13 — o registro da qualificação não é alterado nem removido. É prova do
+ * momento da ligação, não se reconstitui depois.
  */
 create function public.ligacao_e_imutavel()
 returns trigger
@@ -68,27 +56,10 @@ create trigger ligacoes_imutaveis
   before update or delete on public.ligacoes
   for each row execute function public.ligacao_e_imutavel();
 
-alter table public.ligacoes enable row level security;
-
 /*
- * `INV-05` do lado do banco — nenhuma política nomeia `advogado`, e é
- * deliberado. A transcrição é a conversa inteira com o cliente final, com tudo
- * o que ele contou antes de decidir. O que o advogado compra é a reunião e o
- * resumo, não o registro bruto.
- */
-create policy "o time interno lê as ligações"
-  on public.ligacoes for select to authenticated
-  using (public.eh_time_interno());
-
--- ---------------------------------------------------------------------------
--- QUA-R02 — três tentativas, e só
--- ---------------------------------------------------------------------------
-
-/*
- * A quarta ligação já é insistência sobre alguém que não pediu para ser
- * procurado de novo. O limite mora aqui, e não no fluxo de automação, porque é
- * regra de negócio: `tentativa: 1` fixo no corpo da chamada — como está hoje no
- * n8n — faz o limite nunca valer, e ninguém percebe.
+ * Quantas vezes já se tentou aquele lead. `registrar_qualificacao` soma 1 ao
+ * resultado desta função para saber se a tentativa que está gravando é a
+ * terceira — o gatilho de expiração por falta de contato (QUA-R02).
  */
 create function public.tentativas_do_lead(p_lead_id uuid)
 returns int
@@ -100,28 +71,15 @@ as $$
 $$;
 
 revoke execute on function public.tentativas_do_lead(uuid) from public, anon, authenticated;
-
--- ---------------------------------------------------------------------------
--- A escrita
--- ---------------------------------------------------------------------------
+grant execute on function public.tentativas_do_lead(uuid) to service_role;
 
 /*
- * Contrato de entrada — o que o `end-of-call-report` da VAPI carrega, já
- * normalizado pelo roteador do n8n.
+ * `QUA-R01` — evento da ferramenta de voz é gatilho, não fonte da verdade: o
+ * que grava aqui é o relatório de fim de chamada, consultado pelo n8n depois do
+ * aviso, não o aviso em si.
  *
- * `API-R08` — a ligação e o novo estado do lead entram na mesma transação. Em
- * passos separados, falha no segundo deixa tentativa registrada e lead parado:
- * a próxima execução conta a tentativa e não vê o motivo dela.
- *
- * `API-R14` — o evento é gatilho, não fonte da verdade. Quem decide o status é
- * esta função, a partir do resultado e da contagem que já está no banco; o
- * corpo do webhook não manda em `leads.status`.
- *
- * O agendamento NÃO entra aqui. A Helena marca no Google Calendar durante a
- * ligação, e o horário só chegaria neste relatório se o assistente da VAPI
- * fosse configurado para devolvê-lo. Enquanto isso não existir, `qualificado` é
- * o teto: o lead fica pronto e fora do catálogo, porque o que o advogado compra
- * é a hora marcada, não o telefone.
+ * O corpo abaixo é o texto original recuperado do banco de teste — comentários
+ * inclusive.
  */
 create function public.registrar_qualificacao(
   p_lead_id uuid,
@@ -173,9 +131,13 @@ begin
   );
 
   /*
-   * QUA-R02 — esgotadas as três tentativas sem falar com a pessoa, o lead sai
+   * QUA-R04 — esgotadas as três tentativas sem falar com a pessoa, o lead sai
    * da fila. `expirado` e não `desqualificado`: ninguém avaliou o caso dele, só
    * não se conseguiu contato.
+   *
+   * (Recuperada como `QUA-R02` no banco de teste — corrigido ao versionar: esse
+   * número já é a dedup por par [chamada, tipo de evento], em
+   * `src/lib/qualificacao.ts`. Duas regras não dividem um ID.)
    */
   v_status := case
     when p_resultado = 'qualificado' then 'qualificado'
@@ -206,11 +168,19 @@ begin
 end;
 $$;
 
-/*
- * API-R04 — revoga dos três. A plataforma concede execução a `anon` e
- * `authenticated` por privilégio padrão, então revogar só de PUBLIC não faz
- * nada. Quem chama é a automação, com a chave de serviço, fora do navegador.
- */
 revoke execute on function public.registrar_qualificacao(
   uuid, text, public.resultado_ligacao, text, text, text, text, numeric, timestamptz, timestamptz
 ) from public, anon, authenticated;
+grant execute on function public.registrar_qualificacao(
+  uuid, text, public.resultado_ligacao, text, text, text, text, numeric, timestamptz, timestamptz
+) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Política de acesso
+-- ---------------------------------------------------------------------------
+
+alter table public.ligacoes enable row level security;
+
+create policy "o time interno lê as ligações"
+  on public.ligacoes for select to authenticated
+  using (public.eh_time_interno());

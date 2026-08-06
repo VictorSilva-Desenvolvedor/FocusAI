@@ -118,6 +118,43 @@ export async function sair(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/**
+ * Pede o e-mail de redefinição de senha.
+ *
+ * `redirectTo` aponta para a rota que troca a senha, no mesmo domínio da
+ * aplicação — `detectSessionInUrl: false` (`src/lib/supabase.ts`) desliga a
+ * leitura automática de sessão pela URL, porque o `HashRouter` já usa `#` para
+ * rota; `RedefinirSenhaView` lê `token_hash` da query da própria rota e troca
+ * pela sessão de recuperação à mão, com `verifyOtp`.
+ *
+ * Sempre devolve sucesso, exista ou não a conta: dizer "e-mail não encontrado"
+ * transforma este formulário num verificador de quem tem conta (mesmo
+ * cuidado de `entrar()`, ao lado).
+ */
+export async function solicitarRedefinicaoDeSenha(email: string): Promise<void> {
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/#/redefinir-senha`,
+  });
+}
+
+/**
+ * Troca o `token_hash` do link de recuperação pela sessão temporária que
+ * autoriza `redefinirSenha()`. Link usado, expirado ou adulterado devolve erro
+ * genérico — não há o que diferenciar para quem está do outro lado.
+ */
+export async function confirmarRecuperacao(tokenHash: string): Promise<{ erro: string | null }> {
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+  if (!error) return { erro: null };
+  return { erro: 'Este link não é mais válido. Peça um novo.' };
+}
+
+/** Só funciona dentro da sessão de recuperação que `confirmarRecuperacao()` abriu. */
+export async function redefinirSenha(novaSenha: string): Promise<{ erro: string | null }> {
+  const { error } = await supabase.auth.updateUser({ password: novaSenha });
+  if (!error) return { erro: null };
+  return { erro: error.message };
+}
+
 /** Reage a login, logout e renovação de token em outra aba. */
 export function aoMudarSessao(callback: () => void): () => void {
   const { data } = supabase.auth.onAuthStateChange(() => callback());

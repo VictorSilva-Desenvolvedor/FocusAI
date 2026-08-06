@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Mic, MicOff, PhoneOff, Sparkles } from 'lucide-react';
 import { useLeads } from '@/src/contexts/LeadsContext';
+import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
+import { listarLigacoes } from '@/src/servicos/qualificacao';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_PONTO, ESTILO_TEXTO } from '@/src/lib/estilo';
 import {
   MAX_TENTATIVAS,
@@ -11,7 +13,6 @@ import {
   taxaPorTese,
   vendidosSemGravacao,
 } from '@/src/lib/qualificacao';
-import { LIGACOES_SEED } from '@/src/lib/qualificacaoSeed';
 import { ESTILO_TESE } from '@/src/lib/leads';
 import { TESES } from '@/src/lib/teses';
 import { tempoRelativo } from '@/src/lib/format';
@@ -21,6 +22,7 @@ const pct = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDi
 
 export function QualificacaoView() {
   const { leads } = useLeads();
+  const { dados: ligacoes } = useDadosDaSessao(listarLigacoes, 'ligações');
 
   const naFila = useMemo(
     () => leads.filter((l) => l.status === 'novo' || l.status === 'em_qualificacao'),
@@ -29,9 +31,9 @@ export function QualificacaoView() {
 
   const semGravacao = useMemo(() => vendidosSemGravacao(leads), [leads]);
 
-  const emAndamento = LIGACOES_SEED.filter((l) => l.resultado === 'em_andamento');
-  const taxa = taxaDeQualificacao(LIGACOES_SEED);
-  const semAtender = LIGACOES_SEED.filter(
+  const emAndamento = ligacoes.filter((l) => l.resultado === 'em_andamento');
+  const taxa = taxaDeQualificacao(ligacoes);
+  const semAtender = ligacoes.filter(
     (l) => l.resultado === 'nao_atendeu' && l.tentativa >= MAX_TENTATIVAS,
   );
 
@@ -96,7 +98,7 @@ export function QualificacaoView() {
         <section className="card p-5">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="card-title">Ligações recentes</h2>
-            <span className="text-[11px] text-stone-500 tabular">{LIGACOES_SEED.length}</span>
+            <span className="text-[11px] text-stone-500 tabular">{ligacoes.length}</span>
           </div>
 
           <div className="overflow-x-auto -mx-1 px-1">
@@ -112,7 +114,7 @@ export function QualificacaoView() {
                 </tr>
               </thead>
               <tbody>
-                {LIGACOES_SEED.map((ligacao) => (
+                {ligacoes.map((ligacao) => (
                   <tr key={ligacao.id} className="border-t border-stone-100">
                     <td className="py-2.5 pr-3">
                       <div className="flex items-center gap-1.5">
@@ -162,7 +164,7 @@ export function QualificacaoView() {
 
             <ul className="space-y-3">
               {TESES.map((tese) => {
-                const t = taxaPorTese(LIGACOES_SEED, tese.id);
+                const t = taxaPorTese(ligacoes, tese.id);
                 return (
                   <li key={tese.id}>
                     <div className="flex items-baseline justify-between mb-1">

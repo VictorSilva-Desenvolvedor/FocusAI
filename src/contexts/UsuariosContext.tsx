@@ -1,148 +1,90 @@
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react';
-import { USUARIOS_SEED } from '@/src/lib/mockData';
-import { iniciais } from '@/src/lib/usuarios';
+import { createContext, use, useCallback, useMemo, type ReactNode } from 'react';
+import {
+  alterarStatusUsuarios,
+  atualizarUsuario,
+  criarUsuario,
+  criarUsuarioParaAdvogado,
+  listarUsuarios,
+} from '@/src/servicos/usuarios';
+import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
 import type { UserStatus, Usuario, UsuarioFormData } from '@/types';
 
-const CHAVE = 'focus.usuarios.v1';
+export type ResultadoUsuario = { ok: true; id: string } | { ok: false; motivo: string };
+export type ResultadoOperacao = { ok: true } | { ok: false; motivo: string };
+
+/*
+ * Leitura e escrita no banco. `criar`/`criarParaAdvogado` chamam a função de
+ * borda `criar-usuario` — criar linha em `auth.users` precisa da Admin API, e
+ * Admin API não roda numa função Postgres chamável direto pelo cliente
+ * (`API-R03`). `atualizar`/`alterarStatus` são funções no banco comuns, no
+ * mesmo desenho de `AdvogadosContext`: a validação de `ACC-R02`/`ACC-R03`
+ * mora na função, não aqui — a tela decide cedo só para dar o aviso na hora.
+ */
 
 interface UsuariosValue {
   usuarios: Usuario[];
-  criar: (dados: UsuarioFormData, autorId: string) => Usuario;
+  /** Verdadeiro enquanto a primeira carga não voltou do banco. */
+  carregando: boolean;
+  /** Mensagem da falha de carregamento, ou nulo. */
+  erro: string | null;
+  criar: (dados: UsuarioFormData) => Promise<ResultadoUsuario>;
   /**
    * INV-12 / ADV-R09 — a única porta por onde nasce conta de advogado, e ela
    * fica no funil, depois da inscrição conferida. Existe separada de `criar`
    * porque é o único caminho autorizado a preencher `advogado_id`, que é a
    * chave de isolamento entre carteiras (`LED-R06`).
    */
-  criarParaAdvogado: (dados: UsuarioFormData, advogadoId: string, autorId: string) => Usuario;
-  atualizar: (id: string, dados: UsuarioFormData) => void;
-  alterarStatus: (ids: string[], status: UserStatus) => void;
-  restaurarSeed: () => void;
+  criarParaAdvogado: (dados: UsuarioFormData, advogadoId: string) => Promise<ResultadoUsuario>;
+  atualizar: (id: string, dados: UsuarioFormData) => Promise<ResultadoOperacao>;
+  alterarStatus: (ids: string[], status: UserStatus) => Promise<ResultadoOperacao>;
+  /** Busca de novo no banco e devolve a lista. */
+  recarregar: () => Promise<Usuario[]>;
 }
 
 const UsuariosContext = createContext<UsuariosValue | null>(null);
 
-function carregar(): Usuario[] {
-  try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (!bruto) return USUARIOS_SEED;
-    const dados = JSON.parse(bruto);
-    // Um payload corrompido não pode derrubar o app inteiro na inicialização.
-    if (!Array.isArray(dados) || dados.length === 0) return USUARIOS_SEED;
-    return dados as Usuario[];
-  } catch {
-    return USUARIOS_SEED;
-  }
-}
-
-function persistir(usuarios: Usuario[]): void {
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(usuarios));
-  } catch {
-    // Modo privativo ou cota estourada. A sessão continua funcionando em
-    // memória; perder a persistência é melhor que quebrar o cadastro.
-  }
-}
-
 export function UsuariosProvider({ children }: { children: ReactNode }) {
-  const [usuarios, setUsuarios] = useState<Usuario[]>(carregar);
-
-  const aplicar = useCallback((proximo: (atual: Usuario[]) => Usuario[]) => {
-    setUsuarios((atual) => {
-      const novo = proximo(atual);
-      persistir(novo);
-      return novo;
-    });
-  }, []);
-
-  const montar = useCallback(
-    (dados: UsuarioFormData, autorId: string, advogadoId: string | null): Usuario => ({
-      id: `u-${crypto.randomUUID().slice(0, 8)}`,
-      nome: dados.nome.trim(),
-      email: dados.email.trim().toLowerCase(),
-      role: dados.role,
-      departamento: dados.departamento.trim() || null,
-      permissoes: [...dados.permissoes],
-      advogado_id: advogadoId,
-      avatar_iniciais: iniciais(dados.nome),
-      // ACC-R22 — conta nasce como convite pendente, nunca ativa. Só vira
-      // ativa quando a pessoa entra pela primeira vez.
-      status: 'convite_pendente',
-      criado_em: new Date().toISOString(),
-      criado_por: autorId,
-      ultimo_acesso: null,
-    }),
-    [],
-  );
+  const { dados: usuarios, carregando, erro, recarregar } = useDadosDaSessao(listarUsuarios, 'usuarios');
 
   const criar = useCallback(
-    (dados: UsuarioFormData, autorId: string): Usuario => {
-      // INV-12 — conta criada por aqui é sempre do time interno. Advogado não
-      // passa por este caminho: a conta dele nasce da liberação de acesso no
-      // funil, por `criarParaAdvogado`, e é lá que `advogado_id` é preenchido.
-      const novo = montar(dados, autorId, null);
-      aplicar((atual) => [novo, ...atual]);
-      return novo;
+    async (dados: UsuarioFormData): Promise<ResultadoUsuario> => {
+      const r = await criarUsuario(dados);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar, montar],
+    [recarregar],
   );
 
   const criarParaAdvogado = useCallback(
-    (dados: UsuarioFormData, advogadoId: string, autorId: string): Usuario => {
-      /*
-       * LED-R06 — `advogado_id` é a chave de isolamento entre carteiras, e é
-       * por isso que ele só é escrito aqui: gravá-lo pelo formulário genérico
-       * significaria que apontar uma conta qualquer para uma carteira qualquer
-       * seria questão de escolher um valor num campo.
-       *
-       * A conta nasce em convite pendente como qualquer outra (`ACC-R22`). O
-       * envio do convite depende de serviço externo e continua não existindo —
-       * está anotado como pendência, não simulado aqui.
-       */
-      const novo = montar({ ...dados, role: 'advogado' }, autorId, advogadoId);
-      aplicar((atual) => [novo, ...atual]);
-      return novo;
+    async (dados: UsuarioFormData, advogadoId: string): Promise<ResultadoUsuario> => {
+      const r = await criarUsuarioParaAdvogado(dados, advogadoId);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar, montar],
+    [recarregar],
   );
 
   const atualizar = useCallback(
-    (id: string, dados: UsuarioFormData) => {
-      aplicar((atual) =>
-        atual.map((u) =>
-          u.id === id
-            ? {
-                ...u,
-                nome: dados.nome.trim(),
-                email: dados.email.trim().toLowerCase(),
-                role: dados.role,
-                departamento: dados.departamento.trim() || null,
-                permissoes: [...dados.permissoes],
-                avatar_iniciais: iniciais(dados.nome),
-                // criado_em, criado_por e ultimo_acesso nunca são reescritos.
-              }
-            : u,
-        ),
-      );
+    async (id: string, dados: UsuarioFormData): Promise<ResultadoOperacao> => {
+      const r = await atualizarUsuario(id, dados);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar],
+    [recarregar],
   );
 
   const alterarStatus = useCallback(
-    (ids: string[], status: UserStatus) => {
-      const alvo = new Set(ids);
-      aplicar((atual) => atual.map((u) => (alvo.has(u.id) ? { ...u, status } : u)));
+    async (ids: string[], status: UserStatus): Promise<ResultadoOperacao> => {
+      const r = await alterarStatusUsuarios(ids, status);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar],
+    [recarregar],
   );
 
-  const restaurarSeed = useCallback(() => {
-    aplicar(() => USUARIOS_SEED);
-  }, [aplicar]);
-
   const value = useMemo<UsuariosValue>(
-    () => ({ usuarios, criar, criarParaAdvogado, atualizar, alterarStatus, restaurarSeed }),
-    [usuarios, criar, criarParaAdvogado, atualizar, alterarStatus, restaurarSeed],
+    () => ({ usuarios, carregando, erro, criar, criarParaAdvogado, atualizar, alterarStatus, recarregar }),
+    [usuarios, carregando, erro, criar, criarParaAdvogado, atualizar, alterarStatus, recarregar],
   );
 
   return <UsuariosContext value={value}>{children}</UsuariosContext>;

@@ -120,7 +120,7 @@ export function AdvogadosView() {
 
   const temFiltro = Boolean(busca || filtroResp || filtroTese);
 
-  function tentarMover(advogado: Advogado, destino: AdvogadoStatus) {
+  async function tentarMover(advogado: Advogado, destino: AdvogadoStatus) {
     const recusa = motivoParaRecusarMovimento(advogado, destino, perfil);
     if (recusa) {
       setAviso({ texto: recusa, tom: 'erro' });
@@ -130,7 +130,14 @@ export function AdvogadosView() {
       setPerdaDe({ advogado, destino });
       return;
     }
-    mover(advogado.id, destino);
+
+    // `recusa` acima é o freio da tela; quem decide de verdade é
+    // `mover_advogado` (`API-R02`) — a recusa do banco chega pelo mesmo aviso.
+    const r = await mover(advogado.id, destino);
+    if (!r.ok) {
+      setAviso({ texto: r.motivo, tom: 'erro' });
+      return;
+    }
 
     /*
      * ADV-R09 / INV-12 — é aqui que a conta nasce, como consequência da
@@ -146,11 +153,21 @@ export function AdvogadosView() {
     let complemento = '';
     if (destino === 'acesso_liberado' && !advogado.usuarioId) {
       const existente = usuarios.find((u) => u.advogado_id === advogado.id);
-      const conta = existente ?? criarParaAdvogado(contaDoAdvogado(advogado), advogado.id, perfil.id);
-      vincularUsuario(advogado.id, conta.id);
-      complemento = existente
-        ? ' Conta existente revinculada.'
-        : ` Conta criada para ${conta.email}, como convite pendente.`;
+      const dadosConta = contaDoAdvogado(advogado);
+      const contaId = existente
+        ? { ok: true as const, id: existente.id }
+        : await criarParaAdvogado(dadosConta, advogado.id);
+
+      if (!contaId.ok) {
+        complemento = ` Movido, mas a conta não foi criada: ${contaId.motivo}`;
+      } else {
+        const elo = await vincularUsuario(advogado.id, contaId.id);
+        complemento = !elo.ok
+          ? ` Movido, mas a conta não foi vinculada: ${elo.motivo}`
+          : existente
+            ? ' Conta existente revinculada.'
+            : ` Conta criada para ${dadosConta.email}, como convite pendente.`;
+      }
     }
 
     setAviso({ texto: `${advogado.nome} → ${ADVOGADO_STATUS_LABEL[destino]}.${complemento}` });
@@ -367,10 +384,15 @@ export function AdvogadosView() {
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => {
-                  conferirOab(menu.advogado.id);
-                  setAviso({ texto: `Inscrição ${menu.advogado.oab} conferida.` });
+                onClick={async () => {
+                  const advogado = menu.advogado;
                   setMenu(null);
+                  const r = await conferirOab(advogado.id);
+                  setAviso(
+                    r.ok
+                      ? { texto: `Inscrição ${advogado.oab} conferida.` }
+                      : { texto: r.motivo, tom: 'erro' },
+                  );
                 }}
                 className="item-menu flex items-center gap-2 font-medium text-sucesso-700 hover:bg-sucesso-50"
               >
@@ -383,8 +405,9 @@ export function AdvogadosView() {
           y={menu.y}
           aoFechar={() => setMenu(null)}
           aoMover={(destino) => {
+            const advogado = menu.advogado;
             setMenu(null);
-            tentarMover(menu.advogado, destino);
+            void tentarMover(advogado, destino);
           }}
         />
       )}
@@ -394,14 +417,16 @@ export function AdvogadosView() {
           advogado={perdaDe.advogado}
           destino={perdaDe.destino}
           aoCancelar={() => setPerdaDe(null)}
-          aoConfirmar={(motivo) => {
-            mover(perdaDe.advogado.id, perdaDe.destino, motivo);
-            setAviso({
-              texto: `${perdaDe.advogado.nome} marcado como ${ADVOGADO_STATUS_LABEL[
-                perdaDe.destino
-              ].toLowerCase()}.`,
-            });
+          aoConfirmar={async (motivo) => {
+            const alvo = perdaDe.advogado;
+            const destino = perdaDe.destino;
             setPerdaDe(null);
+            const r = await mover(alvo.id, destino, motivo);
+            setAviso(
+              r.ok
+                ? { texto: `${alvo.nome} marcado como ${ADVOGADO_STATUS_LABEL[destino].toLowerCase()}.` }
+                : { texto: r.motivo, tom: 'erro' },
+            );
           }}
         />
       )}

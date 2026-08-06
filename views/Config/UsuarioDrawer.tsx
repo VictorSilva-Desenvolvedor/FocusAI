@@ -52,6 +52,7 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
   );
   const [erros, setErros] = useState<ErrosUsuario>({});
   const [tentouSalvar, setTentouSalvar] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   const papeisPermitidos = papeisQuePodeCriar(perfil);
 
@@ -128,7 +129,7 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
     }));
   }
 
-  function submeter(e: React.FormEvent) {
+  async function submeter(e: React.FormEvent) {
     e.preventDefault();
     setTentouSalvar(true);
 
@@ -138,15 +139,25 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
       editandoId: editando?.id,
     });
     setErros(novosErros);
-    if (temErro(novosErros) || bloqueado) return;
+    if (temErro(novosErros) || bloqueado || enviando) return;
 
-    if (editando) {
-      atualizar(editando.id, dados);
-      aoSalvar(`${dados.nome.trim()} atualizado.`);
-    } else {
-      criar(dados, perfil.id);
-      aoSalvar(`${dados.nome.trim()} cadastrado. Convite pendente de primeiro acesso.`);
+    setEnviando(true);
+    // `validarUsuario` acima é o freio da tela; quem decide de verdade é a
+    // função no banco (ou a de borda, para criar) — a recusa do servidor
+    // chega pelo mesmo lugar onde a validação local já mostra a dela.
+    const r = editando ? await atualizar(editando.id, dados) : await criar(dados);
+    setEnviando(false);
+
+    if (!r.ok) {
+      setErros((atual) => ({ ...atual, email: r.motivo }));
+      return;
     }
+
+    aoSalvar(
+      editando
+        ? `${dados.nome.trim()} atualizado.`
+        : `${dados.nome.trim()} cadastrado. Convite pendente de primeiro acesso.`,
+    );
     aoFechar();
   }
 
@@ -374,7 +385,7 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
             <button type="button" onClick={aoFechar} className="btn btn-fantasma">
               Cancelar
             </button>
-            <button type="submit" disabled={bloqueado} className="btn btn-primario">
+            <button type="submit" disabled={bloqueado || enviando} className="btn btn-primario">
               {editando ? 'Salvar alterações' : 'Cadastrar usuário'}
             </button>
           </div>

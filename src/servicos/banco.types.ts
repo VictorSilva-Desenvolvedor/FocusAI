@@ -119,6 +119,47 @@ export type Database = {
           },
         ]
       }
+      auditoria: {
+        Row: {
+          antes: Json | null
+          ator_id: string | null
+          criado_em: string
+          depois: Json | null
+          id: string
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Insert: {
+          antes?: Json | null
+          ator_id?: string | null
+          criado_em?: string
+          depois?: Json | null
+          id?: string
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Update: {
+          antes?: Json | null
+          ator_id?: string | null
+          criado_em?: string
+          depois?: Json | null
+          id?: string
+          operacao?: string
+          registro_id?: string
+          tabela?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_ator_id_fkey"
+            columns: ["ator_id"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       captacoes: {
         Row: {
           agente_usuario: string | null
@@ -165,6 +206,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "captacoes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chamadas_iniciadas: {
+        Row: {
+          chamada_id: string
+          iniciada_em: string
+          lead_id: string
+          tentativa: number
+        }
+        Insert: {
+          chamada_id: string
+          iniciada_em?: string
+          lead_id: string
+          tentativa?: number
+        }
+        Update: {
+          chamada_id?: string
+          iniciada_em?: string
+          lead_id?: string
+          tentativa?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chamadas_iniciadas_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
@@ -388,9 +458,66 @@ export type Database = {
           },
         ]
       }
+      ligacoes: {
+        Row: {
+          chamada_id: string
+          duracao_segundos: number | null
+          encerrada_em: string | null
+          gravacao_url: string | null
+          id: string
+          iniciada_em: string | null
+          lead_id: string
+          motivo_encerramento: string | null
+          registrada_em: string
+          resultado: Database["public"]["Enums"]["resultado_ligacao"]
+          resumo: string | null
+          tentativa: number
+          transcricao: string | null
+        }
+        Insert: {
+          chamada_id: string
+          duracao_segundos?: number | null
+          encerrada_em?: string | null
+          gravacao_url?: string | null
+          id?: string
+          iniciada_em?: string | null
+          lead_id: string
+          motivo_encerramento?: string | null
+          registrada_em?: string
+          resultado: Database["public"]["Enums"]["resultado_ligacao"]
+          resumo?: string | null
+          tentativa: number
+          transcricao?: string | null
+        }
+        Update: {
+          chamada_id?: string
+          duracao_segundos?: number | null
+          encerrada_em?: string | null
+          gravacao_url?: string | null
+          id?: string
+          iniciada_em?: string | null
+          lead_id?: string
+          motivo_encerramento?: string | null
+          registrada_em?: string
+          resultado?: Database["public"]["Enums"]["resultado_ligacao"]
+          resumo?: string | null
+          tentativa?: number
+          transcricao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ligacoes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimentos_creditos: {
         Row: {
           advogado_id: string
+          ator_id: string | null
           creditos: number
           descricao: string
           em: string
@@ -402,6 +529,7 @@ export type Database = {
         }
         Insert: {
           advogado_id: string
+          ator_id?: string | null
           creditos: number
           descricao: string
           em?: string
@@ -413,6 +541,7 @@ export type Database = {
         }
         Update: {
           advogado_id?: string
+          ator_id?: string | null
           creditos?: number
           descricao?: string
           em?: string
@@ -435,6 +564,13 @@ export type Database = {
             columns: ["advogado_id"]
             isOneToOne: false
             referencedRelation: "advogados_com_saldo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentos_creditos_ator_id_fkey"
+            columns: ["ator_id"]
+            isOneToOne: false
+            referencedRelation: "perfis"
             referencedColumns: ["id"]
           },
           {
@@ -621,12 +757,50 @@ export type Database = {
     Functions: {
       abandonar_eventos_meta_vencidos: { Args: never; Returns: number }
       advogado_atual: { Args: never; Returns: string }
+      ajustar_creditos_advogado: {
+        Args: { p_advogado_id: string; p_creditos: number; p_motivo: string }
+        Returns: Json
+      }
+      alterar_status_usuarios: {
+        Args: {
+          p_ids: string[]
+          p_status: Database["public"]["Enums"]["status_usuario"]
+        }
+        Returns: Json
+      }
+      atualizar_usuario: {
+        Args: {
+          p_departamento?: string
+          p_email: string
+          p_id: string
+          p_nome: string
+          p_papel: Database["public"]["Enums"]["papel_usuario"]
+          p_permissoes?: string[]
+        }
+        Returns: Json
+      }
       avaliar_lead: {
         Args: { p_comentario: string; p_lead_id: string; p_nota: number }
         Returns: Json
       }
       cidade_meta: { Args: { cidade: string }; Returns: string }
       comprar_lead: { Args: { p_lead_id: string }; Returns: Json }
+      conferir_oab_advogado: { Args: { p_advogado_id: string }; Returns: Json }
+      criar_advogado: {
+        Args: {
+          p_cidades: string[]
+          p_email: string
+          p_nome: string
+          p_oab: string
+          p_porte: Database["public"]["Enums"]["porte_escritorio"]
+          p_potencial_mensal: number
+          p_responsavel_id?: string
+          p_teses: Database["public"]["Enums"]["tese"][]
+          p_uf: string
+          p_whatsapp: string
+        }
+        Returns: Json
+      }
       devolver_lead: {
         Args: { p_lead_id: string; p_motivo: string }
         Returns: Json
@@ -654,18 +828,34 @@ export type Database = {
           payload: Json
         }[]
       }
+      excluir_lead: { Args: { p_lead_id: string }; Returns: Json }
+      filtros_pendentes: { Args: { p_lead_id: string }; Returns: string[] }
       hash_meta: { Args: { valor: string }; Returns: string }
       hash_meta_lista: { Args: { valor: string }; Returns: Json }
       inet_ou_nulo: { Args: { valor: string }; Returns: unknown }
+      iniciais_do_nome: { Args: { p_nome: string }; Returns: string }
       liberar_reserva: { Args: { p_lead_id: string }; Returns: undefined }
+      limpar_reservas_expiradas: { Args: never; Returns: undefined }
       marcar_evento_meta: {
         Args: { p_erro?: string; p_id: string }
         Returns: undefined
       }
       mascarar_contato: { Args: { telefone: string }; Returns: string }
+      mover_advogado: {
+        Args: {
+          p_advogado_id: string
+          p_motivo_perda?: string
+          p_status: Database["public"]["Enums"]["status_advogado"]
+        }
+        Returns: Json
+      }
       papel_atual: {
         Args: never
         Returns: Database["public"]["Enums"]["papel_usuario"]
+      }
+      registrar_agendamento: {
+        Args: { p_chamada_id: string; p_reuniao_em: string }
+        Returns: Json
       }
       registrar_captacao: {
         Args: {
@@ -679,6 +869,10 @@ export type Database = {
           p_tese?: Database["public"]["Enums"]["tese"]
           p_uf?: string
         }
+        Returns: Json
+      }
+      registrar_chamada_iniciada: {
+        Args: { p_chamada_id: string; p_lead_id: string; p_tentativa?: number }
         Returns: Json
       }
       registrar_identidade_captacao: {
@@ -695,9 +889,28 @@ export type Database = {
         }
         Returns: Json
       }
+      registrar_qualificacao: {
+        Args: {
+          p_chamada_id: string
+          p_duracao_segundos?: number
+          p_encerrada_em?: string
+          p_gravacao_url?: string
+          p_iniciada_em?: string
+          p_motivo_encerramento?: string
+          p_resultado: Database["public"]["Enums"]["resultado_ligacao"]
+          p_resumo?: string
+          p_transcricao?: string
+        }
+        Returns: Json
+      }
       reservar_lead: { Args: { p_lead_id: string }; Returns: Json }
       telefone_meta: { Args: { telefone: string }; Returns: string }
+      tentativas_do_lead: { Args: { p_lead_id: string }; Returns: number }
       uf_do_ddd: { Args: { telefone: string }; Returns: string }
+      vincular_usuario_advogado: {
+        Args: { p_advogado_id: string; p_usuario_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       evento_meta: "Lead" | "LeadQualificado" | "Schedule" | "Purchase"
@@ -710,13 +923,17 @@ export type Database = {
         | "criativo"
         | "analista_conformidade"
         | "operador_ia"
-        | "closer"
-        | "sdr"
         | "cs"
         | "financeiro"
         | "advogado"
       porte_escritorio: "solo" | "pequeno" | "medio" | "grande"
       prioridade_advogado: "P1" | "P2" | "P3"
+      resultado_ligacao:
+        | "qualificado"
+        | "desqualificado"
+        | "nao_atendeu"
+        | "reagendar"
+        | "em_andamento"
       status_advogado:
         | "novo"
         | "em_qualificacao"
@@ -739,7 +956,12 @@ export type Database = {
         | "no_show"
         | "expirado"
       status_usuario: "ativo" | "convite_pendente" | "inativo"
-      tese: "polo_passivo" | "vinculo_empregaticio" | "juros_abusivos"
+      tese:
+        | "polo_passivo"
+        | "vinculo_empregaticio"
+        | "juros_abusivos"
+        | "auxilio_doenca"
+        | "salario_maternidade"
       tipo_movimento: "compra" | "consumo" | "devolucao" | "ajuste"
     }
     CompositeTypes: {
@@ -878,14 +1100,19 @@ export const Constants = {
         "criativo",
         "analista_conformidade",
         "operador_ia",
-        "closer",
-        "sdr",
         "cs",
         "financeiro",
         "advogado",
       ],
       porte_escritorio: ["solo", "pequeno", "medio", "grande"],
       prioridade_advogado: ["P1", "P2", "P3"],
+      resultado_ligacao: [
+        "qualificado",
+        "desqualificado",
+        "nao_atendeu",
+        "reagendar",
+        "em_andamento",
+      ],
       status_advogado: [
         "novo",
         "em_qualificacao",
@@ -910,7 +1137,13 @@ export const Constants = {
         "expirado",
       ],
       status_usuario: ["ativo", "convite_pendente", "inativo"],
-      tese: ["polo_passivo", "vinculo_empregaticio", "juros_abusivos"],
+      tese: [
+        "polo_passivo",
+        "vinculo_empregaticio",
+        "juros_abusivos",
+        "auxilio_doenca",
+        "salario_maternidade",
+      ],
       tipo_movimento: ["compra", "consumo", "devolucao", "ajuste"],
     },
   },

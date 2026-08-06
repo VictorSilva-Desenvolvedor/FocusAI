@@ -1,30 +1,19 @@
 import { createContext, use, useCallback, useMemo, type ReactNode } from 'react';
-import { listarMovimentos } from '@/src/servicos/creditos';
+import { ajustarCreditos, listarMovimentos, type Resultado } from '@/src/servicos/creditos';
 import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
-import type { MovimentoCredito, TipoMovimento } from '@/types';
+import type { MovimentoCredito } from '@/types';
 
 /*
- * MIGRAÇÃO PARCIAL — leitura no banco, escrita ainda em memória.
+ * O extrato aponta para lead e advogado por id: movimento semeado sobre um dos
+ * dois em modo maquete mostraria consumo que nunca houve, e o saldo da tela
+ * divergiria do saldo do banco. Por isso leu do banco desde que `LeadsContext`
+ * e `AdvogadosContext` leram.
  *
- * Veio junto com `LeadsContext` e `AdvogadosContext` porque o extrato aponta
- * para os dois por id: movimento semeado sobre advogado real mostraria consumo
- * que nunca houve, e o saldo da tela divergiria do saldo do banco.
- *
- * `registrar` continua local e não ganha substituta: no banco **não existe
- * inserção direta no extrato**, de propósito (`INV-14`). Crédito entra pelo
- * webhook do provedor de pagamento; consumo e devolução são lançados dentro de
- * `comprar_lead` e `devolver_lead`. A única escrita permitida a um humano é o
- * ajuste manual, que exige a permissão `credito:conciliar_pagamento` e motivo.
+ * Compra, consumo e devolução são lançados dentro de `comprar_lead` e
+ * `devolver_lead` (`INV-14`) — não há, nem deveria haver, inserção direta para
+ * esses três. `ajustar` é a exceção deliberada: a porta manual do `CRE-R06`,
+ * validada em `ajustar_creditos_advogado`.
  */
-
-interface NovoMovimento {
-  advogadoId: string;
-  tipo: TipoMovimento;
-  creditos: number;
-  valor?: number;
-  leadId?: string | null;
-  descricao: string;
-}
 
 interface CreditosValue {
   movimentos: MovimentoCredito[];
@@ -32,7 +21,8 @@ interface CreditosValue {
   carregando: boolean;
   /** Mensagem da falha de carregamento, ou nulo. */
   erro: string | null;
-  registrar: (dados: NovoMovimento) => MovimentoCredito;
+  /** `CRE-R06` — ajuste manual. A validação mora na função, não aqui. */
+  ajustar: (advogadoId: string, creditos: number, motivo: string) => Promise<Resultado>;
   doAdvogado: (advogadoId: string) => MovimentoCredito[];
   /** Busca de novo no banco e devolve o extrato. */
   recarregar: () => Promise<MovimentoCredito[]>;
@@ -41,29 +31,19 @@ interface CreditosValue {
 const CreditosContext = createContext<CreditosValue | null>(null);
 
 export function CreditosProvider({ children }: { children: ReactNode }) {
-  const {
-    dados: movimentos,
-    carregando,
-    erro,
-    recarregar,
-    definir: setMovimentos,
-  } = useDadosDaSessao(listarMovimentos, 'creditos');
+  const { dados: movimentos, carregando, erro, recarregar } = useDadosDaSessao(
+    listarMovimentos,
+    'creditos',
+  );
 
-  const registrar = useCallback((dados: NovoMovimento): MovimentoCredito => {
-    const novo: MovimentoCredito = {
-      id: `mov-${crypto.randomUUID().slice(0, 8)}`,
-      advogadoId: dados.advogadoId,
-      tipo: dados.tipo,
-      creditos: dados.creditos,
-      valor: dados.valor ?? 0,
-      leadId: dados.leadId ?? null,
-      descricao: dados.descricao,
-      // INV-13 — o instante do movimento é carimbo, não campo editável.
-      em: new Date().toISOString(),
-    };
-    setMovimentos((atual) => [novo, ...atual]);
-    return novo;
-  }, []);
+  const ajustar = useCallback(
+    async (advogadoId: string, creditos: number, motivo: string): Promise<Resultado> => {
+      const r = await ajustarCreditos(advogadoId, creditos, motivo);
+      if (r.ok) await recarregar();
+      return r;
+    },
+    [recarregar],
+  );
 
   const doAdvogado = useCallback(
     (advogadoId: string) => movimentos.filter((m) => m.advogadoId === advogadoId),
@@ -71,8 +51,8 @@ export function CreditosProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<CreditosValue>(
-    () => ({ movimentos, carregando, erro, registrar, doAdvogado, recarregar }),
-    [movimentos, carregando, erro, registrar, doAdvogado, recarregar],
+    () => ({ movimentos, carregando, erro, ajustar, doAdvogado, recarregar }),
+    [movimentos, carregando, erro, ajustar, doAdvogado, recarregar],
   );
 
   return <CreditosContext value={value}>{children}</CreditosContext>;
