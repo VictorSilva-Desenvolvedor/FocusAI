@@ -153,8 +153,7 @@ scripts/
 | Qualificação | `/qualificacao` | Fila da SDR de voz, taxa por tese, pendências de gravação |
 | Campanhas | `/campanhas` | Anúncios por tese e custo por lead qualificado |
 | Conformidade | `/conformidade` | Parecer sobre criativo e a pendência do Provimento 205 |
-| Preços | `/precos` | O que custa o lead nos dois modelos e as recargas de crédito |
-| Créditos | `/creditos` | Saldo, consumo e conferência do extrato |
+| Créditos | `/creditos` | O que custa o lead nos dois modelos, recargas, saldo, consumo e conferência do extrato |
 | Integrações | `/integracoes` | Saúde da voz, do anúncio, do pagamento e do WhatsApp |
 | Configurações | `/config/usuarios` | Usuários, papéis e permissões |
 

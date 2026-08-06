@@ -122,7 +122,7 @@ export function PainelDoAdvogado({
         {/* O saldo em créditos não diz nada sozinho: o que o advogado precisa
             saber é quantos leads ele ainda compra com ele. */}
         <Link
-          to="/precos"
+          to="/creditos"
           className="flex items-center gap-2 text-[11px] text-stone-500 bg-white border border-stone-200 rounded-lg px-3 py-2 hover:border-roxo-300 transition-colors"
         >
           <Coins className={`size-3.5 ${ESTILO_TEXTO.marca}`} />
@@ -178,7 +178,7 @@ export function PainelDoAdvogado({
           <p className="text-[13px] text-stone-700">
             Seu saldo está zerado. Você continua sendo avisado quando entra lead novo, mas só
             consegue comprar depois de recarregar.{' '}
-            <Link to="/precos" className="font-medium text-roxo-700 hover:text-roxo-900">
+            <Link to="/creditos" className="font-medium text-roxo-700 hover:text-roxo-900">
               Ver preços e recargas
             </Link>
           </p>
@@ -399,7 +399,7 @@ export function PainelDoAdvogado({
             <ArrowRight className="ml-auto size-4 text-stone-300 group-hover:text-roxo-600 transition-colors" />
           </Link>
 
-          <Link to="/precos" className="card card-interativo p-4 flex items-center gap-3 group">
+          <Link to="/creditos" className="card card-interativo p-4 flex items-center gap-3 group">
             <Tag className={`size-5 shrink-0 ${ESTILO_TEXTO.marca}`} />
             <div className="min-w-0">
               <div className="card-title">Preços e recargas</div>

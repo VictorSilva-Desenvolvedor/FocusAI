@@ -103,27 +103,18 @@ export const MODULOS: ModuleDef[] = [
     grupo: 'operacao',
   },
   {
-    id: 'precos',
-    rotulo: 'Preços',
-    rota: '/precos',
-    descricao: 'O que custa um lead nos dois modelos: avulso e crédito',
-    /*
-     * INV-05 — o advogado entra aqui de propósito, e restrito. Preço é a
-     * primeira coisa que ele precisa conferir sozinho: enquanto a tabela só
-     * existia dentro de Créditos, quem está no modelo avulso não tinha onde ver
-     * quanto custa o lead que está prestes a comprar. Restrito porque a tela
-     * mostra o modelo dele em destaque e não abre o custo de aquisição.
-     */
-    papeis: ['adm', 'gerente', 'financeiro', 'cs'],
-    papeisRestritos: ['advogado'],
-    grupo: 'operacao',
-  },
-  {
     id: 'creditos',
     rotulo: 'Créditos',
     rota: '/creditos',
-    descricao: 'Saldo, extrato, consumo e receita reconhecida',
-    papeis: ['adm', 'gerente', 'financeiro'],
+    descricao: 'O que custa um lead, saldo, extrato, consumo e receita reconhecida',
+    /*
+     * INV-05 — o advogado entra aqui de propósito, e restrito. Preço é a
+     * primeira coisa que ele precisa conferir sozinho: quem está no modelo
+     * avulso não tem saldo nenhum, mas ainda precisa ver quanto custa o lead
+     * que está prestes a comprar. Restrito porque a tela mostra o modelo dele
+     * em destaque e não abre saldo nem extrato de outro advogado.
+     */
+    papeis: ['adm', 'gerente', 'financeiro', 'cs'],
     papeisRestritos: ['advogado'],
     grupo: 'operacao',
   },

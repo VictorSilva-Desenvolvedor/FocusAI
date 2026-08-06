@@ -75,6 +75,25 @@ export function leadsDoPacote(pacote: PacoteCredito): number {
   return leadsQueCabem(pacote.creditos);
 }
 
+/**
+ * O topo e o piso da tabela de preço por tese, para a tela que resume os dois
+ * modelos sem cravar "R$ 40" no texto — as três custam o mesmo hoje (`TES-R07`),
+ * mas a tela lê a faixa em vez de assumir isso.
+ */
+export function faixaDePrecoDasTeses(): {
+  creditoMax: number;
+  avulsoMax: number;
+  precoUnico: boolean;
+} {
+  const creditos = TESES.map((t) => t.custoCreditos);
+  const avulsos = TESES.map((t) => t.precoAvulso);
+  return {
+    creditoMax: Math.max(...creditos),
+    avulsoMax: Math.max(...avulsos),
+    precoUnico: new Set(avulsos).size === 1 && new Set(creditos).size === 1,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // CRE-R01 — só confirmação de pagamento credita
 // ---------------------------------------------------------------------------

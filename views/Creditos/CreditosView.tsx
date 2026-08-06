@@ -1,6 +1,5 @@
 import { useId, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Check, Landmark, Tag, TriangleAlert } from 'lucide-react';
+import { AlertTriangle, Check, Coins, Landmark, TriangleAlert } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { useCreditos } from '@/src/contexts/CreditosContext';
@@ -9,17 +8,29 @@ import { Campo } from '@/src/components/ui/Campo';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
 import {
+  PACOTES,
+  RECARGA_MINIMA,
   TOM_MOVIMENTO,
+  VALOR_DO_CREDITO,
+  descontoDoPacote,
   divergenciaDeSaldo,
+  faixaDePrecoDasTeses,
+  leadsDoPacote,
   motivoParaNaoAjustar,
+  precoPorCredito,
   receitaDoPeriodo,
 } from '@/src/lib/creditos';
 import { formatarDataHora } from '@/src/lib/format';
+import { ESTILO_TESE } from '@/src/lib/leads';
+import { TESES } from '@/src/lib/teses';
 import {
   MODELO_PAGAMENTO_LABEL,
+  TESE_CURTA,
   TIPO_MOVIMENTO_LABEL,
   type Advogado,
+  type ModeloPagamento,
   type MovimentoCredito,
+  type PacoteCredito,
 } from '@/types';
 
 const brl = new Intl.NumberFormat('pt-BR', {
@@ -27,6 +38,8 @@ const brl = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
   maximumFractionDigits: 0,
 });
+
+const brlCentavos = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function CreditosView() {
   const { ehAdvogado, advogadoId } = useAuth();
@@ -52,7 +65,7 @@ export function CreditosView() {
 }
 
 // ---------------------------------------------------------------------------
-// A visão do advogado: saldo, pacotes e o próprio extrato
+// A visão do advogado: saldo, preço, pacotes e o próprio extrato
 // ---------------------------------------------------------------------------
 
 function PainelDoAdvogado({
@@ -62,6 +75,8 @@ function PainelDoAdvogado({
   advogado: Advogado | null;
   movimentos: MovimentoCredito[];
 }) {
+  const faixa = faixaDePrecoDasTeses();
+
   if (!advogado) {
     return (
       <div className="mx-auto max-w-2xl px-4 pt-6">
@@ -81,7 +96,7 @@ function PainelDoAdvogado({
         <p className="subtitulo-pagina mt-1">
           {avulso
             ? 'Você está no modelo avulso: paga por lead, sem compromisso de volume.'
-            : 'Cada lead consome créditos do seu saldo. A tabela de preços fica em Preços.'}
+            : 'Cada lead consome créditos do seu saldo. O preço de cada tese e as recargas estão logo abaixo.'}
         </p>
       </div>
 
@@ -124,24 +139,98 @@ function PainelDoAdvogado({
           <p className="flex items-start gap-2 text-[13px] text-stone-700">
             <AlertTriangle className={`size-4 shrink-0 mt-0.5 ${ESTILO_TEXTO.erro}`} />
             Seu saldo está zerado. Você continua recebendo aviso de lead novo, mas o botão de
-            comprar não aparece até haver crédito.
+            comprar não aparece até haver crédito — recarregue abaixo.
           </p>
         </div>
       )}
 
-      {/* A tabela de recargas mora em Preços, e só lá: dois lugares desenhando o
-          mesmo pacote divergem no primeiro reajuste, e aí ninguém sabe qual dos
-          dois está certo. */}
-      <Link to="/precos" className="card card-interativo p-4 flex items-center gap-3 group">
-        <Tag className={`size-5 shrink-0 ${ESTILO_TEXTO.marca}`} />
-        <div className="min-w-0">
-          <div className="card-title">Preços e recargas</div>
-          <p className="nota mt-0.5">
-            Quanto custa o lead nos dois modelos e a partir de quanto você recarrega
+      {/* Os dois modelos ------------------------------------------------- */}
+      <section className="grid gap-4 sm:grid-cols-2 items-start">
+        <Modelo
+          modelo="avulso"
+          destacado={advogado.modeloPagamento === 'avulso'}
+          valor={brl.format(faixa.avulsoMax)}
+          unidade="por lead"
+          resumo="Paga só o lead que pegar. Sem recarga, sem saldo parado."
+          itens={[
+            'Cobrança na compra de cada lead',
+            'Sem compromisso de volume',
+            'O mesmo produto: reunião agendada e contato liberado',
+          ]}
+        />
+
+        <Modelo
+          modelo="creditos"
+          destacado={advogado.modeloPagamento === 'creditos'}
+          valor={`${faixa.creditoMax} créditos`}
+          unidade={`= ${brl.format(faixa.creditoMax * VALOR_DO_CREDITO)} por lead`}
+          resumo={`Recarrega o saldo e compra sem passar por pagamento a cada lead. Economia de ${brl.format(
+            faixa.avulsoMax - faixa.creditoMax * VALOR_DO_CREDITO,
+          )} por lead.`}
+          itens={[
+            `1 crédito = ${brlCentavos.format(VALOR_DO_CREDITO)}`,
+            `Recarga a partir de ${brl.format(RECARGA_MINIMA)}`,
+            'Desconto por volume no preço do crédito',
+          ]}
+        />
+      </section>
+
+      {/* Recargas -------------------------------------------------------- */}
+      <section className="card p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h2 className="card-title">Recargas de crédito</h2>
+          <span className="text-[11px] text-stone-500 tabular">
+            {brlCentavos.format(VALOR_DO_CREDITO)} por crédito na recarga mínima
+          </span>
+        </div>
+        <p className="nota mb-4">
+          O desconto por volume incide sobre o preço do crédito. O lead continua custando{' '}
+          {faixa.creditoMax} créditos em qualquer pacote — o mesmo produto não tem dois preços no
+          extrato (INV-15).
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {PACOTES.map((pacote) => (
+            <Recarga key={pacote.id} pacote={pacote} mostrarBotao />
+          ))}
+        </div>
+
+        {/* INV-14 — o gatilho do crédito é a confirmação de pagamento, que
+            ainda não existe. O botão fica desabilitado de propósito, e a tela
+            diz por quê em vez de falhar no clique. */}
+        <div className={`rounded-lg border p-3 mt-4 ${ESTILO_BLOCO.info}`}>
+          <p className="flex items-start gap-2 text-[13px] text-stone-700">
+            <Landmark className={`size-4 shrink-0 mt-0.5 ${ESTILO_TEXTO.info}`} />
+            <span>
+              O crédito entra no saldo quando o pagamento é confirmado pelo banco — comprovante
+              enviado não credita (INV-14). O checkout ainda não está ligado: fale com seu contato
+              na Focus para recarregar.
+            </span>
           </p>
         </div>
-        <ArrowRight className="ml-auto size-4 text-stone-300 group-hover:text-roxo-600 transition-colors" />
-      </Link>
+      </section>
+
+      {/* Preço por tese --------------------------------------------------- */}
+      <section className="card p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h2 className="card-title">Preço por tese</h2>
+          {faixa.precoUnico && (
+            <span className="text-[11px] text-stone-500">mesmo preço nas três teses</span>
+          )}
+        </div>
+        <p className="nota mb-4">
+          {faixa.precoUnico
+            ? 'Você escolhe o caso pelo caso, não pela etiqueta — tabela diferente por tese empurraria a carteira para a mais barata em vez da mais adequada (TES-R07).'
+            : 'O preço acompanha o custo de aquisição da tese (TES-R07).'}
+        </p>
+
+        <TabelaDePrecoPorTese />
+
+        <p className="nota mt-3">
+          O preço fica congelado no lead no momento em que ele é publicado: mudança de tabela não
+          reescreve o que você já viu no catálogo (CRE-R03).
+        </p>
+      </section>
 
       <section className="card p-5">
         <h2 className="card-title mb-4">Seu extrato</h2>
@@ -152,7 +241,7 @@ function PainelDoAdvogado({
 }
 
 // ---------------------------------------------------------------------------
-// A visão da operação: receita, saldos e conferência
+// A visão da operação: receita, preço, saldos e conferência
 // ---------------------------------------------------------------------------
 
 function PainelDaOperacao({
@@ -169,6 +258,7 @@ function PainelDaOperacao({
     return new Date(d.getFullYear(), d.getMonth(), 1);
   }, []);
 
+  const faixa = faixaDePrecoDasTeses();
   const ativos = advogados.filter((a) => a.status === 'ativo');
   const receita = receitaDoPeriodo(movimentos, inicioDoMes);
   const creditosEmCirculacao = ativos.reduce((s, a) => s + a.saldoCreditos, 0);
@@ -212,6 +302,12 @@ function PainelDaOperacao({
           tom={divergentes.length > 0 ? 'erro' : 'sucesso'}
           titulo="Saldo gravado conferido contra a soma do extrato (INV-15)."
         />
+        <Chip valor={brl.format(faixa.avulsoMax)} rotulo="por lead avulso" />
+        <Chip valor={`${faixa.creditoMax} créditos`} rotulo="por lead" tom="marca" />
+        <Chip
+          valor={brl.format(RECARGA_MINIMA)}
+          rotulo={`recarga mínima · ${leadsDoPacote(PACOTES[0])} leads`}
+        />
       </div>
 
       {/* INV-14 — o gatilho do crédito é a confirmação bancária. A tentação de
@@ -239,6 +335,80 @@ function PainelDaOperacao({
       )}
 
       <AjusteManual advogados={ativos} />
+
+      {/* Os dois modelos ------------------------------------------------- */}
+      <section className="grid gap-4 sm:grid-cols-2 items-start">
+        <Modelo
+          modelo="avulso"
+          destacado={false}
+          valor={brl.format(faixa.avulsoMax)}
+          unidade="por lead"
+          resumo="Paga só o lead que pegar. Sem recarga, sem saldo parado."
+          itens={[
+            'Cobrança na compra de cada lead',
+            'Sem compromisso de volume',
+            'O mesmo produto: reunião agendada e contato liberado',
+          ]}
+        />
+
+        <Modelo
+          modelo="creditos"
+          destacado={false}
+          valor={`${faixa.creditoMax} créditos`}
+          unidade={`= ${brl.format(faixa.creditoMax * VALOR_DO_CREDITO)} por lead`}
+          resumo={`Recarrega o saldo e compra sem passar por pagamento a cada lead. Economia de ${brl.format(
+            faixa.avulsoMax - faixa.creditoMax * VALOR_DO_CREDITO,
+          )} por lead.`}
+          itens={[
+            `1 crédito = ${brlCentavos.format(VALOR_DO_CREDITO)}`,
+            `Recarga a partir de ${brl.format(RECARGA_MINIMA)}`,
+            'Desconto por volume no preço do crédito',
+          ]}
+        />
+      </section>
+
+      {/* Recargas -------------------------------------------------------- */}
+      <section className="card p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h2 className="card-title">Recargas de crédito</h2>
+          <span className="text-[11px] text-stone-500 tabular">
+            {brlCentavos.format(VALOR_DO_CREDITO)} por crédito na recarga mínima
+          </span>
+        </div>
+        <p className="nota mb-4">
+          O desconto por volume incide sobre o preço do crédito. O lead continua custando{' '}
+          {faixa.creditoMax} créditos em qualquer pacote — o mesmo produto não tem dois preços no
+          extrato (INV-15).
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {PACOTES.map((pacote) => (
+            <Recarga key={pacote.id} pacote={pacote} mostrarBotao={false} />
+          ))}
+        </div>
+      </section>
+
+      {/* Preço por tese --------------------------------------------------- */}
+      <section className="card p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h2 className="card-title">Preço por tese</h2>
+          {faixa.precoUnico && (
+            <span className="text-[11px] text-stone-500">mesmo preço nas três teses</span>
+          )}
+        </div>
+        <p className="nota mb-4">
+          {faixa.precoUnico
+            ? 'O advogado escolhe o caso pelo caso, não pela etiqueta — tabela diferente por tese empurraria a carteira para a mais barata em vez da mais adequada (TES-R07).'
+            : 'O preço acompanha o custo de aquisição da tese (TES-R07).'}
+        </p>
+
+        <TabelaDePrecoPorTese />
+
+        <p className="nota mt-3">
+          Alterar preço é da tela de Teses, com a permissão "Definir preço da tese". O valor fica
+          congelado no lead publicado (CRE-R03).
+        </p>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr] items-start">
         <section className="card p-5">
@@ -417,6 +587,124 @@ function AjusteManual({ advogados }: { advogados: Advogado[] }) {
 
       <Toast aviso={aviso} aoFechar={() => setAviso(null)} />
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Preço — os dois modelos, as recargas e a tabela por tese
+// ---------------------------------------------------------------------------
+
+function Modelo({
+  modelo,
+  destacado,
+  valor,
+  unidade,
+  resumo,
+  itens,
+}: {
+  modelo: ModeloPagamento;
+  destacado: boolean;
+  valor: string;
+  unidade: string;
+  resumo: string;
+  itens: string[];
+}) {
+  return (
+    <div className={`card p-5 ${destacado ? 'ring-1 ring-roxo-300' : ''}`}>
+      <div className="flex items-center gap-2">
+        <Coins className={`size-4 ${modelo === 'creditos' ? ESTILO_TEXTO.marca : 'text-stone-400'}`} />
+        <h2 className="card-title">{MODELO_PAGAMENTO_LABEL[modelo]}</h2>
+        {destacado && (
+          <span className={`etiqueta ml-auto ${ESTILO_ETIQUETA.marca}`}>seu modelo</span>
+        )}
+      </div>
+
+      <div className="flex items-baseline gap-1.5 mt-3">
+        <span className="text-2xl font-semibold tracking-tight text-roxo-900 tabular">{valor}</span>
+        <span className="text-[12px] text-stone-500">{unidade}</span>
+      </div>
+
+      <p className="text-[13px] text-stone-600 leading-snug mt-2">{resumo}</p>
+
+      <ul className="space-y-1.5 mt-4">
+        {itens.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-[12px] text-stone-600">
+            <Check className={`size-3.5 shrink-0 mt-0.5 ${ESTILO_TEXTO.sucesso}`} />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Recarga({ pacote, mostrarBotao }: { pacote: PacoteCredito; mostrarBotao: boolean }) {
+  const desconto = descontoDoPacote(pacote);
+  const leads = leadsDoPacote(pacote);
+
+  return (
+    <div className={`card p-4 ${pacote.destaque ? 'ring-1 ring-roxo-300' : ''}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="card-title">{pacote.nome}</span>
+        {desconto > 0 && <span className={`etiqueta ${ESTILO_ETIQUETA.sucesso}`}>−{desconto}%</span>}
+      </div>
+
+      <div className="text-2xl font-semibold text-roxo-900 tabular mt-2">
+        {brl.format(pacote.valor)}
+      </div>
+      <div className="text-[13px] text-stone-700 tabular mt-1">
+        {pacote.creditos.toLocaleString('pt-BR')}
+        <span className="text-[12px] text-stone-500"> créditos</span>
+      </div>
+
+      <p className="nota mt-1">
+        {leads} leads · {brlCentavos.format(precoPorCredito(pacote))} por crédito
+      </p>
+
+      {mostrarBotao && (
+        <button
+          type="button"
+          disabled
+          title="O checkout depende do provedor de pagamento (INV-14)."
+          className="btn btn-primario w-full mt-3"
+        >
+          Recarregar
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TabelaDePrecoPorTese() {
+  return (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <table className="w-full min-w-[30rem] text-[13px]">
+        <thead>
+          <tr className="text-left text-[11px] text-stone-500">
+            <th className="font-medium pb-2 pr-3">Tese</th>
+            <th className="font-medium pb-2 pr-3">Área</th>
+            <th className="font-medium pb-2 pr-3 w-28 text-right">Em créditos</th>
+            <th className="font-medium pb-2 w-24 text-right">Avulso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {TESES.map((tese) => (
+            <tr key={tese.id} className="border-t border-stone-100">
+              <td className="py-2.5 pr-3">
+                <span className={`etiqueta ${ESTILO_TESE[tese.id]}`}>{TESE_CURTA[tese.id]}</span>
+              </td>
+              <td className="py-2.5 pr-3 text-stone-600">{tese.area}</td>
+              <td className="py-2.5 pr-3 text-right tabular text-roxo-900 font-medium">
+                {tese.custoCreditos}
+              </td>
+              <td className="py-2.5 text-right tabular text-stone-700">
+                {brl.format(tese.precoAvulso)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
