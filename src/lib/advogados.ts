@@ -124,7 +124,7 @@ export function contaDoAdvogado(advogado: Advogado): UsuarioFormData {
 // ---------------------------------------------------------------------------
 
 const POTENCIAL_ALTO = 20;
-const DIAS_SEM_INTERACAO_P1 = 14;
+export const DIAS_SEM_INTERACAO_P1 = 14;
 export const DIAS_PARA_CONGELAR = 12;
 
 export function diasSemInteracao(a: Advogado): number {

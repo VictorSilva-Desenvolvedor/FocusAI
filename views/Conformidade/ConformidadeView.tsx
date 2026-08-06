@@ -10,6 +10,7 @@ import {
   type Tom,
 } from '@/src/lib/estilo';
 import { PARECERES_SEED } from '@/src/lib/qualificacaoSeed';
+import { SLA_HORAS, horasNaFila } from '@/src/lib/conformidade';
 import { ESTILO_TESE } from '@/src/lib/leads';
 import { formatarDataHora, tempoRelativo } from '@/src/lib/format';
 import {
@@ -17,11 +18,7 @@ import {
   PLATAFORMA_LABEL,
   TESE_CURTA,
   type DecisaoConformidade,
-  type Parecer,
 } from '@/types';
-
-/** CNF-R01 — o cronômetro corre do envio até o parecer registrado. */
-const SLA_HORAS = 24;
 
 const TOM_DECISAO: Record<DecisaoConformidade, Tom> = {
   aprovado: 'sucesso',
@@ -30,11 +27,6 @@ const TOM_DECISAO: Record<DecisaoConformidade, Tom> = {
   pendencia_documental: 'atencao',
   reprovado: 'erro',
 };
-
-function horasNaFila(parecer: Parecer): number {
-  const fim = parecer.emitidoEm ? Date.parse(parecer.emitidoEm) : Date.now();
-  return (fim - Date.parse(parecer.enviadoEm)) / 3_600_000;
-}
 
 export function ConformidadeView() {
   const { perfil, ehConformidade, temPermissao } = useAuth();
