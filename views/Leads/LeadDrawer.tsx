@@ -404,11 +404,6 @@ function LinhaLigacao({ ligacao }: { ligacao: LigacaoDetalhada }) {
         <p className="text-[12px] text-stone-600 mt-1.5">{ligacao.motivoEncerramento}</p>
       )}
 
-      {ligacao.gravacaoUrl && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption -- é ligação telefônica, não há legenda a gerar.
-        <audio controls src={ligacao.gravacaoUrl} className="w-full h-8 mt-2" />
-      )}
-
       {ligacao.transcricao && (
         <details className="mt-2 group">
           <summary className="flex items-center gap-1 text-[11px] text-roxo-700 cursor-pointer select-none">

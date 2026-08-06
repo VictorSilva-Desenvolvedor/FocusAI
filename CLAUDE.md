@@ -764,7 +764,10 @@ forem a demanda.
   público serve URL permanente e pode expirar sem aviso, e `INV-13` depende de
   a gravação continuar acessível. O balde próprio seria R2, mas a conta
   Cloudflare não tem R2 habilitado (`.secrets/cloudflare.env`: erro `10042`,
-  "habilite pelo dashboard") e a chave salva está incompleta.
+  "habilite pelo dashboard") e a chave salva está incompleta. Por isso a
+  ficha do lead (`LeadDrawer`) parou de tentar tocar a gravação inline — o
+  `<audio>` apontava para essa mesma URL frágil e não reproduzia; o campo
+  continua chegando da leitura, só não é mais renderizado como player.
 - ~~Resumos da Helena saem em inglês~~ — corrigido nos 5 assistentes
   (`analysisPlan.summaryPlan`, via API da Vapi — `.secrets/vapi.env`), com
   prompt pedindo resumo em português, em até 4 frases, focado no que o
