@@ -73,8 +73,14 @@ export type EstadoDaSessao =
  * toda política compara com igualdade — comparação com NULL nunca é verdadeira.
  */
 export async function carregarSessao(): Promise<EstadoDaSessao> {
-  const { data: sessao } = await supabase.auth.getSession();
-  if (!sessao.session) return { estado: 'anonimo' };
+  const { data: sessao, error: erroSessao } = await supabase.auth.getSession();
+  if (!sessao.session) {
+    // getSession() nunca lança erro — uma falha de refresh (token inválido,
+    // rede fora do ar no instante da renovação) some em silêncio como
+    // "anônimo" comum. Sem este log, "por que caiu de novo?" não tem resposta.
+    if (erroSessao) console.error('Sessão não pôde ser restaurada:', erroSessao.message);
+    return { estado: 'anonimo' };
+  }
 
   const { data, error } = await supabase
     .from('perfis')

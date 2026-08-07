@@ -1,8 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Bell,
-  Building2,
-  FileSignature,
   Handshake,
   Landmark,
   ScrollText,
@@ -47,8 +45,6 @@ const ABAS: AbaConfig[] = [
   { id: 'sla', rotulo: 'SLA / Prazos', icone: Timer, somenteCompleto: true },
   { id: 'logs', rotulo: 'Logs do Sistema', icone: ScrollText, somenteCompleto: true },
   { id: 'apis', rotulo: 'APIs e Webhooks', icone: Webhook, somenteCompleto: true },
-  { id: 'termo', rotulo: 'Assinaturas do Termo', icone: FileSignature, somenteCompleto: true },
-  { id: 'empresas', rotulo: 'Empresas Parceiras', icone: Building2, somenteCompleto: true },
 ];
 
 const MODULO_CONFIG = MODULOS.find((m) => m.id === 'config')!;

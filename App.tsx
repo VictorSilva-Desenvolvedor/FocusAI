@@ -98,24 +98,6 @@ export default function App() {
                           <Route path="sla" element={<SlaPrazosView />} />
                           <Route path="logs" element={<LogsSistemaView />} />
                           <Route path="apis" element={<ApisWebhooksView />} />
-                          <Route
-                            path="termo"
-                            element={
-                              <EmConstrucaoView
-                                titulo="Assinaturas do Termo"
-                                descricao="Não existe termo de adesão com assinatura, testemunha ou procurador em nenhum lugar do sistema hoje — nem tela, nem tabela, nem documento. Precisa nascer como demanda própria, com o desenho jurídico definido antes do código."
-                              />
-                            }
-                          />
-                          <Route
-                            path="empresas"
-                            element={
-                              <EmConstrucaoView
-                                titulo="Empresas Parceiras"
-                                descricao="Não existe o conceito de empresa parceira (com contrato e percentual) no modelo de negócio documentado — a Focus AI intermedeia lead e advogado diretamente, sem uma terceira entidade contratante no meio."
-                              />
-                            }
-                          />
                           <Route path="*" element={<Navigate to="perfil" replace />} />
                         </Route>
                       </Route>
