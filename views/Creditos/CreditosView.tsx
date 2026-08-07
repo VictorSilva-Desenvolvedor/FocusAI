@@ -12,12 +12,12 @@ import {
   RECARGA_MINIMA,
   TOM_MOVIMENTO,
   VALOR_DO_CREDITO,
-  descontoDoPacote,
+  bonusDoPacote,
+  custoEfetivoPorLead,
   divergenciaDeSaldo,
   faixaDePrecoDasTeses,
   leadsDoPacote,
   motivoParaNaoAjustar,
-  precoPorCredito,
   receitaDoPeriodo,
 } from '@/src/lib/creditos';
 import { formatarDataHora } from '@/src/lib/format';
@@ -30,7 +30,6 @@ import {
   type Advogado,
   type ModeloPagamento,
   type MovimentoCredito,
-  type PacoteCredito,
 } from '@/types';
 
 const brl = new Intl.NumberFormat('pt-BR', {
@@ -164,36 +163,25 @@ function PainelDoAdvogado({
           destacado={advogado.modeloPagamento === 'creditos'}
           valor={`${faixa.creditoMax} créditos`}
           unidade={`= ${brl.format(faixa.creditoMax * VALOR_DO_CREDITO)} por lead`}
-          resumo={`Recarrega o saldo e compra sem passar por pagamento a cada lead. Economia de ${brl.format(
-            faixa.avulsoMax - faixa.creditoMax * VALOR_DO_CREDITO,
-          )} por lead.`}
+          resumo="Recarrega o saldo e compra sem passar por pagamento a cada lead. Pacotes maiores dão bônus de crédito, o que baixa o custo por lead na prática."
           itens={[
             `1 crédito = ${brlCentavos.format(VALOR_DO_CREDITO)}`,
             `Recarga a partir de ${brl.format(RECARGA_MINIMA)}`,
-            'Desconto por volume no preço do crédito',
+            'Bônus de crédito por volume, não desconto no crédito',
           ]}
         />
       </section>
 
       {/* Recargas -------------------------------------------------------- */}
       <section className="card p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-          <h2 className="card-title">Recargas de crédito</h2>
-          <span className="text-[11px] text-stone-500 tabular">
-            {brlCentavos.format(VALOR_DO_CREDITO)} por crédito na recarga mínima
-          </span>
-        </div>
+        <h2 className="card-title mb-1">Recargas de crédito</h2>
         <p className="nota mb-4">
-          O desconto por volume incide sobre o preço do crédito. O lead continua custando{' '}
+          O bônus entra como crédito extra no saldo. O lead continua custando{' '}
           {faixa.creditoMax} créditos em qualquer pacote — o mesmo produto não tem dois preços no
           extrato (INV-15).
         </p>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {PACOTES.map((pacote) => (
-            <Recarga key={pacote.id} pacote={pacote} mostrarBotao />
-          ))}
-        </div>
+        <TabelaDeRecargas mostrarBotao />
 
         {/* INV-14 — o gatilho do crédito é a confirmação de pagamento, que
             ainda não existe. O botão fica desabilitado de propósito, e a tela
@@ -302,8 +290,7 @@ function PainelDaOperacao({
           tom={divergentes.length > 0 ? 'erro' : 'sucesso'}
           titulo="Saldo gravado conferido contra a soma do extrato (INV-15)."
         />
-        <Chip valor={brl.format(faixa.avulsoMax)} rotulo="por lead avulso" />
-        <Chip valor={`${faixa.creditoMax} créditos`} rotulo="por lead" tom="marca" />
+        <Chip valor={brl.format(faixa.avulsoMax)} rotulo="por lead, nos dois modelos" tom="marca" />
         <Chip
           valor={brl.format(RECARGA_MINIMA)}
           rotulo={`recarga mínima · ${leadsDoPacote(PACOTES[0])} leads`}
@@ -356,36 +343,25 @@ function PainelDaOperacao({
           destacado={false}
           valor={`${faixa.creditoMax} créditos`}
           unidade={`= ${brl.format(faixa.creditoMax * VALOR_DO_CREDITO)} por lead`}
-          resumo={`Recarrega o saldo e compra sem passar por pagamento a cada lead. Economia de ${brl.format(
-            faixa.avulsoMax - faixa.creditoMax * VALOR_DO_CREDITO,
-          )} por lead.`}
+          resumo="Recarrega o saldo e compra sem passar por pagamento a cada lead. Pacotes maiores dão bônus de crédito, o que baixa o custo por lead na prática."
           itens={[
             `1 crédito = ${brlCentavos.format(VALOR_DO_CREDITO)}`,
             `Recarga a partir de ${brl.format(RECARGA_MINIMA)}`,
-            'Desconto por volume no preço do crédito',
+            'Bônus de crédito por volume, não desconto no crédito',
           ]}
         />
       </section>
 
       {/* Recargas -------------------------------------------------------- */}
       <section className="card p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-          <h2 className="card-title">Recargas de crédito</h2>
-          <span className="text-[11px] text-stone-500 tabular">
-            {brlCentavos.format(VALOR_DO_CREDITO)} por crédito na recarga mínima
-          </span>
-        </div>
+        <h2 className="card-title mb-1">Recargas de crédito</h2>
         <p className="nota mb-4">
-          O desconto por volume incide sobre o preço do crédito. O lead continua custando{' '}
+          O bônus entra como crédito extra no saldo. O lead continua custando{' '}
           {faixa.creditoMax} créditos em qualquer pacote — o mesmo produto não tem dois preços no
           extrato (INV-15).
         </p>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {PACOTES.map((pacote) => (
-            <Recarga key={pacote.id} pacote={pacote} mostrarBotao={false} />
-          ))}
-        </div>
+        <TabelaDeRecargas mostrarBotao={false} />
       </section>
 
       {/* Preço por tese --------------------------------------------------- */}
@@ -638,40 +614,82 @@ function Modelo({
   );
 }
 
-function Recarga({ pacote, mostrarBotao }: { pacote: PacoteCredito; mostrarBotao: boolean }) {
-  const desconto = descontoDoPacote(pacote);
-  const leads = leadsDoPacote(pacote);
+/**
+ * Avulso entra como primeira linha, sem bônus, só para comparação: ele não é
+ * um pacote pré-pago — é o preço do lead pago na hora, sem saldo (`CRE-R07`).
+ */
+function TabelaDeRecargas({ mostrarBotao }: { mostrarBotao: boolean }) {
+  const faixa = faixaDePrecoDasTeses();
+  const melhorPacote = PACOTES[PACOTES.length - 1];
+  const economiaNoMelhor = Math.round(
+    (1 - custoEfetivoPorLead(melhorPacote) / faixa.avulsoMax) * 100,
+  );
 
   return (
-    <div className={`card p-4 ${pacote.destaque ? 'ring-1 ring-roxo-300' : ''}`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="card-title">{pacote.nome}</span>
-        {desconto > 0 && <span className={`etiqueta ${ESTILO_ETIQUETA.sucesso}`}>−{desconto}%</span>}
+    <>
+      <div className="overflow-x-auto -mx-1 px-1">
+        <table className="w-full min-w-[34rem] text-[13px]">
+          <thead>
+            <tr className="text-left text-[11px] text-stone-500">
+              <th className="font-medium pb-2 pr-3">Pacote</th>
+              <th className="font-medium pb-2 pr-3 text-right">Ele paga</th>
+              <th className="font-medium pb-2 pr-3 text-right">Saldo recebido</th>
+              <th className="font-medium pb-2 pr-3 text-right">Bônus</th>
+              <th className="font-medium pb-2 text-right">
+                Leads (a {brl.format(faixa.avulsoMax)} cada)
+              </th>
+              {mostrarBotao && <th className="pb-2 pl-3 w-28" />}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-stone-100">
+              <td className="py-2.5 pr-3 font-medium text-roxo-900">Avulso</td>
+              <td className="py-2.5 pr-3 text-right tabular">{brl.format(faixa.avulsoMax)}</td>
+              <td className="py-2.5 pr-3 text-right tabular">{brl.format(faixa.avulsoMax)}</td>
+              <td className="py-2.5 pr-3 text-right tabular text-stone-400">—</td>
+              <td className="py-2.5 text-right tabular">1</td>
+              {mostrarBotao && <td className="py-2.5 pl-3" />}
+            </tr>
+
+            {PACOTES.map((pacote) => (
+              <tr key={pacote.id} className="border-t border-stone-100">
+                <td className="py-2.5 pr-3">
+                  <span className="font-medium text-roxo-900">{pacote.nome}</span>
+                  {pacote.destaque && (
+                    <span className={`etiqueta ml-2 ${ESTILO_ETIQUETA.marca}`}>mais popular</span>
+                  )}
+                </td>
+                <td className="py-2.5 pr-3 text-right tabular">{brl.format(pacote.valor)}</td>
+                <td className="py-2.5 pr-3 text-right tabular font-medium text-roxo-900">
+                  {brl.format(pacote.creditos)}
+                </td>
+                <td className={`py-2.5 pr-3 text-right tabular font-medium ${ESTILO_TEXTO.sucesso}`}>
+                  +{bonusDoPacote(pacote)}%
+                </td>
+                <td className="py-2.5 text-right tabular">{leadsDoPacote(pacote)}</td>
+                {mostrarBotao && (
+                  <td className="py-2.5 pl-3 text-right">
+                    <button
+                      type="button"
+                      disabled
+                      title="O checkout depende do provedor de pagamento (INV-14)."
+                      className="btn btn-secundario"
+                    >
+                      Recarregar
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <div className="text-2xl font-semibold text-roxo-900 tabular mt-2">
-        {brl.format(pacote.valor)}
-      </div>
-      <div className="text-[13px] text-stone-700 tabular mt-1">
-        {pacote.creditos.toLocaleString('pt-BR')}
-        <span className="text-[12px] text-stone-500"> créditos</span>
-      </div>
-
-      <p className="nota mt-1">
-        {leads} leads · {brlCentavos.format(precoPorCredito(pacote))} por crédito
+      <p className="nota mt-3">
+        No pacote {melhorPacote.nome}, cada lead sai por {brl.format(custoEfetivoPorLead(melhorPacote))}{' '}
+        — {economiaNoMelhor}% mais barato que o avulso.
       </p>
-
-      {mostrarBotao && (
-        <button
-          type="button"
-          disabled
-          title="O checkout depende do provedor de pagamento (INV-14)."
-          className="btn btn-primario w-full mt-3"
-        >
-          Recarregar
-        </button>
-      )}
-    </div>
+    </>
   );
 }
 

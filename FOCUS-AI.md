@@ -145,7 +145,7 @@ O advogado logado vê:
 | Modelo | Como funciona | O que ganha |
 | --- | --- | --- |
 | **A — Por lead (avulso)** | Valor fixo por cada lead que o advogado quer acessar. Sem compromisso de volume, sem assinatura | Entrada sem fricção |
-| **B — Créditos** | Pacote de créditos comprado antecipadamente. Cada lead consome uma quantidade de créditos, que pode variar por tese | Previsibilidade de receita para a Focus, desconto por volume para o advogado |
+| **B — Créditos** | Pacote de créditos comprado antecipadamente. Cada lead consome uma quantidade de créditos, que pode variar por tese | Previsibilidade de receita para a Focus, bônus de crédito por volume para o advogado |
 
 **O que exatamente o advogado compra ao acessar um lead:**
 
