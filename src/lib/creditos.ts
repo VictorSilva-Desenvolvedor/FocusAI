@@ -10,48 +10,56 @@ import type {
 import type { Tom } from '@/src/lib/estilo';
 
 /**
- * `CRE-R07` — o crédito vale um real, e a recarga mínima compra cinco leads.
+ * `CRE-R07` — o crédito vale um real, sempre — inclusive dentro de um pacote
+ * com bônus.
  *
  * A paridade com o real é o que faz a tabela ser legível sem calculadora: o
- * advogado lê "30 créditos" e sabe que são R$ 30. Crédito com valor de face
+ * advogado lê "40 créditos" e sabe que são R$ 40. Crédito com valor de face
  * próprio — 1 crédito por R$ 7, por exemplo — esconde o preço do lead atrás de
  * uma conversão, e o efeito conhecido disso é o comprador achando que pagou
  * menos do que pagou até conferir o extrato.
  *
- * A recarga mínima é dimensionada pelo consumo, não pelo caixa: R$ 150 compram
- * cinco leads da tese mais cara. Abaixo disso o advogado recarrega para comprar
- * dois casos, esgota o saldo na primeira semana e volta a decidir a compra toda
- * vez — que é exatamente o atrito que o modelo de crédito existe para tirar.
+ * O incentivo de volume não mexe nesse valor de face: em vez de vender o
+ * crédito mais barato — o que faria o mesmo crédito valer coisas diferentes
+ * dependendo de onde foi comprado —, o pacote maior credita mais créditos do
+ * que o advogado pagou. `bonusDoPacote` é essa diferença.
  */
 export const VALOR_DO_CREDITO = 1;
-export const RECARGA_MINIMA = 150;
 
 /**
- * Pacotes à venda. O desconto por volume é o incentivo do modelo de créditos:
- * dá previsibilidade de receita para a Focus e preço melhor para o advogado.
+ * A partir de quanto o modelo de créditos vale a pena começar: o menor pacote
+ * com bônus, não o avulso. Abaixo disso o advogado ainda está decidindo se
+ * quer o compromisso de saldo — é o avulso que atende esse caso, sem mínimo
+ * nenhum (`CRE-R07`).
+ */
+export const RECARGA_MINIMA = 350;
+
+/**
+ * Pacotes à venda. O bônus por volume é o incentivo do modelo de créditos:
+ * previsibilidade de receita para a Focus, e mais crédito pelo mesmo real para
+ * o advogado.
  *
- * O desconto incide sobre o preço do **crédito**, nunca sobre o preço do lead:
- * o lead custa 30 créditos em qualquer pacote (`TES-R07`), e o que o volume
- * compra é o crédito mais barato. Descontar o lead faria o mesmo produto ter
+ * O bônus é crédito extra creditado no saldo, nunca desconto no preço do lead:
+ * o lead custa sempre o mesmo em créditos (`TES-R07`), e o que o volume compra
+ * é saldo maior que o valor pago. Descontar o lead faria o mesmo produto ter
  * dois preços no extrato, e aí `INV-15` — consumido fecha com comprado — deixa
  * de ser conferível.
  */
 export const PACOTES: PacoteCredito[] = [
-  { id: 'pac-150', nome: 'Recarga', creditos: 150, valor: 150, destaque: false },
-  { id: 'pac-300', nome: 'Frequente', creditos: 300, valor: 285, destaque: false },
-  { id: 'pac-600', nome: 'Escritório', creditos: 600, valor: 540, destaque: true },
-  { id: 'pac-1200', nome: 'Volume', creditos: 1_200, valor: 1_020, destaque: false },
+  { id: 'pac-inicial', nome: 'Inicial', creditos: 400, valor: 350, destaque: false },
+  { id: 'pac-escritorio', nome: 'Escritório', creditos: 1_000, valor: 800, destaque: true },
+  { id: 'pac-volume', nome: 'Volume', creditos: 2_000, valor: 1_500, destaque: false },
 ];
 
-/** Preço unitário do crédito no pacote. É o que expõe o desconto por volume. */
-export function precoPorCredito(pacote: PacoteCredito): number {
-  return pacote.valor / pacote.creditos;
+/** Bônus do pacote sobre o valor pago, em pontos percentuais. */
+export function bonusDoPacote(pacote: PacoteCredito): number {
+  return Math.round(((pacote.creditos - pacote.valor) / pacote.valor) * 100);
 }
 
-/** Desconto do pacote em relação ao menor, em pontos percentuais. */
-export function descontoDoPacote(pacote: PacoteCredito): number {
-  const base = precoPorCredito(PACOTES[0]);
-  return Math.round((1 - precoPorCredito(pacote) / base) * 100);
+/** Quanto cada lead sai, na prática, dentro deste pacote — o que o bônus paga. */
+export function custoEfetivoPorLead(pacote: PacoteCredito): number {
+  const leads = leadsDoPacote(pacote);
+  return leads > 0 ? pacote.valor / leads : 0;
 }
 
 /**

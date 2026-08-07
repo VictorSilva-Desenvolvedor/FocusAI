@@ -14,20 +14,20 @@ export const MOVIMENTOS_SEED: MovimentoCredito[] = [
   // --- Prev Fácil Advogados: 900 comprados, 510 consumidos → 390 -----------
   m('adv-prev-facil-advogados', 'compra', 600, 540, null, 'Pacote Escritório', 60),
   m('adv-prev-facil-advogados', 'compra', 300, 285, null, 'Pacote Frequente', 24),
-  m('adv-prev-facil-advogados', 'consumo', -30, 0, 'lead-antonia-barros-nogueira', 'Polo passivo · Goiânia', 10),
-  m('adv-prev-facil-advogados', 'consumo', -30, 0, 'lead-marcos-vinicius-tavares', 'Vínculo · Guarulhos', 6),
-  m('adv-prev-facil-advogados', 'consumo', -30, 0, 'lead-gilberto-nascimento-cruz', 'Polo passivo · Trindade', 28),
-  m('adv-prev-facil-advogados', 'consumo', -30, 0, 'lead-helio-monteiro-dias', 'Polo passivo · Goiânia', 16),
-  m('adv-prev-facil-advogados', 'devolucao', 30, 0, 'lead-helio-monteiro-dias', 'Processo já transitado em julgado', 14),
-  m('adv-prev-facil-advogados', 'consumo', -420, 0, null, 'Consumo acumulado de ciclos anteriores', 45),
+  m('adv-prev-facil-advogados', 'consumo', -40, 0, 'lead-antonia-barros-nogueira', 'Polo passivo · Goiânia', 10),
+  m('adv-prev-facil-advogados', 'consumo', -40, 0, 'lead-marcos-vinicius-tavares', 'Vínculo · Guarulhos', 6),
+  m('adv-prev-facil-advogados', 'consumo', -40, 0, 'lead-gilberto-nascimento-cruz', 'Polo passivo · Trindade', 28),
+  m('adv-prev-facil-advogados', 'consumo', -40, 0, 'lead-helio-monteiro-dias', 'Polo passivo · Goiânia', 16),
+  m('adv-prev-facil-advogados', 'devolucao', 40, 0, 'lead-helio-monteiro-dias', 'Processo já transitado em julgado', 14),
+  m('adv-prev-facil-advogados', 'consumo', -390, 0, null, 'Consumo acumulado de ciclos anteriores', 45),
 
   // --- Gomes & Cia: 750 comprados, 630 consumidos → 120 --------------------
   m('adv-gomes-cia', 'compra', 600, 540, null, 'Pacote Escritório', 48),
   m('adv-gomes-cia', 'compra', 150, 150, null, 'Recarga', 12),
-  m('adv-gomes-cia', 'consumo', -30, 0, 'lead-reinaldo-souza-prado', 'Juros abusivos · São Paulo', 7),
-  m('adv-gomes-cia', 'consumo', -30, 0, 'lead-vera-lucia-andrade', 'Juros abusivos · São Bernardo', 20),
-  m('adv-gomes-cia', 'consumo', -30, 0, 'lead-rosana-lima-ferreira', 'Juros abusivos · Sorocaba', 15),
-  m('adv-gomes-cia', 'consumo', -540, 0, null, 'Consumo acumulado de ciclos anteriores', 40),
+  m('adv-gomes-cia', 'consumo', -40, 0, 'lead-reinaldo-souza-prado', 'Juros abusivos · São Paulo', 7),
+  m('adv-gomes-cia', 'consumo', -40, 0, 'lead-vera-lucia-andrade', 'Juros abusivos · São Bernardo', 20),
+  m('adv-gomes-cia', 'consumo', -40, 0, 'lead-rosana-lima-ferreira', 'Juros abusivos · Sorocaba', 15),
+  m('adv-gomes-cia', 'consumo', -510, 0, null, 'Consumo acumulado de ciclos anteriores', 40),
 
   /*
    * Teixeira Bancário está no modelo avulso: nunca comprou pacote, então o

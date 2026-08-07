@@ -73,9 +73,13 @@ Todos os onze módulos têm tela construída. Os números que não saem dos stor
 reais vêm de seeds em `src/lib/*Seed.ts` — plausíveis, não reais, e fictícios por
 princípio.
 
-**A tabela de preços é a de hoje, não exemplo:** o lead custa 30 créditos ou
-R$ 40 avulso nas três teses (`TES-R07`), o crédito vale R$ 1 e a recarga mínima
-é de R$ 150, que compra cinco leads (`CRE-R07`). Mexer nesses números é mexer no
+**A tabela de preços é a de hoje, não exemplo:** o lead custa 40 créditos ou
+R$ 40 avulso nas três teses (`TES-R07`) — o mesmo preço nos dois modelos, porque
+o crédito vale sempre R$ 1 (`CRE-R07`). A vantagem de recarregar não é um
+crédito mais barato: é o bônus dos pacotes (`Inicial`, `Escritório`, `Volume`,
+em `src/lib/creditos.ts`), que credita mais saldo do que o valor pago e reduz o
+custo por lead na prática — a recarga mínima é a do pacote Inicial, R$ 350, que
+rende R$ 400 em créditos e compra dez leads. Mexer nesses números é mexer no
 preço do produto — muda `src/lib/teses.ts` e `src/lib/creditos.ts` juntos, e as
 seeds de campanha atrás, porque o preço avulso é o teto do custo por lead
 qualificado.

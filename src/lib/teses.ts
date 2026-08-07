@@ -1,7 +1,7 @@
 import type { Tese, TeseId } from '@/types';
 
 /**
- * `TES-R07` — as três teses custam o mesmo: 30 créditos, ou R$ 40 avulso.
+ * `TES-R07` — as três teses custam o mesmo: 40 créditos, ou R$ 40 avulso.
  *
  * O preço mora aqui, e não numa constante global, porque a estrutura precisa
  * continuar suportando preço por tese: se um dia o custo de aquisição de uma
@@ -10,11 +10,13 @@ import type { Tese, TeseId } from '@/types';
  * diferente por tese empurraria a carteira para a tese mais barata em vez da
  * mais adequada.
  *
- * O par avulso × crédito é a decisão comercial: 30 créditos valem R$ 30
- * (`CRE-R07`), então quem recarrega paga R$ 10 a menos por lead do que quem
- * compra avulso. É essa diferença que dá razão para a recarga existir.
+ * O par avulso × crédito é o mesmo número de propósito: o crédito vale sempre
+ * R$ 1 (`CRE-R07`), então o lead custa o mesmo nos dois modelos por padrão. A
+ * razão para recarregar não é pagar menos pelo crédito — é o bônus que os
+ * pacotes maiores creditam em cima do que foi pago (`PACOTES`, em
+ * `src/lib/creditos.ts`), que é o que baixa o custo por lead na prática.
  */
-const CUSTO_EM_CREDITOS = 30;
+const CUSTO_EM_CREDITOS = 40;
 const PRECO_AVULSO = 40;
 
 /**
