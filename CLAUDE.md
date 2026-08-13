@@ -736,16 +736,23 @@ forem a demanda.
   `perfis`) também referenciavam o tipo e travavam o `drop`. As duas contas de
   teste foram movidas para `cs` e apagadas do Supabase Auth;
   `src/servicos/banco.types.ts` regenerado.
-- **Duas frentes de captação fora das três teses — ampliação escolhida, ainda
-  incompleta.** O enum `tese` ganhou `auxilio_doenca` e `salario_maternidade`
-  (`0016`), e `formularios_captacao` já mapeia os dois formulários reais
-  (`obYGpO`, `ZjXaWe`). Falta o que não dá para supor: `TeseId`/`TESES`
-  (`types.ts`, `src/lib/teses.ts`) e a wiring de `Registrar captação` nos dois
-  fluxos do n8n, no mesmo padrão dos três já ligados, dependem de público,
-  oferta, filtros de elegibilidade e preço reais das duas frentes
-  previdenciárias — conteúdo que não nasce de suposição sobre regra do INSS.
-  `FOCUS-AI.md` também segue descrevendo três teses e precisa da mesma
-  decisão.
+- **Quatro frentes de captação fora das três teses — ampliação escolhida,
+  ainda incompleta.** O enum `tese` ganhou `auxilio_doenca` e
+  `salario_maternidade` (`0016`) e, depois, `bpc_loas` e `auxilio_acidente`
+  (`0022` — achadas já captando ao vivo pelo Quiz do Lovable, sem tese
+  nenhuma no banco, ao investigar a conexão do Lovable com o n8n).
+  `formularios_captacao` mapeia os dois formulários Tally das previdenciárias
+  originais (`obYGpO`, `ZjXaWe`); as duas novas não têm formulário — chegam só
+  pelo Quiz, que já manda a tese resolvida. Os quatro fluxos do n8n
+  (`Registrar captação` → `Registrar chamada iniciada` → `Registrar
+  qualificação`) já estão ligados, no mesmo padrão dos três originais — falta
+  só o último passo, `Registrar agendamento`, que publica no catálogo. Falta o
+  que não dá para supor: `TeseId`/`TESES` (`types.ts`, `src/lib/teses.ts`),
+  com público, oferta, filtros de elegibilidade e preço reais das quatro
+  frentes — conteúdo que não nasce de suposição sobre regra do INSS ou laudo
+  de acidente de trabalho. Enquanto isso não existir, a qualificação fica
+  registrada (`INV-13`) mas o lead não é vendido. `FOCUS-AI.md` também segue
+  descrevendo três teses e precisa da mesma decisão.
 - **A fila de conversões da Meta enche sozinha, mas não tem com o que enviar
   nem quem esvazie.** `enfileirar_eventos_do_lead` grava em `eventos_meta` a
   cada transição real (`LeadQualificado`, `Schedule`, `Purchase`), e

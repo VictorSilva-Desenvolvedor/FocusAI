@@ -45,12 +45,22 @@ export const TOM_TESE: Record<TeseId, Tom> = {
   polo_passivo: 'marca',
   vinculo_empregaticio: 'info',
   juros_abusivos: 'atencao',
+  // As quatro sem Tese em TESES (ver types.ts) ficam no tom neutro — não têm
+  // cor de marca própria enquanto não forem publicáveis.
+  auxilio_doenca: 'neutro',
+  salario_maternidade: 'neutro',
+  bpc_loas: 'neutro',
+  auxilio_acidente: 'neutro',
 };
 
 export const ESTILO_TESE: Record<TeseId, string> = {
   polo_passivo: ESTILO_ETIQUETA.marca,
   vinculo_empregaticio: ESTILO_ETIQUETA.info,
   juros_abusivos: ESTILO_ETIQUETA.atencao,
+  auxilio_doenca: ESTILO_ETIQUETA.neutro,
+  salario_maternidade: ESTILO_ETIQUETA.neutro,
+  bpc_loas: ESTILO_ETIQUETA.neutro,
+  auxilio_acidente: ESTILO_ETIQUETA.neutro,
 };
 
 // ---------------------------------------------------------------------------

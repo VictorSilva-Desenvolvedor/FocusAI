@@ -149,13 +149,32 @@ export type AccessLevel = 'full' | 'restricted' | 'blocked';
  * Cada tese tem público, oferta e roteiro de qualificação próprios. Não é
  * rótulo de categoria: é o que determina quais perguntas a IA faz, quem é
  * elegível e quanto o lead custa em crédito.
+ *
+ * As quatro últimas — `auxilio_doenca`, `salario_maternidade`, `bpc_loas`,
+ * `auxilio_acidente` — são exceção parcial: já captam e qualificam de
+ * verdade (fluxos do n8n ligados a `registrar_captacao`), mas não têm
+ * `Tese` em `TESES` (`src/lib/teses.ts`) — sem elegibilidade e preço reais,
+ * que não nascem de suposição sobre regra do INSS ou laudo de acidente de
+ * trabalho, o lead não é publicado no catálogo. Aqui entram só para o time
+ * interno enxergar o funil; ver Pendências conhecidas no CLAUDE.md.
  */
-export type TeseId = 'polo_passivo' | 'vinculo_empregaticio' | 'juros_abusivos';
+export type TeseId =
+  | 'polo_passivo'
+  | 'vinculo_empregaticio'
+  | 'juros_abusivos'
+  | 'auxilio_doenca'
+  | 'salario_maternidade'
+  | 'bpc_loas'
+  | 'auxilio_acidente';
 
 export const TESE_LABEL: Record<TeseId, string> = {
   polo_passivo: 'Consultoria em polo passivo',
   vinculo_empregaticio: 'Reconhecimento de vínculo',
   juros_abusivos: 'Juros abusivos',
+  auxilio_doenca: 'Auxílio-doença',
+  salario_maternidade: 'Salário-maternidade',
+  bpc_loas: 'BPC/LOAS',
+  auxilio_acidente: 'Auxílio-acidente',
 };
 
 /** Rótulo curto, para caber em etiqueta de cartão e coluna de tabela. */
@@ -163,6 +182,10 @@ export const TESE_CURTA: Record<TeseId, string> = {
   polo_passivo: 'Polo passivo',
   vinculo_empregaticio: 'Vínculo',
   juros_abusivos: 'Juros abusivos',
+  auxilio_doenca: 'Auxílio-doença',
+  salario_maternidade: 'Salário-maternidade',
+  bpc_loas: 'BPC/LOAS',
+  auxilio_acidente: 'Auxílio-acidente',
 };
 
 /** Um filtro de elegibilidade da tese, avaliado durante a qualificação. */
