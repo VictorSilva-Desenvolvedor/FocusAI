@@ -754,6 +754,38 @@ forem a demanda.
   de acidente de trabalho. Enquanto isso não existir, a qualificação fica
   registrada (`INV-13`) mas o lead não é vendido. `FOCUS-AI.md` também segue
   descrevendo três teses e precisa da mesma decisão.
+- ~~Fluxos de ligação ativos não gravavam no Supabase~~ — resolvido. Achado ao
+  investigar a conexão do Lovable: existia um fluxo completo e correto
+  (`Registrar captação` → `Registrar chamada iniciada` → `Registrar
+  qualificação` → `Registrar agendamento`), mas ele estava **inativo**
+  (`HELENA - CONSULTORIA`). Todos os fluxos **ativos** — inclusive para
+  `vinculo_empregaticio` e `juros_abusivos`, teses já precificadas — eram
+  versões enxutas do mesmo molde: ligavam de verdade, marcavam hora de
+  verdade no Google Calendar, e nunca escreviam no banco. O lead era
+  qualificado e agendado, mas `registrar_agendamento` nunca rodava — não
+  publicava no catálogo (`LED-R01`), não cobrava crédito (`INV-15`) e nenhum
+  advogado via. Os 6 fluxos ativos foram religados no padrão do Consultoria,
+  cada um testado numa cópia `-teste` antes de promovido (dado fictício,
+  webhook simulado — nunca ligação real). De caminho, um bug real também foi
+  corrigido: o nó `Extrair Dados` de alguns fluxos indexava
+  `message.toolCalls[0]` sem checar o tipo da mensagem, e quebrava (500) em
+  qualquer retorno da Vapi que não fosse `tool-calls` — inclusive
+  `end-of-call-report`, o que carrega o resultado da qualificação.
+- **`Extrair agendamento` trava 60s toda vez que roda depois do `AI Agent`, em
+  `vinculo_empregaticio` e `juros_abusivos`.** Achado ao testar ao vivo o
+  religamento acima. A ligação acontece de verdade, a IA confirma o horário
+  pro cliente e o evento é criado no Google Calendar — mas `Registrar
+  agendamento` nunca roda, então o lead nunca é publicado no catálogo
+  (mesmo sintoma do item resolvido acima, só que uma etapa adiante). Isolado:
+  o mesmo código, testado sozinho num fluxo à parte com o mesmo dado real,
+  responde na hora — a lógica está certa. Testado também com uma blindagem
+  (`JSON.parse(JSON.stringify(...))` antes de processar, pra descartar
+  objeto não-serializável vindo do LangChain) — travou idêntico. A causa
+  está em como o n8n entrega a saída do nó `AI Agent` pro próximo `Code`
+  node, não em nada editável por fluxo. Precisa de acesso à instância
+  (`.secrets/coolify.env` tem o token, mas `COOLIFY_BASE_URL` está vazio —
+  sem isso não dá pra puxar log do container) para olhar log de runner ou
+  reiniciar o serviço.
 - **A fila de conversões da Meta enche sozinha, mas não tem com o que enviar
   nem quem esvazie.** `enfileirar_eventos_do_lead` grava em `eventos_meta` a
   cada transição real (`LeadQualificado`, `Schedule`, `Purchase`), e
