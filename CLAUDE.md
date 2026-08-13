@@ -703,10 +703,11 @@ forem a demanda.
   painel.
 - **`0010` e `0011` nasceram direto no banco de teste**, sem passar por
   arquivo, e foram reconstituídas por introspecção — ver os dois arquivos.
-- **Cadastro público ainda aberto no projeto Supabase.** `disable_signup` precisa
-  ir para `true` (Authentication › Sign In / Providers). Conta criada por fora
-  não ganha linha em `perfis` e cai como bloqueada, então não enxerga nada — mas
-  `INV-12` diz que ninguém se cadastra sozinho, e isso se fecha na configuração.
+- ~~Cadastro público ainda aberto no projeto Supabase~~ — resolvido.
+  `disable_signup` foi para `true` via Management API (`config/auth`). Nada no
+  app usava o cadastro público (`src/servicos/` nunca expôs `signUp`,
+  `INV-12`), então fechar não muda nenhum fluxo — só fecha o furo que existia
+  enquanto a configuração seguia no padrão do projeto.
 - ~~Sem recuperação de senha~~ — resolvido. "Esqueci minha senha" no login
   chama `resetPasswordForEmail`, sempre com a mesma mensagem de sucesso,
   exista ou não a conta (`ACC-R09`); `/redefinir-senha`, rota nova fora do
