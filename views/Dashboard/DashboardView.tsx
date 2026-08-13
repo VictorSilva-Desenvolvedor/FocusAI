@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
+import { useConformidade } from '@/src/contexts/ConformidadeContext';
 import { podeAcessar } from '@/src/lib/navigation';
 import {
   COLUNAS,
@@ -21,7 +22,7 @@ import {
   visiveisPara,
 } from '@/src/lib/leads';
 import { TESES } from '@/src/lib/teses';
-import { ALERTAS, CADEIA, TRABALHO_HOJE } from '@/src/lib/mockData';
+import { alertasOperacionais, CADEIA, TRABALHO_HOJE } from '@/src/lib/dashboard';
 import {
   ESTILO_BLOCO,
   ESTILO_CHIP,
@@ -32,6 +33,7 @@ import {
 import {
   LEAD_STATUS_LABEL,
   TESE_CURTA,
+  type AlertaOperacional,
   type ChipTrabalhoHoje,
   type LeadStatus,
   type Profile,
@@ -65,6 +67,7 @@ export function DashboardView() {
   const { perfil, ehAdvogado, advogadoId } = useAuth();
   const { leads } = useLeads();
   const { advogados } = useAdvogados();
+  const { pareceres } = useConformidade();
   const primeiroNome = perfil.nome.split(' ')[0];
 
   const advogadoDoPerfil = useMemo(
@@ -169,7 +172,13 @@ export function DashboardView() {
     ...(valores[e.id] ?? {}),
   }));
 
-  const alertasVisiveis = ALERTAS.filter((a) => podeAcessar(a.modulo, perfil));
+  const alertas = alertasOperacionais({
+    advogados,
+    pareceres,
+    leadsVencendo: numeros.vencendo,
+    leadsSemGravacao: numeros.semGravacao,
+  });
+  const alertasVisiveis = alertas.filter((a) => podeAcessar(a.modulo, perfil));
 
   const chips: ChipTrabalhoHoje[] = TRABALHO_HOJE.map((chip) => ({
     ...chip,
@@ -394,7 +403,7 @@ const ALERTA: Record<SeveridadeAlerta, { icone: typeof CircleAlert; tom: Tom }> 
   info: { icone: Info, tom: 'neutro' },
 };
 
-function Alertas({ alertas }: { alertas: typeof ALERTAS }) {
+function Alertas({ alertas }: { alertas: AlertaOperacional[] }) {
   return (
     <section className="card p-5">
       <div className="flex items-baseline justify-between mb-4">

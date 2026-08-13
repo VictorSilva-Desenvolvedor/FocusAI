@@ -763,14 +763,3 @@ export interface AlertaOperacional {
   regra: string | null;
   modulo: ModuleId;
 }
-
-/** Recorte do catálogo por tese, para o painel. */
-export interface EstoquePorTese {
-  tese: TeseId;
-  /** Agendados e ainda sem comprador. */
-  disponiveis: number;
-  vendidosMes: number;
-  /** Custo médio por lead qualificado, em reais. */
-  custoPorQualificado: number;
-  receitaMes: number;
-}
