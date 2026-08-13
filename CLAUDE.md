@@ -802,12 +802,15 @@ forem a demanda.
   em vez de `$json.output`, para não depender de os nós novos preservarem esse
   campo. Verificado com dados simulados (sucesso, só consulta, sem tool-call,
   tool que falha) antes de aplicar nos 3 fluxos reais.
-- **`npm run dev:teste`, `banco:reiniciar` e `smoke:qualificacao` não existem
-  no repositório.** São citados como parte do fluxo de verificação da cadeia de
-  voz, mas nunca foram commitados — mesmo destino de `0010`/`0011` antes de
-  serem reconstituídas. Precisam ser reescritos: um `.env.teste.local`
-  apontando para o projeto de teste, um script que reaplica a seed nele, e o
-  smoke da qualificação em si.
+- ~~`npm run dev:teste`, `banco:reiniciar` e `smoke:qualificacao` não existem
+  no repositório~~ — pendência desatualizada. Os três scripts (`scripts/
+  banco-de-teste.mjs`, `scripts/smoke-qualificacao.mjs`) já estavam commitados
+  e funcionais — só faltava o `.env.teste.local` que `dev:teste` (`vite --mode
+  teste`) precisa para apontar pro projeto de teste em vez de cair de volta no
+  `.env.local` do projeto de trabalho. Criado (fora do Git, como os demais
+  `.env.*`), com `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY` do
+  projeto `focusteste`. `npm run banco:teste` confirmado rodando de verdade
+  contra esse projeto (modo ensaio, sem `--valer`).
 - ~~Sem paginação~~ — resolvido. `listarLeads`, `listarAdvogados`,
   `listarUsuarios`, `listarMovimentos` e `extratoDoAdvogado`
   (`src/servicos/`) percorrem as páginas por dentro até esgotar a tabela;
