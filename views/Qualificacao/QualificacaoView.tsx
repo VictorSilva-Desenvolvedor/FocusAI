@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Mic, MicOff, PhoneOff, Sparkles } from 'lucide-react';
 import { useLeads } from '@/src/contexts/LeadsContext';
 import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
@@ -8,7 +8,10 @@ import {
   MAX_TENTATIVAS,
   NOME_DA_IA,
   TOM_RESULTADO,
+  chaveDoMes,
   formatarDuracao,
+  mesesComLigacoes,
+  rotuloDoMes,
   taxaDeQualificacao,
   taxaPorTese,
   vendidosSemGravacao,
@@ -31,9 +34,22 @@ export function QualificacaoView() {
 
   const semGravacao = useMemo(() => vendidosSemGravacao(leads), [leads]);
 
-  const emAndamento = ligacoes.filter((l) => l.resultado === 'em_andamento');
-  const taxa = taxaDeQualificacao(ligacoes);
-  const semAtender = ligacoes.filter(
+  /**
+   * Leva de captação vira mês: filtro para separar visualmente o que já foi
+   * revisado do que é a leva corrente, sem tocar no histórico (`ligacoes` é
+   * imutável — `INV-13`). "Todos os meses" por padrão, para não esconder dado
+   * na primeira visita.
+   */
+  const meses = useMemo(() => mesesComLigacoes(ligacoes), [ligacoes]);
+  const [filtroMes, setFiltroMes] = useState('');
+  const ligacoesFiltradas = useMemo(
+    () => (filtroMes ? ligacoes.filter((l) => chaveDoMes(l.em) === filtroMes) : ligacoes),
+    [ligacoes, filtroMes],
+  );
+
+  const emAndamento = ligacoesFiltradas.filter((l) => l.resultado === 'em_andamento');
+  const taxa = taxaDeQualificacao(ligacoesFiltradas);
+  const semAtender = ligacoesFiltradas.filter(
     (l) => l.resultado === 'nao_atendeu' && l.tentativa >= MAX_TENTATIVAS,
   );
 
@@ -96,9 +112,26 @@ export function QualificacaoView() {
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] items-start">
         {/* Fila de ligações --------------------------------------------- */}
         <section className="card p-5">
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-baseline justify-between gap-3 mb-4">
             <h2 className="card-title">Ligações recentes</h2>
-            <span className="text-[11px] text-stone-500 tabular">{ligacoes.length}</span>
+            <div className="flex items-center gap-2">
+              {meses.length > 1 && (
+                <select
+                  value={filtroMes}
+                  onChange={(e) => setFiltroMes(e.target.value)}
+                  aria-label="Filtrar por mês"
+                  className="campo w-auto py-1 text-[12px]"
+                >
+                  <option value="">Todos os meses</option>
+                  {meses.map((m) => (
+                    <option key={m} value={m}>
+                      {rotuloDoMes(m)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <span className="text-[11px] text-stone-500 tabular shrink-0">{ligacoesFiltradas.length}</span>
+            </div>
           </div>
 
           <div className="overflow-x-auto -mx-1 px-1">
@@ -114,7 +147,7 @@ export function QualificacaoView() {
                 </tr>
               </thead>
               <tbody>
-                {ligacoes.map((ligacao) => (
+                {ligacoesFiltradas.map((ligacao) => (
                   <tr key={ligacao.id} className="border-t border-stone-100">
                     <td className="py-2.5 pr-3">
                       <div className="flex items-center gap-1.5">
@@ -164,7 +197,7 @@ export function QualificacaoView() {
 
             <ul className="space-y-3">
               {TESES.map((tese) => {
-                const t = taxaPorTese(ligacoes, tese.id);
+                const t = taxaPorTese(ligacoesFiltradas, tese.id);
                 return (
                   <li key={tese.id}>
                     <div className="flex items-baseline justify-between mb-1">

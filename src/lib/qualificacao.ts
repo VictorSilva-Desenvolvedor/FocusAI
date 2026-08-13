@@ -75,6 +75,27 @@ export function leadsComUltimaNaoAtendida(ligacoes: Ligacao[]): Set<string> {
   return naoAtendidos;
 }
 
+const NOME_MES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/** Chave estável "AAAA-MM", pelo calendário local — é o que agrupa ligação por mês. */
+export function chaveDoMes(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function rotuloDoMes(chave: string): string {
+  const [ano, mes] = chave.split('-').map(Number);
+  return `${NOME_MES[mes - 1]}/${ano}`;
+}
+
+/** Meses com ao menos uma ligação, mais recente primeiro — o que preenche o select de filtro. */
+export function mesesComLigacoes(ligacoes: Ligacao[]): string[] {
+  return Array.from(new Set(ligacoes.map((l) => chaveDoMes(l.em)))).sort((a, b) => b.localeCompare(a));
+}
+
 /**
  * "4 min 12 s". Zero vira travessão: não atendeu não tem duração.
  *

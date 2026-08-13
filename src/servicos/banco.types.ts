@@ -160,6 +160,75 @@ export type Database = {
           },
         ]
       }
+      campanhas: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          criado_em: string
+          criado_por: string
+          criativos_no_ar: number
+          criativos_sem_parecer: number
+          gasto_mes: number
+          id: string
+          leads_mes: number
+          leads_qualificados_mes: number
+          nome: string
+          plataforma: Database["public"]["Enums"]["plataforma_anuncio"]
+          situacao: Database["public"]["Enums"]["situacao_campanha"]
+          tese: Database["public"]["Enums"]["tese"]
+          verba_diaria: number
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          criado_em?: string
+          criado_por: string
+          criativos_no_ar?: number
+          criativos_sem_parecer?: number
+          gasto_mes?: number
+          id?: string
+          leads_mes?: number
+          leads_qualificados_mes?: number
+          nome: string
+          plataforma: Database["public"]["Enums"]["plataforma_anuncio"]
+          situacao?: Database["public"]["Enums"]["situacao_campanha"]
+          tese: Database["public"]["Enums"]["tese"]
+          verba_diaria?: number
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          criado_em?: string
+          criado_por?: string
+          criativos_no_ar?: number
+          criativos_sem_parecer?: number
+          gasto_mes?: number
+          id?: string
+          leads_mes?: number
+          leads_qualificados_mes?: number
+          nome?: string
+          plataforma?: Database["public"]["Enums"]["plataforma_anuncio"]
+          situacao?: Database["public"]["Enums"]["situacao_campanha"]
+          tese?: Database["public"]["Enums"]["tese"]
+          verba_diaria?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_atualizado_por_fkey"
+            columns: ["atualizado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanhas_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       captacoes: {
         Row: {
           agente_usuario: string | null
@@ -582,6 +651,60 @@ export type Database = {
           },
         ]
       }
+      pareceres: {
+        Row: {
+          criativo: string
+          decisao: Database["public"]["Enums"]["decisao_conformidade"] | null
+          emitido_em: string | null
+          emitido_por: string | null
+          enviado_em: string
+          enviado_por: string
+          id: string
+          observacao: string | null
+          plataforma: Database["public"]["Enums"]["plataforma_anuncio"]
+          tese: Database["public"]["Enums"]["tese"]
+        }
+        Insert: {
+          criativo: string
+          decisao?: Database["public"]["Enums"]["decisao_conformidade"] | null
+          emitido_em?: string | null
+          emitido_por?: string | null
+          enviado_em?: string
+          enviado_por: string
+          id?: string
+          observacao?: string | null
+          plataforma: Database["public"]["Enums"]["plataforma_anuncio"]
+          tese: Database["public"]["Enums"]["tese"]
+        }
+        Update: {
+          criativo?: string
+          decisao?: Database["public"]["Enums"]["decisao_conformidade"] | null
+          emitido_em?: string | null
+          emitido_por?: string | null
+          enviado_em?: string
+          enviado_por?: string
+          id?: string
+          observacao?: string | null
+          plataforma?: Database["public"]["Enums"]["plataforma_anuncio"]
+          tese?: Database["public"]["Enums"]["tese"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pareceres_emitido_por_fkey"
+            columns: ["emitido_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pareceres_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perfis: {
         Row: {
           advogado_id: string | null
@@ -771,10 +894,7 @@ export type Database = {
         }
         Returns: Json
       }
-      atualizar_proprio_perfil: {
-        Args: { p_nome: string }
-        Returns: Json
-      }
+      atualizar_proprio_perfil: { Args: { p_nome: string }; Returns: Json }
       atualizar_usuario: {
         Args: {
           p_departamento?: string
@@ -808,15 +928,32 @@ export type Database = {
         }
         Returns: Json
       }
-      definir_aviso_lead_novo: {
-        Args: { p_ativo: boolean }
+      criar_lead_manual: {
+        Args: {
+          p_cidade: string
+          p_nome: string
+          p_origem?: Database["public"]["Enums"]["origem_lead"]
+          p_resumo?: string
+          p_telefone: string
+          p_tese: Database["public"]["Enums"]["tese"]
+          p_uf: string
+        }
         Returns: Json
       }
+      definir_aviso_lead_novo: { Args: { p_ativo: boolean }; Returns: Json }
       devolver_lead: {
         Args: { p_lead_id: string; p_motivo: string }
         Returns: Json
       }
       eh_time_interno: { Args: never; Returns: boolean }
+      emitir_parecer: {
+        Args: {
+          p_decisao: Database["public"]["Enums"]["decisao_conformidade"]
+          p_observacao?: string
+          p_parecer_id: string
+        }
+        Returns: Json
+      }
       encerrar_reuniao: {
         Args: { p_compareceu: boolean; p_lead_id: string }
         Returns: Json
@@ -924,6 +1061,12 @@ export type Database = {
       }
     }
     Enums: {
+      decisao_conformidade:
+        | "aprovado"
+        | "aprovado_com_ressalva"
+        | "exigir_ajuste"
+        | "pendencia_documental"
+        | "reprovado"
       evento_meta: "Lead" | "LeadQualificado" | "Schedule" | "Purchase"
       modelo_pagamento: "avulso" | "creditos"
       origem_lead: "meta_ads" | "google_ads" | "indicacao" | "organico"
@@ -937,6 +1080,7 @@ export type Database = {
         | "cs"
         | "financeiro"
         | "advogado"
+      plataforma_anuncio: "meta" | "google"
       porte_escritorio: "solo" | "pequeno" | "medio" | "grande"
       prioridade_advogado: "P1" | "P2" | "P3"
       resultado_ligacao:
@@ -945,6 +1089,7 @@ export type Database = {
         | "nao_atendeu"
         | "reagendar"
         | "em_andamento"
+      situacao_campanha: "ativa" | "pausada" | "aprendizado" | "encerrada"
       status_advogado:
         | "novo"
         | "em_qualificacao"
@@ -973,6 +1118,8 @@ export type Database = {
         | "juros_abusivos"
         | "auxilio_doenca"
         | "salario_maternidade"
+        | "bpc_loas"
+        | "auxilio_acidente"
       tipo_movimento: "compra" | "consumo" | "devolucao" | "ajuste"
     }
     CompositeTypes: {
@@ -1101,6 +1248,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      decisao_conformidade: [
+        "aprovado",
+        "aprovado_com_ressalva",
+        "exigir_ajuste",
+        "pendencia_documental",
+        "reprovado",
+      ],
       evento_meta: ["Lead", "LeadQualificado", "Schedule", "Purchase"],
       modelo_pagamento: ["avulso", "creditos"],
       origem_lead: ["meta_ads", "google_ads", "indicacao", "organico"],
@@ -1115,6 +1269,7 @@ export const Constants = {
         "financeiro",
         "advogado",
       ],
+      plataforma_anuncio: ["meta", "google"],
       porte_escritorio: ["solo", "pequeno", "medio", "grande"],
       prioridade_advogado: ["P1", "P2", "P3"],
       resultado_ligacao: [
@@ -1124,6 +1279,7 @@ export const Constants = {
         "reagendar",
         "em_andamento",
       ],
+      situacao_campanha: ["ativa", "pausada", "aprendizado", "encerrada"],
       status_advogado: [
         "novo",
         "em_qualificacao",
@@ -1154,6 +1310,8 @@ export const Constants = {
         "juros_abusivos",
         "auxilio_doenca",
         "salario_maternidade",
+        "bpc_loas",
+        "auxilio_acidente",
       ],
       tipo_movimento: ["compra", "consumo", "devolucao", "ajuste"],
     },
