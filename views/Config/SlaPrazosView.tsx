@@ -1,7 +1,7 @@
 import { Clock, FileCode2, Timer } from 'lucide-react';
 import { ESTILO_ETIQUETA } from '@/src/lib/estilo';
 import { SLA_HORAS } from '@/src/lib/conformidade';
-import { MINUTOS_DE_RESERVA, HORAS_PARA_VENCER } from '@/src/lib/leads';
+import { MINUTOS_DE_RESERVA, HORAS_PARA_VENCER, DIAS_PARA_PERDER } from '@/src/lib/leads';
 import { DIAS_PARA_CONGELAR, DIAS_SEM_INTERACAO_P1 } from '@/src/lib/advogados';
 
 interface Prazo {
@@ -39,6 +39,13 @@ const PRAZOS: Prazo[] = [
     rotulo: 'Aviso de lead vencendo',
     valor: `${HORAS_PARA_VENCER} h`,
     descricao: 'Quanto antes da hora da reunião o catálogo já marca o lead como "vence em breve".',
+    onde: 'src/lib/leads.ts',
+  },
+  {
+    regra: 'LED-R10',
+    rotulo: 'Lead perdido por falta de contato',
+    valor: `${DIAS_PARA_PERDER} dias`,
+    descricao: 'Tempo sem sair de "Novo" até o lead sair da fila da IA e cair na coluna "Perdidos" do quadro.',
     onde: 'src/lib/leads.ts',
   },
   {

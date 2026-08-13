@@ -524,6 +524,8 @@ export interface Parecer {
   emitidoPor: string | null;
   /** ISO. O cronômetro do SLA corre a partir daqui (CNF-R01). */
   enviadoEm: string;
+  /** Id de quem enviou o criativo para a fila — restringe a leitura de quem não decide. */
+  enviadoPor: string;
   observacao: string | null;
 }
 
