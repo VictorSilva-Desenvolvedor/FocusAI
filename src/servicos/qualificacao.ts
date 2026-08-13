@@ -52,6 +52,12 @@ function paraDominio(linha: LinhaLigacao): Ligacao {
  * `API-R07` — pagina sozinha, por dentro, até esgotar a tabela.
  *
  * Ordena pela mais recente primeiro: é o que "Ligações recentes" quer dizer.
+ * Os três `.order()` espelham exatamente o fallback de `paraDominio` — o
+ * `.em` exibido na tela é `encerrada_em ?? iniciada_em ?? registrada_em`, e
+ * ordenar só por `registrada_em` (quando a linha foi gravada) descasa da
+ * coluna "Quando" (quando a ligação aconteceu) sempre que o retorno da Vapi
+ * chega fora de ordem — a lista aparecia ordenada por um carimbo e mostrando
+ * outro.
  */
 export async function listarLigacoes(): Promise<Ligacao[]> {
   const tudo: Ligacao[] = [];
@@ -60,6 +66,8 @@ export async function listarLigacoes(): Promise<Ligacao[]> {
     const { data, error } = await supabase
       .from('ligacoes')
       .select(CAMPOS_LISTA)
+      .order('encerrada_em', { ascending: false, nullsFirst: false })
+      .order('iniciada_em', { ascending: false, nullsFirst: false })
       .order('registrada_em', { ascending: false })
       .range(de, de + POR_PAGINA - 1);
 
