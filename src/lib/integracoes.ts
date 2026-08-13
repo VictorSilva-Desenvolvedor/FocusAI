@@ -157,6 +157,16 @@ export const INTEGRACOES_PENDENTES: IntegracaoPendente[] = [
     regras: ['API-R13'],
   },
   {
+    id: 'assinatura-lovable',
+    nome: 'Assinatura do webhook de captação do Lovable',
+    frente: 'captar',
+    dependencia: 'servico_externo',
+    papel: 'Provar que quem chama o webhook de captação (Quiz) é o formulário do Lovable, não qualquer um que descobriu a URL',
+    semEla:
+      'Os 4 webhooks de Quiz (BPC LOAS, Auxílio Acidente, Reconhecimento de Vínculo, Juros Abusivos) chamam o n8n direto do navegador — confirmado pelo cabeçalho Origin de uma execução real, algo como id-preview--...lovable.app. Diferente do Tally, não há assinatura HMAC: um segredo dentro do código que roda no navegador deixa de ser segredo, então copiar o mesmo padrão dos 5 webhooks do Tally daria falsa sensação de segurança, não segurança de verdade. A solução de verdade passa por um backend do Lovable (Edge Function) assinando antes de repassar — depende de saber se esse projeto do Lovable tem backend próprio, o que ainda não foi confirmado.',
+    regras: ['API-R13'],
+  },
+  {
     id: 'meta-eventos',
     nome: 'Fila de eventos da Meta (Conversions API)',
     frente: 'captar',
