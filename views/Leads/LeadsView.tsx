@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { KanbanSquare, Search, Table2, Trash2, X } from 'lucide-react';
+import { KanbanSquare, Plus, Search, Table2, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
@@ -11,7 +11,9 @@ import {
   COLUNAS,
   COR_COLUNA,
   DESFECHOS,
+  DIAS_PARA_PERDER,
   estaNoCatalogo,
+  estaPerdido,
   motivoParaNaoAgendarManualmente,
   motivoParaNaoEncerrarReuniao,
   motivoParaRecusarMovimento,
@@ -34,6 +36,7 @@ import { LeadCard } from './LeadCard';
 import { LeadDrawer } from './LeadDrawer';
 import { CatalogoAdvogado } from './CatalogoAdvogado';
 import { TabelaLeads } from './TabelaLeads';
+import { NovoLeadDialog } from './NovoLeadDialog';
 
 /**
  * `nao_atendeu` fica fora do select de etapa: escolher uma etapa só restringe
@@ -73,6 +76,7 @@ export function LeadsView() {
   const [detalhe, setDetalhe] = useState<Lead | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [paraExcluir, setParaExcluir] = useState<Lead | null>(null);
+  const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
   const [ligacoes, setLigacoes] = useState<Ligacao[]>([]);
 
   /*
@@ -167,6 +171,14 @@ export function LeadsView() {
     () => filtrados.filter((l) => DESFECHOS.includes(l.status)),
     [filtrados],
   );
+  /**
+   * LED-R10 — três dias sem sair de `novo` e o lead esfria. Sai da coluna
+   * "Novo" para a coluna "Perdidos", que fica antes dela no quadro: ainda não
+   * é um desfecho (o status continua `novo`, a IA pode qualificar a qualquer
+   * momento), mas misturado com o que acabou de chegar ele nunca seria olhado
+   * de novo.
+   */
+  const perdidos = useMemo(() => noQuadro.filter(estaPerdido), [noQuadro]);
   // Só para o botão "Encerrados" não sumir quando ocultar não atendidas zera
   // o que sobra do desfecho filtrado — ele precisa continuar clicável.
   const desfechosTodos = useMemo(
@@ -179,11 +191,12 @@ export function LeadsView() {
     const vencendo = noQuadro.filter(venceEmBreve).length;
     const vendidos = noQuadro.filter((l) => l.compradoPor).length;
     const semGravacao = noQuadro.filter((l) => l.compradoPor && !l.temGravacao).length;
+    // Perdido não conta como fila: já esfriou, não é mais o que a IA está de fato tentando.
     const naFila = noQuadro.filter(
-      (l) => l.status === 'novo' || l.status === 'em_qualificacao',
+      (l) => (l.status === 'novo' && !estaPerdido(l)) || l.status === 'em_qualificacao',
     ).length;
-    return { catalogo, vencendo, vendidos, semGravacao, naFila };
-  }, [noQuadro]);
+    return { catalogo, vencendo, vendidos, semGravacao, naFila, perdidos: perdidos.length };
+  }, [noQuadro, perdidos]);
 
   /**
    * LED-R04 — abrir a gaveta de um lead do catálogo **é** entrar no checkout, e
@@ -263,13 +276,17 @@ export function LeadsView() {
    * travas do quadro: é o mesmo movimento que a operação faria, feito pelo
    * lado que sabe o que aconteceu.
    */
-  function encerrarReuniao(lead: Lead, desfecho: 'atendido' | 'no_show') {
+  async function encerrarReuniao(lead: Lead, desfecho: 'atendido' | 'no_show') {
     const recusa = motivoParaNaoEncerrarReuniao(lead, advogadoDoPerfil);
     if (recusa) {
       setAviso({ texto: recusa, tom: 'erro' });
       return;
     }
-    mover(lead.id, desfecho);
+    const resultado = await mover(lead.id, desfecho);
+    if (!resultado.ok) {
+      setAviso({ texto: resultado.motivo, tom: 'erro' });
+      return;
+    }
     setDetalhe(null);
     setAviso({
       texto:
@@ -279,13 +296,17 @@ export function LeadsView() {
     });
   }
 
-  function tentarMover(lead: Lead, destino: LeadStatus) {
+  async function tentarMover(lead: Lead, destino: LeadStatus) {
     const recusa = motivoParaRecusarMovimento(lead, destino);
     if (recusa) {
       setAviso({ texto: recusa, tom: 'erro' });
       return;
     }
-    mover(lead.id, destino);
+    const resultado = await mover(lead.id, destino);
+    if (!resultado.ok) {
+      setAviso({ texto: resultado.motivo, tom: 'erro' });
+      return;
+    }
     setAviso({ texto: `${lead.nome} → ${LEAD_STATUS_LABEL[destino]}.` });
   }
 
@@ -366,13 +387,23 @@ export function LeadsView() {
           </div>
 
           {!ehAdvogado && (
-            <div className="flex rounded-lg border border-stone-200 bg-white p-0.5">
-              <BotaoVisao ativo={visao === 'kanban'} aoClicar={() => setVisao('kanban')} rotulo="Kanban">
-                <KanbanSquare className="size-4" />
-              </BotaoVisao>
-              <BotaoVisao ativo={visao === 'tabela'} aoClicar={() => setVisao('tabela')} rotulo="Tabela">
-                <Table2 className="size-4" />
-              </BotaoVisao>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMostrarNovoLead(true)}
+                className="btn btn-primario gap-1.5"
+              >
+                <Plus className="size-4" />
+                Novo lead
+              </button>
+              <div className="flex rounded-lg border border-stone-200 bg-white p-0.5">
+                <BotaoVisao ativo={visao === 'kanban'} aoClicar={() => setVisao('kanban')} rotulo="Kanban">
+                  <KanbanSquare className="size-4" />
+                </BotaoVisao>
+                <BotaoVisao ativo={visao === 'tabela'} aoClicar={() => setVisao('tabela')} rotulo="Tabela">
+                  <Table2 className="size-4" />
+                </BotaoVisao>
+              </div>
             </div>
           )}
         </div>
@@ -396,6 +427,12 @@ export function LeadsView() {
           ) : (
             <>
               <Chip valor={chips.naFila} rotulo="na fila da IA" />
+              <Chip
+                valor={chips.perdidos}
+                rotulo="perdidos"
+                tom={chips.perdidos > 0 ? 'erro' : 'neutro'}
+                titulo="Mais de 3 dias sem sair de 'novo' — não entraram em qualificação a tempo (LED-R10)."
+              />
               <Chip valor={chips.catalogo} rotulo="no catálogo" tom="marca" />
               <Chip
                 valor={chips.vencendo}
@@ -538,8 +575,45 @@ export function LeadsView() {
       ) : visao === 'kanban' ? (
         <div className="flex-1 min-h-0 overflow-x-auto px-4 sm:px-6 pb-6">
           <div className="flex gap-3 h-full min-w-max">
+            {perdidos.length > 0 && (
+              <section className="w-72 shrink-0 flex flex-col rounded-xl border border-erro-200 bg-erro-50/40">
+                <header className="shrink-0 px-3 py-2.5 border-b border-erro-200/70">
+                  <div className="flex items-center gap-2">
+                    <span className="ponto-estado size-2 bg-erro-400" />
+                    <h2 className="text-[12px] font-semibold text-roxo-900">Perdidos</h2>
+                    <span className="ml-auto text-[11px] text-stone-500 tabular">{perdidos.length}</span>
+                  </div>
+                  <div className="nota mt-0.5">Mais de {DIAS_PARA_PERDER} dias sem sair de "Novo"</div>
+                </header>
+
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  {perdidos.map((l) => (
+                    <LeadCard
+                      key={l.id}
+                      lead={l}
+                      compradorNome={null}
+                      arrastavel
+                      aoIniciarArraste={() => setArrastando(l.id)}
+                      aoTerminarArraste={() => {
+                        setArrastando(null);
+                        setColunaAlvo(null);
+                      }}
+                      aoAbrirMenu={(e) => {
+                        e.preventDefault();
+                        setMenu({ lead: l, x: e.clientX, y: e.clientY });
+                      }}
+                      aoAbrir={() => abrirDetalhe(l)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
             {COLUNAS.map((coluna) => {
-              const cartoes = noQuadro.filter((l) => l.status === coluna);
+              const cartoes =
+                coluna === 'novo'
+                  ? noQuadro.filter((l) => l.status === coluna && !estaPerdido(l))
+                  : noQuadro.filter((l) => l.status === coluna);
               const creditos = cartoes.reduce((s, l) => s + l.custoCreditos, 0);
               const alvo = colunaAlvo === coluna;
 
@@ -700,6 +774,18 @@ export function LeadsView() {
           lead={paraExcluir}
           aoCancelar={() => setParaExcluir(null)}
           aoConfirmar={confirmarExclusao}
+        />
+      )}
+
+      {mostrarNovoLead && (
+        <NovoLeadDialog
+          leads={leads}
+          aoFechar={() => setMostrarNovoLead(false)}
+          aoCriar={(lead) => {
+            setMostrarNovoLead(false);
+            setAviso({ texto: `${lead.nome} cadastrado.` });
+            setDetalhe(lead);
+          }}
         />
       )}
 

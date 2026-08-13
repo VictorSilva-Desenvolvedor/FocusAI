@@ -1,17 +1,20 @@
 import { createContext, use, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { type LeadFormData } from '@/src/lib/leads';
 import {
+  atualizarElegibilidade,
   avaliarLead,
   comprarLead,
+  criarLeadManual,
   devolverLead,
   excluirLead,
   liberarReserva as liberarReservaNoBanco,
   listarLeads,
+  moverLead,
   reservarLead,
+  type Resultado,
 } from '@/src/servicos/leads';
 import { useDadosDaSessao } from '@/src/contexts/dadosDaSessao';
-import { TESE_POR_ID } from '@/src/lib/teses';
-import type { Lead, LeadStatus, TeseId } from '@/types';
+import type { Lead, LeadStatus } from '@/types';
 
 /*
  * MIGRAÇÃO — leitura e as operações transacionais no banco.
@@ -27,10 +30,17 @@ import type { Lead, LeadStatus, TeseId } from '@/types';
  * comprador não é mais parâmetro — a função o deriva da sessão, porque passá-lo
  * do cliente faria de comprar em nome de terceiro uma chamada bem formada.
  *
- * O que **continua local**: `criar`, `mover`, `agendar` e `responderFiltro` —
- * as operações do quadro interno. Não há função no banco para elas ainda, e
- * escrita direta na tabela contornaria a validação que as outras têm. Alteração
- * feita por elas vale para a sessão e some no recarregar.
+ * **Criar, mover e responder filtro** também gravam no banco agora: `criar`
+ * chama `criar_lead_manual` (mesma escrita que a captação automática faz);
+ * `mover` e `responderFiltro` escrevem direto na tabela, sob a política "quem
+ * opera o catálogo escreve" — `leads_carimbo_imutavel` já recusa no banco o
+ * que `motivoParaRecusarMovimento` recusa na tela, então não é escrita nova
+ * sem validação, é a mesma escrita que a política já permitia, finalmente
+ * usada.
+ *
+ * O que **continua local**: só `agendar`. `LED-R09` — `direcionadoPara` (a
+ * entrega exclusiva) não tem coluna no banco ainda; é uma dívida documentada
+ * em `CLAUDE.md`, não um esquecimento desta rodada.
  *
  * Consequência operacional que vale saber: `npm run smoke` agora consome lead
  * de verdade. Hoje só a seed fictícia; quando a captação entregar lead real, o
@@ -48,15 +58,16 @@ interface LeadsValue {
   carregando: boolean;
   /** Mensagem da falha de carregamento, ou nulo. Lista vazia por erro não é lista vazia. */
   erro: string | null;
-  criar: (dados: LeadFormData) => Lead;
-  mover: (id: string, status: LeadStatus, motivo?: string) => void;
+  /** Cadastro manual — grava em `leads` e `leads_contato` numa transação só. */
+  criar: (dados: LeadFormData) => Promise<{ ok: true; lead: Lead } | { ok: false; motivo: string }>;
+  mover: (id: string, status: LeadStatus, motivo?: string) => Promise<Resultado>;
   /**
    * `LED-R09` — agendamento manual. `direcionadoPara` é o advogado da entrega
    * exclusiva, ou nulo para publicar no catálogo aberto (o comportamento de
-   * sempre).
+   * sempre). Ainda local — `direcionadoPara` não tem coluna no banco.
    */
   agendar: (id: string, reuniaoEm: string, direcionadoPara?: string | null) => void;
-  responderFiltro: (id: string, filtroId: string, valor: boolean) => void;
+  responderFiltro: (id: string, filtroId: string, valor: boolean) => Promise<void>;
   reservar: (id: string) => Promise<boolean>;
   liberarReserva: (id: string) => Promise<void>;
   /**
@@ -116,61 +127,27 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
     [definir],
   );
 
+  /** Cadastro manual. `criar_lead_manual` grava lead e contato numa transação só (`API-R08`). */
   const criar = useCallback(
-    (dados: LeadFormData): Lead => {
-      const agora = new Date().toISOString();
-      const tese = TESE_POR_ID[dados.tese as TeseId];
-      const novo: Lead = {
-        id: `lead-${crypto.randomUUID().slice(0, 8)}`,
-        nome: dados.nome.trim(),
-        telefone: dados.telefone.trim(),
-        tese: dados.tese as TeseId,
-        uf: dados.uf,
-        cidade: dados.cidade.trim(),
-        status: 'novo',
-        origem: 'meta_ads',
-        resumoQualificacao: dados.resumoQualificacao.trim(),
-        elegibilidade: {},
-        reuniaoEm: null,
-        // CRE-R03 — o preço entra congelado. Mexer na tabela da tese depois não
-        // reescreve o que já está anunciado nem o que já foi vendido.
-        custoCreditos: tese?.custoCreditos ?? 0,
-        precoAvulso: tese?.precoAvulso ?? 0,
-        direcionadoPara: null,
-        compradoPor: null,
-        compradoEm: null,
-        reservadoPor: null,
-        reservadoAte: null,
-        temGravacao: false,
-        criadoEm: agora,
-        ultimaAtividade: agora,
-        motivoDesqualificacao: null,
-        devolucao: null,
-        avaliacao: null,
-      };
-      aplicar((atual) => [novo, ...atual]);
-      return novo;
+    async (dados: LeadFormData) => {
+      const r = await criarLeadManual(dados);
+      if (!r.ok) return r;
+
+      const atualizados = await recarregar();
+      const lead = atualizados.find((l) => l.id === r.leadId);
+      if (!lead) return { ok: false as const, motivo: 'Lead criado, mas não encontrado depois de recarregar.' };
+      return { ok: true as const, lead };
     },
-    [aplicar],
+    [recarregar],
   );
 
   const mover = useCallback(
-    (id: string, status: LeadStatus, motivo?: string) => {
-      aplicar((atual) =>
-        atual.map((l) =>
-          l.id === id
-            ? {
-                ...l,
-                status,
-                ultimaAtividade: new Date().toISOString(),
-                motivoDesqualificacao:
-                  status === 'desqualificado' ? (motivo ?? l.motivoDesqualificacao) : null,
-              }
-            : l,
-        ),
-      );
+    async (id: string, status: LeadStatus, motivo?: string) => {
+      const r = await moverLead(id, status, status === 'desqualificado' ? (motivo ?? null) : null);
+      if (r.ok) await recarregar();
+      return r;
     },
-    [aplicar],
+    [recarregar],
   );
 
   const agendar = useCallback(
@@ -192,21 +169,25 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
     [aplicar],
   );
 
+  /**
+   * Otimista: marca a resposta na hora (é uma caixinha de seleção, precisa
+   * responder ao clique) e grava em seguida. Falhando, `recarregar` traz a
+   * verdade do banco de volta — mais barato que manter duas versões da linha.
+   */
   const responderFiltro = useCallback(
-    (id: string, filtroId: string, valor: boolean) => {
-      aplicar((atual) =>
-        atual.map((l) =>
-          l.id === id
-            ? {
-                ...l,
-                elegibilidade: { ...l.elegibilidade, [filtroId]: valor },
-                ultimaAtividade: new Date().toISOString(),
-              }
-            : l,
-        ),
+    async (id: string, filtroId: string, valor: boolean) => {
+      const atual = vivos.current.find((l) => l.id === id);
+      if (!atual) return;
+      const elegibilidade = { ...atual.elegibilidade, [filtroId]: valor };
+
+      aplicar((lista) =>
+        lista.map((l) => (l.id === id ? { ...l, elegibilidade, ultimaAtividade: new Date().toISOString() } : l)),
       );
+
+      const r = await atualizarElegibilidade(id, elegibilidade);
+      if (!r.ok) await recarregar();
     },
-    [aplicar],
+    [aplicar, recarregar],
   );
 
   /**

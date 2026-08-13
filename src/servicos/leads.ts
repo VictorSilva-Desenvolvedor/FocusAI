@@ -1,4 +1,5 @@
 import { supabase } from '@/src/lib/supabase';
+import type { LeadFormData } from '@/src/lib/leads';
 import type { Lead, LeadStatus, OrigemLead, TeseId } from '@/types';
 
 /**
@@ -171,7 +172,8 @@ type FuncaoDeLead =
   | 'reservar_lead'
   | 'encerrar_reuniao'
   | 'avaliar_lead'
-  | 'excluir_lead';
+  | 'excluir_lead'
+  | 'criar_lead_manual';
 
 async function chamar(
   nome: FuncaoDeLead,
@@ -211,3 +213,67 @@ export async function liberarReserva(leadId: string): Promise<void> {
  * banco recusa lead vendido ou com ligação registrada (`INV-13`).
  */
 export const excluirLead = (leadId: string) => chamar('excluir_lead', { p_lead_id: leadId });
+
+/**
+ * Cadastro manual — mesma escrita que a captação automática faz
+ * (`criar_lead_manual`, espelha `registrar_captacao`), disparada por quem
+ * opera o catálogo em vez de pelo webhook do formulário. Devolve o id porque,
+ * diferente das funções acima, aqui não há lead prévio para reler por ele —
+ * é este id que a tela usa para achar a linha nova depois de recarregar.
+ */
+export async function criarLeadManual(
+  dados: LeadFormData,
+): Promise<{ ok: true; leadId: string } | { ok: false; motivo: string }> {
+  const { data, error } = await supabase.rpc('criar_lead_manual', {
+    p_nome: dados.nome.trim(),
+    p_telefone: dados.telefone.trim(),
+    p_tese: dados.tese as TeseId,
+    p_uf: dados.uf.trim(),
+    p_cidade: dados.cidade.trim(),
+    p_resumo: dados.resumoQualificacao.trim(),
+    p_origem: dados.origem,
+  });
+
+  if (error) return { ok: false, motivo: error.message };
+  const r = data as { ok: boolean; motivo?: string; lead_id?: string };
+  if (!r.ok) return { ok: false, motivo: r.motivo ?? 'Não foi possível cadastrar o lead.' };
+  return { ok: true, leadId: r.lead_id! };
+}
+
+/**
+ * Mover no quadro. `leads_carimbo_imutavel` (`0001_fundacao.sql`) já recusa
+ * no banco o que `motivoParaRecusarMovimento` recusa na tela — reescrever o
+ * comprador ou tirar um lead vendido do catálogo — então a escrita direta,
+ * sob a política "quem opera o catálogo escreve", não abre buraco novo.
+ */
+export async function moverLead(
+  leadId: string,
+  status: LeadStatus,
+  motivoDesqualificacao: string | null,
+): Promise<Resultado> {
+  const { error } = await supabase
+    .from('leads')
+    .update({
+      status,
+      motivo_desqualificacao: motivoDesqualificacao,
+      ultima_atividade: new Date().toISOString(),
+    })
+    .eq('id', leadId);
+
+  if (error) return { ok: false, motivo: error.message };
+  return { ok: true };
+}
+
+/** Resposta a um filtro de elegibilidade da tese — grava o objeto inteiro, já mesclado. */
+export async function atualizarElegibilidade(
+  leadId: string,
+  elegibilidade: Record<string, boolean>,
+): Promise<Resultado> {
+  const { error } = await supabase
+    .from('leads')
+    .update({ elegibilidade, ultima_atividade: new Date().toISOString() })
+    .eq('id', leadId);
+
+  if (error) return { ok: false, motivo: error.message };
+  return { ok: true };
+}

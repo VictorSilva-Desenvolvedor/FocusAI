@@ -1,6 +1,6 @@
 import { ESTILO_ETIQUETA, ESTILO_PONTO, type Tom } from '@/src/lib/estilo';
 import { avaliarElegibilidade as avaliarContraATese } from '@/src/lib/teses';
-import type { Advogado, Lead, LeadStatus, Profile, TeseId } from '@/types';
+import type { Advogado, Lead, LeadStatus, OrigemLead, Profile, TeseId } from '@/types';
 
 // ---------------------------------------------------------------------------
 // O quadro
@@ -267,6 +267,27 @@ export function advogadosElegiveisParaEntrega(lead: Lead, advogados: Advogado[])
 }
 
 // ---------------------------------------------------------------------------
+// LED-R10 — lead perdido por falta de contato
+// ---------------------------------------------------------------------------
+
+/**
+ * Três dias sem sair de `novo` é tempo suficiente para a IA ter tentado —
+ * passado isso, o interesse de quem preencheu o formulário já esfriou. Não é
+ * um desfecho gravado (`DESFECHOS`): a automação ainda pode qualificar a
+ * qualquer momento, então o status continua `novo`. É sinal de tela, calculado
+ * contra o relógio a cada leitura — igual `reservaAtiva` (`LED-R04`) — para não
+ * depender de um campo que alguém precisaria lembrar de atualizar.
+ */
+export const DIAS_PARA_PERDER = 3;
+
+/** Ainda `novo` e mais velho que `DIAS_PARA_PERDER` dias — não entrou em qualificação a tempo. */
+export function estaPerdido(lead: Lead): boolean {
+  if (lead.status !== 'novo') return false;
+  const dias = (Date.now() - Date.parse(lead.criadoEm)) / 86_400_000;
+  return dias > DIAS_PARA_PERDER;
+}
+
+// ---------------------------------------------------------------------------
 // Compra
 // ---------------------------------------------------------------------------
 
@@ -391,7 +412,18 @@ export interface LeadFormData {
   uf: string;
   cidade: string;
   resumoQualificacao: string;
+  origem: OrigemLead;
 }
+
+export const LEAD_FORM_VAZIO: LeadFormData = {
+  nome: '',
+  telefone: '',
+  tese: '',
+  uf: '',
+  cidade: '',
+  resumoQualificacao: '',
+  origem: 'organico',
+};
 
 export type ErrosLead = Partial<Record<keyof LeadFormData, string>>;
 
