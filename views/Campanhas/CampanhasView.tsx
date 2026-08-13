@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
-import { ShieldAlert, TrendingDown, TrendingUp } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Pencil, Plus, ShieldAlert, TrendingDown, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { useCampanhas } from '@/src/contexts/CampanhasContext';
+import { Toast, type Aviso } from '@/src/components/ui/Toast';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_PONTO, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
-import { CAMPANHAS_SEED } from '@/src/lib/qualificacaoSeed';
+import { custoBruto, custoPorQualificado } from '@/src/lib/campanhas';
 import { ESTILO_TESE } from '@/src/lib/leads';
 import { TESES } from '@/src/lib/teses';
 import {
@@ -11,6 +14,7 @@ import {
   type Campanha,
   type SituacaoCampanha,
 } from '@/types';
+import { CampanhaDialog } from './CampanhaDialog';
 
 const brl = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -28,40 +32,35 @@ const TOM_SITUACAO: Record<SituacaoCampanha, Tom> = {
   encerrada: 'neutro',
 };
 
-/**
- * O custo por lead qualificado é o número que decide. Lead que a IA
- * desqualifica custou anúncio igual e não virou produto nenhum — otimizar pelo
- * custo bruto leva a campanha a comprar volume que morre na qualificação.
- */
-function custoPorQualificado(c: Campanha): number {
-  if (c.leadsQualificadosMes === 0) return 0;
-  return c.gastoMes / c.leadsQualificadosMes;
-}
-
-function custoBruto(c: Campanha): number {
-  if (c.leadsMes === 0) return 0;
-  return c.gastoMes / c.leadsMes;
-}
-
 export function CampanhasView() {
+  const { perfil } = useAuth();
+  const { campanhas } = useCampanhas();
+
+  // Espelha `papeis`/`papeisRestritos` de `campanhas` em navigation.ts: quem
+  // opera tráfego gerencia, o time de criativo só lê.
+  const podeGerenciar =
+    perfil.role === 'adm' || perfil.role === 'gerente' || perfil.role === 'gestor_trafego';
+
+  const [dialogo, setDialogo] = useState<{ editando: Campanha | null } | null>(null);
+  const [aviso, setAviso] = useState<Aviso | null>(null);
+
   const totais = useMemo(() => {
-    const gasto = CAMPANHAS_SEED.reduce((s, c) => s + c.gastoMes, 0);
-    const leads = CAMPANHAS_SEED.reduce((s, c) => s + c.leadsMes, 0);
-    const qualificados = CAMPANHAS_SEED.reduce((s, c) => s + c.leadsQualificadosMes, 0);
-    const semParecer = CAMPANHAS_SEED.reduce((s, c) => s + c.criativosSemParecer, 0);
-    const diaria = CAMPANHAS_SEED.filter((c) => c.situacao === 'ativa').reduce(
-      (s, c) => s + c.verbaDiaria,
-      0,
-    );
+    const gasto = campanhas.reduce((s, c) => s + c.gastoMes, 0);
+    const leads = campanhas.reduce((s, c) => s + c.leadsMes, 0);
+    const qualificados = campanhas.reduce((s, c) => s + c.leadsQualificadosMes, 0);
+    const semParecer = campanhas.reduce((s, c) => s + c.criativosSemParecer, 0);
+    const diaria = campanhas
+      .filter((c) => c.situacao === 'ativa')
+      .reduce((s, c) => s + c.verbaDiaria, 0);
     return { gasto, leads, qualificados, semParecer, diaria };
-  }, []);
+  }, [campanhas]);
 
   const porTese = useMemo(
     () =>
       TESES.map((tese) => {
-        const campanhas = CAMPANHAS_SEED.filter((c) => c.tese === tese.id);
-        const gasto = campanhas.reduce((s, c) => s + c.gastoMes, 0);
-        const qualificados = campanhas.reduce((s, c) => s + c.leadsQualificadosMes, 0);
+        const daTese = campanhas.filter((c) => c.tese === tese.id);
+        const gasto = daTese.reduce((s, c) => s + c.gastoMes, 0);
+        const qualificados = daTese.reduce((s, c) => s + c.leadsQualificadosMes, 0);
         return {
           tese: tese.id,
           gasto,
@@ -72,19 +71,31 @@ export function CampanhasView() {
           teto: tese.precoAvulso,
         };
       }),
-    [],
+    [campanhas],
   );
 
   const maiorCusto = Math.max(...porTese.map((t) => t.custo), 1);
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24 space-y-6 animate-entrada-suave">
-      <div>
-        <h1 className="titulo-pagina">Campanhas</h1>
-        <p className="subtitulo-pagina mt-1">
-          Anúncios por tese. O número que decide não é o custo por lead — é o custo por lead
-          qualificado.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="titulo-pagina">Campanhas</h1>
+          <p className="subtitulo-pagina mt-1">
+            Anúncios por tese. O número que decide não é o custo por lead — é o custo por lead
+            qualificado.
+          </p>
+        </div>
+        {podeGerenciar && (
+          <button
+            type="button"
+            onClick={() => setDialogo({ editando: null })}
+            className="btn btn-primario gap-1.5"
+          >
+            <Plus className="size-4" />
+            Nova campanha
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -145,10 +156,11 @@ export function CampanhasView() {
                   <th className="font-medium pb-2 pr-3 w-20 text-right">Leads</th>
                   <th className="font-medium pb-2 pr-3 w-20 text-right">Qualif.</th>
                   <th className="font-medium pb-2 w-28 text-right">Custo/qualif.</th>
+                  {podeGerenciar && <th className="font-medium pb-2 pl-3 w-10" />}
                 </tr>
               </thead>
               <tbody>
-                {CAMPANHAS_SEED.map((c) => {
+                {campanhas.map((c) => {
                   const custo = custoPorQualificado(c);
                   const tese = TESES.find((t) => t.id === c.tese);
                   const acimaDoTeto = tese ? custo > tese.precoAvulso : false;
@@ -199,9 +211,29 @@ export function CampanhasView() {
                           bruto {brlCentavos.format(custoBruto(c))}
                         </div>
                       </td>
+                      {podeGerenciar && (
+                        <td className="py-2.5 pl-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setDialogo({ editando: c })}
+                            aria-label={`Editar ${c.nome}`}
+                            className="btn-icone"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
+
+                {campanhas.length === 0 && (
+                  <tr>
+                    <td colSpan={podeGerenciar ? 7 : 6} className="py-6 text-center nota">
+                      Nenhuma campanha cadastrada.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -266,6 +298,16 @@ export function CampanhasView() {
           </div>
         </section>
       </div>
+
+      {dialogo && (
+        <CampanhaDialog
+          editando={dialogo.editando}
+          aoFechar={() => setDialogo(null)}
+          aoSalvar={(mensagem) => setAviso({ texto: mensagem })}
+        />
+      )}
+
+      <Toast aviso={aviso} aoFechar={() => setAviso(null)} />
     </div>
   );
 }
