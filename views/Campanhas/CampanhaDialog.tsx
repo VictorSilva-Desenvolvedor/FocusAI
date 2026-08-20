@@ -1,7 +1,8 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useCampanhas } from '@/src/contexts/CampanhasContext';
 import { Campo, entrada } from '@/src/components/ui/Campo';
+import { useFocoPreso } from '@/src/components/ui/focoPreso';
 import {
   CAMPANHA_FORM_VAZIO,
   campanhaParaFormulario,
@@ -68,11 +69,15 @@ export function CampanhaDialog({ editando, aoFechar, aoSalvar }: Props) {
     aoFechar();
   }
 
+  const refDialogo = useRef<HTMLFormElement>(null);
+  useFocoPreso(refDialogo);
+
   return (
     <div className="pilha-dialogo grid place-items-center p-4">
       <button type="button" aria-label="Fechar" onClick={aoFechar} className="veu" />
 
       <form
+        ref={refDialogo}
         onSubmit={submeter}
         role="dialog"
         aria-modal="true"

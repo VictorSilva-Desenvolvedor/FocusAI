@@ -103,6 +103,9 @@ export async function emitirParecer(
     p_observacao: observacao ?? undefined,
   });
 
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[conformidade]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as Resultado;
 }

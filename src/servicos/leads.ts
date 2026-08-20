@@ -187,7 +187,10 @@ async function chamar(
    * as duas igual: as funções devolvem a recusa como `{ok:false, motivo}`, com
    * texto pronto para o usuário. Só falha de rede chega por `error`.
    */
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[leads]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as Resultado;
 }
 
@@ -234,7 +237,10 @@ export async function criarLeadManual(
     p_origem: dados.origem,
   });
 
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[leads]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   const r = data as { ok: boolean; motivo?: string; lead_id?: string };
   if (!r.ok) return { ok: false, motivo: r.motivo ?? 'Não foi possível cadastrar o lead.' };
   return { ok: true, leadId: r.lead_id! };
@@ -260,7 +266,10 @@ export async function moverLead(
     })
     .eq('id', leadId);
 
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[leads]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return { ok: true };
 }
 
@@ -274,6 +283,9 @@ export async function atualizarElegibilidade(
     .update({ elegibilidade, ultima_atividade: new Date().toISOString() })
     .eq('id', leadId);
 
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[leads]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return { ok: true };
 }

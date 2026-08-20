@@ -3,6 +3,7 @@ import { Pencil, Plus, ShieldAlert, TrendingDown, TrendingUp } from 'lucide-reac
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useCampanhas } from '@/src/contexts/CampanhasContext';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
+import { AvisoErro } from '@/src/components/ui/AvisoErro';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_PONTO, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
 import { custoBruto, custoPorQualificado } from '@/src/lib/campanhas';
 import { ESTILO_TESE } from '@/src/lib/leads';
@@ -34,7 +35,7 @@ const TOM_SITUACAO: Record<SituacaoCampanha, Tom> = {
 
 export function CampanhasView() {
   const { perfil } = useAuth();
-  const { campanhas } = useCampanhas();
+  const { campanhas, erro, recarregar } = useCampanhas();
 
   // Espelha `papeis`/`papeisRestritos` de `campanhas` em navigation.ts: quem
   // opera tráfego gerencia, o time de criativo só lê.
@@ -78,6 +79,7 @@ export function CampanhasView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24 space-y-6 animate-entrada-suave">
+      {erro && <AvisoErro erro={erro} aoTentarNovamente={recarregar} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="titulo-pagina">Campanhas</h1>
@@ -207,7 +209,7 @@ export function CampanhasView() {
                         }
                       >
                         {brlCentavos.format(custo)}
-                        <div className="nota text-[10px] font-normal">
+                        <div className="nota font-normal">
                           bruto {brlCentavos.format(custoBruto(c))}
                         </div>
                       </td>

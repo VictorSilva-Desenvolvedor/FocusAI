@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   BadgeCheck,
   CalendarCheck,
@@ -22,6 +22,7 @@ import { useLeads } from '@/src/contexts/LeadsContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { listarLigacoesDoLead } from '@/src/servicos/qualificacao';
 import { Campo } from '@/src/components/ui/Campo';
+import { useFocoPreso } from '@/src/components/ui/focoPreso';
 import { ESTILO_BLOCO, ESTILO_ETIQUETA, ESTILO_TEXTO } from '@/src/lib/estilo';
 import {
   ESTILO_TESE,
@@ -113,11 +114,15 @@ export function LeadDrawer({
     return () => document.removeEventListener('keydown', aoTeclar);
   }, [aoFechar]);
 
+  const refGaveta = useRef<HTMLDivElement>(null);
+  useFocoPreso(refGaveta);
+
   return (
     <div className="pilha-dialogo flex justify-end">
       <button type="button" aria-label="Fechar" onClick={aoFechar} className="veu" />
 
       <div
+        ref={refGaveta}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${idBase}-titulo`}
@@ -438,9 +443,9 @@ function LinhaLigacao({ ligacao }: { ligacao: LigacaoDetalhada }) {
         <span className="nota">{formatarDuracao(ligacao.duracao)}</span>
         <span className="nota ml-auto">{formatarDataHora(ligacao.em)}</span>
         {ligacao.temGravacao ? (
-          <Mic className="size-3 text-stone-400 shrink-0" aria-label="Com gravação" />
+          <Mic className="size-3 text-stone-500 shrink-0" aria-label="Com gravação" />
         ) : (
-          <PhoneOff className="size-3 text-stone-400 shrink-0" aria-label="Sem gravação" />
+          <PhoneOff className="size-3 text-stone-500 shrink-0" aria-label="Sem gravação" />
         )}
       </div>
 

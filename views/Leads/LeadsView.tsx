@@ -5,6 +5,7 @@ import { useLeads } from '@/src/contexts/LeadsContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { useCreditos } from '@/src/contexts/CreditosContext';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
+import { AvisoErro } from '@/src/components/ui/AvisoErro';
 import { MenuCartao } from '@/src/components/ui/MenuCartao';
 import { ESTILO_CHIP, ESTILO_PONTO, type Tom } from '@/src/lib/estilo';
 import {
@@ -47,7 +48,8 @@ const ETAPAS_DESFECHO_FILTRAVEIS = DESFECHOS.filter((s) => s !== 'nao_atendeu');
 
 export function LeadsView() {
   const { perfil, ehAdvogado, advogadoId } = useAuth();
-  const { leads, mover, agendar, comprar, devolver, reservar, liberarReserva, excluir } = useLeads();
+  const { leads, mover, agendar, comprar, devolver, reservar, liberarReserva, excluir, erro, recarregar } =
+    useLeads();
   // O saldo vem da view `advogados_com_saldo`, somado do extrato: depois de uma
   // compra ou devolução os dois precisam ser relidos, porque quem os mudou foi
   // a função do banco, não esta tela.
@@ -374,6 +376,11 @@ export function LeadsView() {
 
   return (
     <div className="flex flex-col h-full">
+      {erro && (
+        <div className="shrink-0 px-4 sm:px-6 pt-6">
+          <AvisoErro erro={erro} aoTentarNovamente={recarregar} />
+        </div>
+      )}
       {/* Cabeçalho ------------------------------------------------------- */}
       <div className="shrink-0 px-4 sm:px-6 pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
@@ -702,7 +709,7 @@ export function LeadsView() {
                         }}
                         aoAbrir={() => abrirDetalhe(l)}
                       />
-                      <div className="nota text-[10px] px-3 pt-1">
+                      <div className="nota px-3 pt-1">
                         {LEAD_STATUS_LABEL[l.status]}
                         {l.motivoDesqualificacao && ` · ${l.motivoDesqualificacao}`}
                         {l.devolucao && ` · devolvido: ${l.devolucao.motivo}`}
@@ -883,7 +890,7 @@ function BotaoVisao({
       onClick={aoClicar}
       aria-pressed={ativo}
       title={rotulo}
-      className={`btn h-8 px-3 gap-1.5 ${
+      className={`btn h-11 px-3 gap-1.5 ${
         ativo ? 'bg-roxo-100 text-roxo-800' : 'text-stone-500 hover:text-roxo-800'
       }`}
     >

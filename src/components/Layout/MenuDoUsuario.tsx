@@ -46,7 +46,7 @@ export function MenuDoUsuario() {
         <Avatar iniciais={perfil.avatar_iniciais} externo={ehAdvogado} />
         <span className="hidden xl:block leading-tight min-w-0 max-w-36 text-left">
           <span className="block text-[12px] font-medium text-white truncate">{perfil.nome}</span>
-          <span className="block text-[10px] text-roxo-300 truncate">{ROLE_CURTO[perfil.role]}</span>
+          <span className="block text-[11px] text-roxo-300 truncate">{ROLE_CURTO[perfil.role]}</span>
         </span>
         <ChevronDown
           className={`size-4 text-roxo-300 shrink-0 transition-transform ${aberto ? 'rotate-180' : ''}`}

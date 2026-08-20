@@ -22,6 +22,9 @@ export async function definirAvisoLeadNovo(
   ativo: boolean,
 ): Promise<{ ok: true } | { ok: false; motivo: string }> {
   const { data, error } = await supabase.rpc('definir_aviso_lead_novo', { p_ativo: ativo });
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[notificacoes]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as { ok: true } | { ok: false; motivo: string };
 }

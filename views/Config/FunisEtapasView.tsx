@@ -51,7 +51,7 @@ export function FunisEtapasView() {
             <tbody>
               {COLUNAS.map((status, i) => (
                 <tr key={status} className="border-b border-stone-100 last:border-0">
-                  <td className="px-4 py-3 text-stone-400 tabular">{i + 1}</td>
+                  <td className="px-4 py-3 text-stone-500 tabular">{i + 1}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5 text-roxo-900 font-medium">
                       {ADVOGADO_STATUS_LABEL[status]}

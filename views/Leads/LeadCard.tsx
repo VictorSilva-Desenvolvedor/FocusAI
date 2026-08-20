@@ -96,7 +96,7 @@ export function LeadCard({
         {lead.compradoPor ? (
           <span
             title={`Vendido para ${compradorNome ?? lead.compradoPor}`}
-            className="flex items-center gap-1 text-[10px] font-medium text-sucesso-700 truncate"
+            className="flex items-center gap-1 text-[11px] font-medium text-sucesso-700 truncate"
           >
             <Lock className="size-3" />
             {compradorNome ?? 'vendido'}
@@ -104,7 +104,7 @@ export function LeadCard({
         ) : reservado ? (
           <span
             title="Outro advogado está finalizando a compra"
-            className="flex items-center gap-1 text-[10px] font-medium text-info-700"
+            className="flex items-center gap-1 text-[11px] font-medium text-info-700"
           >
             <Timer className="size-3" />
             reservado
@@ -116,14 +116,14 @@ export function LeadCard({
         {lead.compradoPor && !lead.temGravacao && (
           <span
             title="Vendido sem gravação da qualificação (QUA-R03)."
-            className="flex items-center gap-1 text-[10px] font-medium text-erro-600"
+            className="flex items-center gap-1 text-[11px] font-medium text-erro-600"
           >
             <MicOff className="size-3" />
             sem gravação
           </span>
         )}
 
-        <span className="nota ml-auto text-[10px] tabular">{lead.custoCreditos} cr</span>
+        <span className="nota ml-auto tabular">{lead.custoCreditos} cr</span>
       </div>
     </article>
   );

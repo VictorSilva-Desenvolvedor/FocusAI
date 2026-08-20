@@ -5,6 +5,7 @@ import { useUsuarios } from '@/src/contexts/UsuariosContext';
 import { useConformidade } from '@/src/contexts/ConformidadeContext';
 import { Campo, entrada } from '@/src/components/ui/Campo';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
+import { AvisoErro } from '@/src/components/ui/AvisoErro';
 import {
   ESTILO_BLOCO,
   ESTILO_CHIP,
@@ -47,7 +48,7 @@ const FORM_VAZIO: CriativoFormData = { criativo: '', tese: '', plataforma: '' };
 export function ConformidadeView() {
   const { perfil, ehConformidade, temPermissao } = useAuth();
   const { usuarios } = useUsuarios();
-  const { pareceres, enviar, emitir } = useConformidade();
+  const { pareceres, enviar, emitir, erro, recarregar } = useConformidade();
   const idBase = useId();
 
   const nomePorId = useMemo(
@@ -114,6 +115,7 @@ export function ConformidadeView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24 space-y-6 animate-entrada-suave">
+      {erro && <AvisoErro erro={erro} aoTentarNovamente={recarregar} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="titulo-pagina">Conformidade</h1>
@@ -423,7 +425,7 @@ function ItemFilaParecer({
             <button
               type="button"
               onClick={() => setAberto(false)}
-              className="btn btn-fantasma text-[12px] h-7 px-2.5"
+              className="btn btn-fantasma text-[12px] h-11 px-2.5"
             >
               Cancelar
             </button>
@@ -431,7 +433,7 @@ function ItemFilaParecer({
               type="button"
               onClick={registrar}
               disabled={!decisao || enviando}
-              className="btn btn-primario text-[12px] h-7 px-2.5 gap-1"
+              className="btn btn-primario text-[12px] h-11 px-2.5 gap-1"
             >
               <Send className="size-3.5" />
               {enviando ? 'Registrando…' : 'Registrar'}
@@ -444,7 +446,7 @@ function ItemFilaParecer({
         <button
           type="button"
           onClick={() => setAberto(true)}
-          className="btn btn-secundario text-[11px] h-7 px-2.5 mt-2"
+          className="btn btn-secundario text-[11px] h-11 px-2.5 mt-2"
         >
           Dar parecer
         </button>

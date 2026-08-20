@@ -76,7 +76,10 @@ export async function ajustarCreditos(
     p_creditos: creditos,
     p_motivo: motivo,
   });
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[creditos]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as Resultado;
 }
 

@@ -61,14 +61,20 @@ export function useDadosDaSessao<T>(
       setErro(null);
       return lista;
     } catch (e) {
-      const mensagem = e instanceof Error ? e.message : `Falha ao carregar ${rotulo}.`;
+      /*
+       * `API-R17` — a mensagem que a tela mostra nunca é `e.message` puro.
+       * Erro de rede do navegador ("Failed to fetch") ou de Postgres chega em
+       * inglês e sem contexto — não é o que um advogado lê e entende. O texto
+       * técnico vai só para o console; quem usa a tela lê uma frase fixa.
+       */
+      const mensagem = `Falha ao carregar ${rotulo}. Verifique sua conexão.`;
       setErro(mensagem);
       /*
        * `API-R10` — configuração ou consulta que falha não pode virar silêncio.
        * O console é o que faz `npm run shot` e o smoke falharem em vez de
        * capturarem uma tela vazia de aparência saudável.
        */
-      console.error(`[${rotulo}]`, mensagem);
+      console.error(`[${rotulo}]`, e instanceof Error ? e.message : e);
       return [];
     } finally {
       setCarregando(false);

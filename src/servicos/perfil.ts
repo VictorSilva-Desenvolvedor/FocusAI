@@ -168,7 +168,10 @@ export async function redefinirSenha(novaSenha: string): Promise<{ erro: string 
  */
 export async function atualizarProprioPerfil(nome: string): Promise<{ ok: true } | { ok: false; motivo: string }> {
   const { data, error } = await supabase.rpc('atualizar_proprio_perfil', { p_nome: nome });
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[perfil]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as { ok: true } | { ok: false; motivo: string };
 }
 

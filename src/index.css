@@ -227,12 +227,25 @@
     @apply text-[13px] font-semibold text-roxo-900 tracking-tight;
   }
 
+  /*
+   * EST-R14 — 11px é o piso de texto funcional, mesmo em rótulo decorativo.
+   * Abaixo disso o texto falha em tela de alta densidade de pixels e some no
+   * zoom do navegador — achado pelo detector do Impeccable, corrigido aqui
+   * porque `label-eyebrow` é o padrão central (EST-R06): mudar uma vez cobre
+   * todo módulo que usa a classe.
+   */
   .label-eyebrow {
-    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600;
   }
 
+  /*
+   * `text-stone-400` (a #a6a09b) sobre branco mede 2.6:1 — falha o mínimo de
+   * 4.5:1 do WCAG AA para texto. `text-stone-500` mede ~4.8:1, o suficiente
+   * sem escurecer a hierarquia de "nota" a ponto de competir com texto
+   * primário. Achado pelo detector do Impeccable ao varrer `/login`.
+   */
   .nota {
-    @apply text-[11px] text-stone-400 leading-snug;
+    @apply text-[11px] text-stone-500 leading-snug;
   }
 
   .tabular {
@@ -252,35 +265,65 @@
 
   /* --- Botões ----------------------------------------------------------- */
 
+  /*
+   * EST-R15 — alvo de toque mínimo de 44px. Achado pelo `/impeccable audit`:
+   * `h-9` (36px) fica abaixo do piso recomendado (WCAG 2.5.5 AAA, guia de
+   * toque da Apple/Google) para quem usa o app pelo celular. `h-11` cobre o
+   * piso sem trocar `text-[13px]`/padding — só a altura muda.
+   *
+   * `focus-visible:outline-*` (não `focus:`) para o anel só aparecer na
+   * navegação por teclado, não a cada clique de mouse. É `outline`, não
+   * `ring`/`box-shadow`, pelo mesmo motivo do `pulso-marca` acima: `.btn`
+   * aparece sobre fundo branco, escuro (`Topbar`) e colorido (`btn-primario`,
+   * `btn-perigo`) — `outline` desenha por cima de qualquer um sem precisar
+   * de uma cor de "offset" que combine com o fundo de cada contexto.
+   */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg
+    @apply inline-flex items-center justify-center gap-2 h-11 px-4 rounded-lg
       text-[13px] font-medium whitespace-nowrap transition-colors
-      disabled:cursor-not-allowed;
+      disabled:cursor-not-allowed
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+      focus-visible:outline-roxo-500;
   }
 
+  /*
+   * EST-R14 — desabilitado não é invisível. `text-white` sobre
+   * `disabled:bg-stone-300` media 1.5:1 — o rótulo do botão some de verdade,
+   * não só perde ênfase. `disabled:text-stone-600` sobre esse mesmo fundo
+   * mede ~5.1:1: continua lendo como "desligado", mas continua legível.
+   * Achado pelo detector do Impeccable ao varrer `/login` (botão "Entrar"
+   * desabilitado até o formulário ter e-mail e senha).
+   */
   .btn-primario {
-    @apply bg-roxo-600 text-white hover:bg-roxo-700 disabled:bg-stone-300;
+    @apply bg-roxo-600 text-white hover:bg-roxo-700 disabled:bg-stone-300 disabled:text-stone-600;
   }
 
   .btn-secundario {
     @apply border border-stone-200 bg-white text-stone-700
-      hover:border-stone-300 hover:bg-stone-50 disabled:text-stone-300;
+      hover:border-stone-300 hover:bg-stone-50 disabled:text-stone-500;
   }
 
   .btn-fantasma {
     @apply text-stone-600 hover:bg-stone-200/60
-      disabled:text-stone-300 disabled:hover:bg-transparent;
+      disabled:text-stone-500 disabled:hover:bg-transparent;
   }
 
   .btn-perigo {
-    @apply bg-erro-600 text-white hover:bg-erro-700 disabled:bg-stone-300;
+    @apply bg-erro-600 text-white hover:bg-erro-700 disabled:bg-stone-300 disabled:text-stone-600;
   }
 
-  /* Botão só-ícone das linhas de tabela e cabeçalhos de painel. */
+  /*
+   * Botão só-ícone das linhas de tabela e cabeçalhos de painel.
+   * EST-R15 — `size-11` (44px) é o mesmo piso de toque de `.btn`; o ícone
+   * interno continua pequeno (`size={16}`/`size-4`), só a área clicável
+   * cresce.
+   */
   .btn-icone {
-    @apply inline-grid place-items-center size-8 shrink-0 rounded-lg
-      text-stone-400 transition-colors hover:bg-stone-100 hover:text-roxo-700
-      disabled:text-stone-200 disabled:hover:bg-transparent;
+    @apply inline-grid place-items-center size-11 shrink-0 rounded-lg
+      text-stone-500 transition-colors hover:bg-stone-100 hover:text-roxo-700
+      disabled:text-stone-400 disabled:hover:bg-transparent
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+      focus-visible:outline-roxo-500;
   }
 
   /* --- Formulário ------------------------------------------------------- */
@@ -291,9 +334,9 @@
 
   .campo {
     @apply w-full h-9 px-3 rounded-lg border border-stone-300 bg-white
-      text-[13px] text-stone-800 transition-colors placeholder:text-stone-400
+      text-[13px] text-stone-800 transition-colors placeholder:text-stone-500
       focus:border-roxo-400 focus:outline-none focus:ring-2 focus:ring-roxo-500/15
-      disabled:bg-stone-50 disabled:text-stone-400;
+      disabled:bg-stone-50 disabled:text-stone-500;
   }
 
   /* Campo dentro de barra de filtro: fundo cinza, borda só no foco. */
@@ -311,7 +354,7 @@
   }
 
   .campo-dica {
-    @apply text-[11px] text-stone-400 mt-1.5;
+    @apply text-[11px] text-stone-500 mt-1.5;
   }
 
   .campo-mensagem-erro {
@@ -340,10 +383,14 @@
 
   /* --- Etiquetas e contadores ------------------------------------------- */
 
-  /* EST-R04 — etiqueta é sempre `rounded-full`. A cor vem de src/lib/estilo. */
+  /*
+   * EST-R04 — etiqueta é sempre `rounded-full`. A cor vem de src/lib/estilo.
+   * EST-R14 — 11px, não 10px: é status de lead, tese ou papel, texto que o
+   * usuário precisa ler para decidir, não decoração.
+   */
   .etiqueta {
     @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5
-      text-[10px] font-semibold whitespace-nowrap;
+      text-[11px] font-semibold whitespace-nowrap;
   }
 
   /* Contador de topo de tela: número grande + rótulo, um por indicador. */

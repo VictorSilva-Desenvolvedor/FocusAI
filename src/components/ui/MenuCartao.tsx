@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ESTILO_TEXTO } from '@/src/lib/estilo';
+import { useFocoPreso } from './focoPreso';
 
 interface Props<T extends string> {
   /** Aparece no `aria-label` — é o que identifica o cartão para leitor de tela. */
@@ -50,6 +51,7 @@ export function MenuCartao<T extends string>({
 }: Props<T>) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
+  useFocoPreso(ref);
 
   // Reposiciona se o menu estourar a janela — abrir perto da borda direita ou
   // do rodapé é o caso comum, não a exceção.
@@ -101,14 +103,14 @@ export function MenuCartao<T extends string>({
             onClick={() => aoMover(destino)}
             className={`item-menu ${
               atual
-                ? 'text-stone-300 cursor-default'
+                ? 'text-stone-500 cursor-default'
                 : recusa
-                  ? 'text-stone-400 hover:bg-stone-50'
+                  ? 'text-stone-500 hover:bg-stone-50'
                   : 'text-roxo-900 hover:bg-roxo-50'
             }`}
           >
             {rotulos[destino]}
-            {atual && <span className="text-[11px] text-stone-400"> · atual</span>}
+            {atual && <span className="text-[11px] text-stone-500"> · atual</span>}
             {!atual && recusa && (
               <span className={`text-[11px] ${ESTILO_TEXTO.atencao}`}> · bloqueado</span>
             )}
@@ -124,7 +126,7 @@ export function MenuCartao<T extends string>({
             role="menuitem"
             disabled={destino === statusAtual}
             onClick={() => aoMover(destino)}
-            className="item-menu text-stone-600 hover:bg-stone-50 disabled:text-stone-300 disabled:hover:bg-transparent"
+            className="item-menu text-stone-600 hover:bg-stone-50 disabled:text-stone-500 disabled:hover:bg-transparent"
           >
             {rotulos[destino]}
           </button>

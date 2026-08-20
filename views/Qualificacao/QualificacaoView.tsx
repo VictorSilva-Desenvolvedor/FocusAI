@@ -153,7 +153,7 @@ export function QualificacaoView() {
                       <div className="flex items-center gap-1.5">
                         <span className="text-roxo-900">{ligacao.leadNome}</span>
                         {ligacao.temGravacao ? (
-                          <Mic className="size-3 text-stone-300 shrink-0" aria-label="Com gravação" />
+                          <Mic className="size-3 text-stone-500 shrink-0" aria-label="Com gravação" />
                         ) : (
                           <MicOff
                             className="size-3 text-erro-500 shrink-0"
