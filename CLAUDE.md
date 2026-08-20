@@ -533,6 +533,114 @@ justamente por serem silenciosas:
   Campo mais claro que o card e campo mais escuro que o card são decisões visuais
   opostas; as duas convivendo é dívida que só aparece depois de dezenas de telas.
 
+### `EST-R14` — piso de contraste e de tamanho para texto funcional
+
+Achado por auditoria com a skill Impeccable (`npx impeccable detect`) varrendo
+`/login`: `text-stone-400` sobre branco mede **2.6:1** — abaixo do mínimo de
+4.5:1 do WCAG AA para texto — e `disabled:bg-stone-300` combinado com
+`text-white` mede **1.5:1**, o rótulo do botão "Entrar" desabilitado
+praticamente some. Nenhum dos dois é estético: são texto que o usuário precisa
+ler e não consegue.
+
+- **`text-stone-400` não é mais a cor de texto "quieto".** `.nota`,
+  `.campo-dica`, o placeholder de `.campo` e o ícone padrão de `.btn-icone`
+  usam `text-stone-500` (~4.8:1 sobre branco). `text-stone-400` continua válido
+  para traço decorativo, divisor ou ícone ao lado de texto já legível — não
+  para texto que carrega informação sozinho.
+- **Estado desabilitado não é estado invisível.** `.btn-primario` e
+  `.btn-perigo` usam `disabled:text-stone-600` sobre `disabled:bg-stone-300`
+  (~5.1:1); `.btn-secundario`, `.btn-fantasma` e `.btn-icone` usam
+  `disabled:text-stone-500` sobre fundo claro. O botão continua lendo como
+  "desligado" — só não fica ilegível enquanto está.
+- **11px é o piso, mesmo para rótulo decorativo em caixa alta.** `.label-eyebrow`
+  subiu de 10px para 11px; as taglines "Leads qualificados" (login, redefinição
+  de senha, topo da barra) também. Abaixo de 11px, texto funcional falha em
+  tela de alta densidade de pixels e no zoom do navegador.
+- **Exceção mantida conscientemente:** `.nota`, `.campo-dica` e
+  `.campo-mensagem-erro` continuam em 11px, não 12px+. O detector do Impeccable
+  classifica isso como `tiny-text` (piso recomendado de 12px), mas subir para
+  12px empataria `.nota` com `.campo-rotulo` — que já é 12px — e apagaria um
+  degrau inteiro da hierarquia de tipo já enxuta do sistema (`EST-R06`). 11px
+  já limpa o piso mais rígido do WCAG (`undersized-ui-text`, 11px); a
+  recomendação de 12px+ é o piso mais brando, pensado para leitura longa, não
+  para rótulo de apoio numa interface densa de operação (`DESIGN.md`).
+- **Não perseguido:** `ai-color-palette` (o roxo/grafite é decisão de marca,
+  não resíduo de UI genérica — suprimido em `.impeccable/config.json`) e
+  `transition: height`, achado idêntico nas onze rotas do app (login +
+  os dez módulos, varredura autenticada em produção) sem correspondência em
+  nenhuma classe ou CSS do projeto — artefato do Chromium, não algo para
+  "consertar" sem uma fonte confirmada.
+
+### `EST-R15` — alvo de toque mínimo de 44px
+
+Achado pelo `/impeccable audit` (dimensão Responsividade): `.btn` em `h-9`
+(36px) e `.btn-icone` em `size-8` (32px) ficavam abaixo do piso recomendado
+para toque (WCAG 2.5.5 AAA; guia de interface da Apple e do Google, ambos em
+44px). Advogado usa o painel pelo celular também — `EST-R07` já assume isso
+como caso real, não exceção.
+
+- `.btn` subiu para `h-11` (44px); `.btn-icone` para `size-11` (44px). Só a
+  altura/área muda — `text-[13px]` e o tamanho do ícone interno (`size={16}`
+  etc.) continuam os mesmos.
+- Todo `h-7`/`h-8`/`size-9` que sobrescrevia a classe central subiu para
+  `h-11`/`size-11` também: os dois ícones da barra superior (sino,
+  alternador de menu compacto), o parecer de conformidade
+  (`ConformidadeView` — cancelar/registrar/dar parecer), a barra de ação em
+  massa de usuários (`UsuariosView` — reativar/desativar) e os toggles de
+  visão em `AdvogadosView`/`LeadsView`. Decisão explícita do usuário mesmo
+  sabendo que engorda a linha de itens onde o botão é repetido por item
+  (fila de pareceres pendentes) — não é um efeito colateral não avisado.
+- `.campo` (formulário) permanece em `h-9` — não fazia parte do achado
+  original do audit, e mexer também mudaria o ritmo vertical de todo
+  formulário do app.
+- **Foco de teclado próprio, não o padrão do navegador.** `.btn` e
+  `.btn-icone` ganharam `focus-visible:outline-2 outline-offset-2
+  outline-roxo-500` — `focus-visible`, não `focus`, para o anel só aparecer
+  na navegação por Tab, não a cada clique de mouse. É `outline`, não
+  `ring`/`box-shadow` (mesma razão do `pulso-marca`, acima): botão aparece
+  sobre fundo branco, escuro (`Topbar`) e colorido (`btn-primario`), e
+  `outline` desenha por cima de qualquer um sem precisar de uma cor de
+  "offset" que combine com cada fundo.
+
+### `EST-R16` — todo `role="dialog"`/`role="menu"` prende o foco com `useFocoPreso`
+
+Achado pelo `/impeccable audit`: os seis diálogos/gavetas do app
+(`LeadDrawer`, `AdvogadoDrawer`, `UsuarioDrawer`, `NovoLeadDialog`,
+`CampanhaDialog`, o confirmador de motivo em `AdvogadosView`) já tinham
+`role="dialog"`/`aria-modal="true"` certos, mas nada impedia Tab escapar do
+diálogo para o conteúdo atrás do véu — `aria-modal` promete conteúdo inerte
+por trás, e nada no código cumpria essa promessa. `MenuCartao`
+(`role="menu"`) tinha o mesmo problema — e o próprio comentário do arquivo já
+dizia por quê o menu existe: é a alternativa por teclado ao que o arraste do
+Kanban não alcança, então precisava valer para teclado de verdade.
+
+`src/components/ui/focoPreso.ts` — `useFocoPreso(ref)` — move o foco pro
+primeiro elemento focável ao montar, prende Tab/Shift+Tab dentro do
+container, e devolve o foco pra quem abriu ao desmontar. O diálogo/menu só
+existe montado enquanto está aberto (o pai monta/desmonta, não alterna uma
+prop), então "montou" já é "abriu" — sem parâmetro extra.
+
+**Recebe o `ref`, não cria um.** `MenuCartao` já usa o próprio `ref` para
+reposicionar o menu e detectar clique fora, e um elemento só aceita um
+`ref` — por isso o hook não devolve o dele, para poder compor com um `ref`
+que a tela já tem. Todo `role="dialog"`/`role="menu"` novo usa assim:
+
+```tsx
+const ref = useRef<HTMLDivElement>(null);
+useFocoPreso(ref);
+// ...
+<div ref={ref} role="dialog" aria-modal="true">
+```
+
+Não duplique a lógica de Tab/Shift+Tab numa tela nova — é exatamente o
+padrão que existia sem nome antes deste achado.
+
+**Não verificado interativamente** (precisa de navegador de verdade, não
+`npm run shot`): abra qualquer diálogo ou o menu de ações de um cartão, dê
+Tab repetidamente e confirme que o foco nunca escapa, e que Shift+Tab no
+primeiro elemento volta pro último em vez de sair. Comportamento de teclado,
+não mudança visual — ver `TESTES.md`.
+
 ## Invariantes — não negociáveis
 
 - `INV-05` Papel novo não herda acesso.
@@ -641,6 +749,31 @@ Cada uma existe porque o custo dela já foi pago em produção em outro lugar.
   refinar no cliente, com agrupamento de eventos para não recarregar a cada
   mudança. Há teto de eventos por segundo, e tabela movimentada com assinatura
   ampla o atinge.
+- `API-R17` — **Falha de carregamento não pode virar lista vazia.**
+  `useDadosDaSessao` (`src/contexts/dadosDaSessao.ts`) já separa os dois —
+  `erro: string | null` existe desde sempre, com o comentário "lista vazia por
+  erro não é lista vazia" — mas até a auditoria com `/impeccable harden`
+  nenhuma das seis telas que o usam (`Leads`, `Advogados`, `Créditos`,
+  `Usuários`, `Campanhas`, `Conformidade`) lia esse campo: uma queda de rede
+  virava "Nenhum lead com esses filtros", indistinguível de realmente não ter
+  lead. Corrigido: as seis leem `erro`/`recarregar` do hook e mostram
+  `AvisoErro` (`src/components/ui/AvisoErro.tsx`) — mensagem mais botão
+  "Tentar novamente" — antes do conteúdo normal da tela. Toda tela nova que
+  consumir `useDadosDaSessao` herda o campo; ler `erro` e renderizar
+  `AvisoErro` é parte de "terminar a tela", não polimento posterior.
+
+  A mesma revisão achou o mesmo bug do lado da escrita: `useDadosDaSessao` e
+  as 13 funções de `src/servicos/*.ts` que chamam `supabase.rpc(...)`
+  devolviam `motivo: error.message` quando a chamada falhava por transporte —
+  texto de driver em inglês ("Failed to fetch", "Edge Function returned a
+  non-2xx status code"), não a recusa de regra com `motivo` pronto que a
+  própria função Postgres já devolve (confirmado: nenhuma migration usa
+  `RAISE EXCEPTION`, a rejeição de negócio é sempre `{ok:false, motivo}`
+  estruturado). Corrigido nas duas pontas — leitura (`dadosDaSessao.ts`) e
+  escrita (`advogados.ts`, `conformidade.ts`, `creditos.ts`, `leads.ts`,
+  `notificacoes.ts`, `perfil.ts`, `usuarios.ts`) — para sempre mostrar "Falha
+  de conexão. Tente novamente." ao usuário e mandar o texto técnico só para
+  `console.error`.
 
 ### Integrações e eventos
 

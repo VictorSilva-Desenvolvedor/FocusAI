@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useUsuarios } from '@/src/contexts/UsuariosContext';
+import { AvisoErro } from '@/src/components/ui/AvisoErro';
 import { formatarData, tempoRelativo } from '@/src/lib/format';
 import {
   ROLE_CURTO,
@@ -39,7 +40,7 @@ const TOM_STATUS: Record<UserStatus, Tom> = {
 
 export function UsuariosView() {
   const { perfil } = useAuth();
-  const { usuarios, alterarStatus } = useUsuarios();
+  const { usuarios, alterarStatus, erro, recarregar } = useUsuarios();
 
   const [busca, setBusca] = useState('');
   const [filtroPapel, setFiltroPapel] = useState<UserRole | ''>('');
@@ -226,6 +227,11 @@ export function UsuariosView() {
 
   return (
     <div>
+      {erro && (
+        <div className="mb-5">
+          <AvisoErro erro={erro} aoTentarNovamente={recarregar} />
+        </div>
+      )}
       {/* Cabeçalho ------------------------------------------------------- */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
@@ -359,7 +365,7 @@ export function UsuariosView() {
                   'ativo',
                 )
               }
-              className="btn h-8 px-3 text-roxo-700 hover:bg-white"
+              className="btn h-11 px-3 text-roxo-700 hover:bg-white"
             >
               Reativar
             </button>
@@ -371,7 +377,7 @@ export function UsuariosView() {
                   'inativo',
                 )
               }
-              className="btn h-8 px-3 text-erro-700 hover:bg-white"
+              className="btn h-11 px-3 text-erro-700 hover:bg-white"
             >
               Desativar
             </button>

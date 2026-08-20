@@ -46,7 +46,7 @@ export function Topbar() {
           <img src="/logo.png" alt="Focus AI" className="size-8" />
           <div className="hidden sm:block leading-none">
             <div className="font-semibold text-[15px] text-white tracking-tight">Focus AI</div>
-            <div className="text-[9px] text-roxo-300 tracking-[0.12em] uppercase mt-0.5">
+            <div className="text-[11px] text-roxo-300 tracking-[0.12em] uppercase mt-0.5">
               Leads qualificados
             </div>
           </div>
@@ -72,7 +72,7 @@ export function Topbar() {
             >
               {modulo.rotulo}
               {modulo.nivel === 'restricted' && (
-                <span className="etiqueta ml-1.5 text-[9px] font-medium text-roxo-300 border border-roxo-700 py-px align-middle">
+                <span className="etiqueta ml-1.5 font-medium text-roxo-300 border border-roxo-700 py-px align-middle">
                   parcial
                 </span>
               )}
@@ -95,7 +95,7 @@ export function Topbar() {
           <button
             type="button"
             aria-label="Notificações"
-            className="btn-icone relative size-9 text-roxo-200 hover:bg-white/8 hover:text-white"
+            className="btn-icone relative text-roxo-200 hover:bg-white/8 hover:text-white"
           >
             <Bell className="size-4.5" />
             {/* Pulsa no acento da marca: é aviso não lido, estado vivo. */}
@@ -109,7 +109,7 @@ export function Topbar() {
             onClick={() => setMenuAberto((v) => !v)}
             aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
             aria-expanded={menuAberto}
-            className="btn-icone xl:hidden size-9 text-roxo-200 hover:bg-white/8 hover:text-white"
+            className="btn-icone xl:hidden text-roxo-200 hover:bg-white/8 hover:text-white"
           >
             {menuAberto ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
