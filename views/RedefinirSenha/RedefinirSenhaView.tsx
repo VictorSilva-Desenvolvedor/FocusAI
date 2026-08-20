@@ -68,7 +68,7 @@ export function RedefinirSenhaView() {
           <img src="/logo.png" alt="Focus AI" className="size-14 shadow-flutuante rounded-full" />
           <div className="text-center leading-none">
             <div className="font-semibold text-xl text-grafite-900 tracking-tight">Focus AI</div>
-            <div className="text-[10px] text-stone-500 tracking-[0.12em] uppercase mt-1.5">
+            <div className="text-[11px] text-stone-600 tracking-[0.12em] uppercase mt-1.5">
               Leads qualificados
             </div>
           </div>
@@ -133,7 +133,7 @@ export function RedefinirSenhaView() {
                     type="button"
                     aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
                     onClick={() => setVisivel((v) => !v)}
-                    className="btn-icone absolute right-0 top-0 size-9 text-stone-400 hover:text-stone-600"
+                    className="btn-icone absolute right-0 top-0 size-9 hover:text-stone-600"
                   >
                     {visivel ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>

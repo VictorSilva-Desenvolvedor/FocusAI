@@ -293,7 +293,7 @@ function Cadeia({ etapas }: { etapas: typeof CADEIA }) {
               {/* Numeração é a posição na cadeia completa, não no que sobrou do
                   filtro — quem vê só qualificação precisa saber que ela é o
                   passo 2, não o passo 1. */}
-              <span className="size-5 rounded-full grid place-items-center bg-grafite-800 text-white text-[10px] font-semibold tabular">
+              <span className="size-5 rounded-full grid place-items-center bg-grafite-800 text-white text-[11px] font-semibold tabular">
                 {CADEIA.findIndex((e) => e.id === etapa.id) + 1}
               </span>
               <span className="card-title">{etapa.titulo}</span>
