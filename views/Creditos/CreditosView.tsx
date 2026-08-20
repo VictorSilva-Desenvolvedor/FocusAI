@@ -6,6 +6,7 @@ import { useCreditos } from '@/src/contexts/CreditosContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
 import { Campo } from '@/src/components/ui/Campo';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
+import { AvisoErro } from '@/src/components/ui/AvisoErro';
 import { ESTILO_BLOCO, ESTILO_CHIP, ESTILO_ETIQUETA, ESTILO_TEXTO, type Tom } from '@/src/lib/estilo';
 import {
   PACOTES,
@@ -43,7 +44,7 @@ const brlCentavos = new Intl.NumberFormat('pt-BR', { style: 'currency', currency
 export function CreditosView() {
   const { ehAdvogado, advogadoId } = useAuth();
   const { advogados } = useAdvogados();
-  const { movimentos } = useCreditos();
+  const { movimentos, erro, recarregar } = useCreditos();
   const { leads } = useLeads();
 
   const advogadoDoPerfil = useMemo(
@@ -51,16 +52,23 @@ export function CreditosView() {
     [advogados, advogadoId],
   );
 
-  if (ehAdvogado) {
-    return (
-      <PainelDoAdvogado
-        advogado={advogadoDoPerfil}
-        movimentos={movimentos.filter((m) => m.advogadoId === advogadoId)}
-      />
-    );
-  }
-
-  return <PainelDaOperacao advogados={advogados} movimentos={movimentos} leads={leads} />;
+  return (
+    <>
+      {erro && (
+        <div className="mx-auto max-w-[1100px] px-4 sm:px-6 pt-6">
+          <AvisoErro erro={erro} aoTentarNovamente={recarregar} />
+        </div>
+      )}
+      {ehAdvogado ? (
+        <PainelDoAdvogado
+          advogado={advogadoDoPerfil}
+          movimentos={movimentos.filter((m) => m.advogadoId === advogadoId)}
+        />
+      ) : (
+        <PainelDaOperacao advogados={advogados} movimentos={movimentos} leads={leads} />
+      )}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------

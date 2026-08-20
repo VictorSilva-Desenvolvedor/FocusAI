@@ -87,13 +87,19 @@ export const atualizarUsuario = async (id: string, dados: UsuarioFormData): Prom
     p_departamento: dados.departamento || undefined,
     p_permissoes: dados.permissoes,
   });
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[usuarios]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as Resultado;
 };
 
 export const alterarStatusUsuarios = async (ids: string[], status: UserStatus): Promise<Resultado> => {
   const { data, error } = await supabase.rpc('alterar_status_usuarios', { p_ids: ids, p_status: status });
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[usuarios]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as Resultado;
 };
 
@@ -116,16 +122,17 @@ async function chamarCriarUsuario(corpo: Record<string, unknown>): Promise<{ ok:
   // {ok, motivo}, então o motivo real mora em `error.context`, não em
   // `error.message` (que é só "Edge Function returned a non-2xx status code").
   if (error) {
+    console.error('[usuarios]', error.message);
     const contexto = (error as { context?: Response }).context;
     if (contexto) {
       try {
         const corpoErro = (await contexto.clone().json()) as ResultadoCriacao;
-        return { ok: false, motivo: corpoErro.motivo ?? error.message };
+        if (corpoErro.motivo) return { ok: false, motivo: corpoErro.motivo };
       } catch {
         // corpo não veio como JSON — segue para o motivo genérico abaixo.
       }
     }
-    return { ok: false, motivo: error.message };
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
   }
 
   if (!data?.ok || !data.id) {

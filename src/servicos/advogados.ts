@@ -134,7 +134,10 @@ async function chamar(nome: FuncaoDeAdvogado, args: Record<string, unknown>): Pr
   const { data, error } = await supabase.rpc(nome, args as never);
   // Erro de transporte e recusa de regra são coisas diferentes: as funções
   // devolvem a recusa como `{ok:false, motivo}`, com texto pronto para a tela.
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[advogados]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   return data as Resultado;
 }
 
@@ -170,7 +173,10 @@ export async function criarAdvogado(
     p_responsavel_id: UUID_RE.test(dados.responsavelId) ? dados.responsavelId : undefined,
   });
 
-  if (error) return { ok: false, motivo: error.message };
+  if (error) {
+    console.error('[advogados]', error.message);
+    return { ok: false, motivo: 'Falha de conexão. Tente novamente.' };
+  }
   const resultado = data as { ok: boolean; motivo?: string; id?: string };
   if (!resultado.ok) return { ok: false, motivo: resultado.motivo ?? 'Não foi possível criar o cadastro.' };
   return { ok: true, id: resultado.id! };
