@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-20T00:00:00.000Z",
+  "title": "Design System: Focus AI",
+  "extensions": {
+    "colorMeta": {
+      "roxo-600": { "role": "primary", "displayName": "Roxo de Marca", "canonical": "#7539e8" },
+      "roxo-900": { "role": "primary", "displayName": "Roxo de Título", "canonical": "#331068" },
+      "grafite-900": { "role": "neutral", "displayName": "Grafite (preto de marca)", "canonical": "#0d0d10" },
+      "fundo": { "role": "neutral", "displayName": "Fundo Arroxeado", "canonical": "#f5f3f7" },
+      "sucesso-600": { "role": "state", "displayName": "Sucesso", "canonical": "#059669" },
+      "atencao-600": { "role": "state", "displayName": "Atenção", "canonical": "#d97706" },
+      "erro-600": { "role": "state", "displayName": "Erro", "canonical": "#dc2626" },
+      "info-500": { "role": "state", "displayName": "Info", "canonical": "#0ea5e9" }
+    },
+    "typographyMeta": {
+      "titulo": { "displayName": "Título de página", "purpose": "Um por tela, roxo-900." },
+      "corpo": { "displayName": "Corpo / controle", "purpose": "Tabela, botão, campo, aba, item de menu." },
+      "rotulo": { "displayName": "Rótulo de campo", "purpose": "Acima de input, roxo-900." },
+      "nota": { "displayName": "Nota / dica", "purpose": "Texto de apoio, piso deliberado de 11px — ver EST-R14." },
+      "eyebrow": { "displayName": "Eyebrow", "purpose": "Rótulo de seção em caixa alta." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 2px rgba(8, 8, 10, 0.06)", "purpose": "Superfície em repouso — todo .card." },
+      { "name": "flutuante", "value": "0 16px 40px -12px rgba(8, 8, 10, 0.32), 0 2px 8px rgba(8, 8, 10, 0.1)", "purpose": "O que paira: diálogo, gaveta, menu de contexto, toast." }
+    ],
+    "motion": [
+      { "name": "entrada-suave", "value": "entrada-suave 0.28s ease-out", "purpose": "Entrada de página/card." },
+      { "name": "entrada-modal", "value": "entrada-modal 0.2s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Abertura de diálogo." },
+      { "name": "entrada-lateral", "value": "entrada-lateral 0.24s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Abertura de gaveta." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal do formulário/tela. Estado desabilitado usa texto stone-600, nunca branco, sobre o fundo stone-300 (EST-R14).",
+      "html": "<button class=\"ds-btn-primario\">Entrar</button>",
+      "css": ".ds-btn-primario { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; background: #7539e8; color: #ffffff; transition: background-color .15s, color .15s; } .ds-btn-primario:hover { background: #6127c7; } .ds-btn-primario:focus-visible { outline: 2px solid #a684f5; outline-offset: 2px; } .ds-btn-primario:disabled { background: #d6d3d1; color: #57534e; cursor: not-allowed; }"
+    },
+    {
+      "name": "Campo de Texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Placeholder e texto desabilitado em stone-500, não stone-400 (EST-R14).",
+      "html": "<input class=\"ds-campo\" placeholder=\"voce@focus.ai\" />",
+      "css": ".ds-campo { width: 100%; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #d6d3d1; background: #ffffff; font-size: 13px; color: #292524; transition: border-color .15s; } .ds-campo::placeholder { color: #78716c; } .ds-campo:focus { border-color: #a684f5; outline: none; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15); } .ds-campo:disabled { background: #fafaf9; color: #78716c; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superfície branca sobre o fundo arroxeado da página.",
+      "html": "<div class=\"ds-card\">Conteúdo</div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid rgba(231, 229, 228, 0.8); border-radius: 12px; box-shadow: 0 1px 2px rgba(8, 8, 10, 0.06); padding: 24px; }"
+    },
+    {
+      "name": "Etiqueta",
+      "kind": "chip",
+      "refersTo": "etiqueta",
+      "description": "Pílula compacta para tese, prioridade, resultado de ligação — cor por tom (sucesso/atenção/erro/info/marca/neutro).",
+      "html": "<span class=\"ds-etiqueta\">Qualificado</span>",
+      "css": ".ds-etiqueta { display: inline-flex; align-items: center; gap: 4px; border-radius: 9999px; padding: 2px 8px; font-size: 10px; font-weight: 600; white-space: nowrap; background: #d1fae5; color: #047857; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A sala de reunião do advogado sênior.",
+    "overview": "Focus AI é o painel onde um advogado decide, em segundos, se vale a pena pagar por um lead. O produto vendido é confiança regulada — um intermediário numa atividade que a OAB fiscaliza de perto (Provimento 205) — então a interface precisa ler como serviço profissional premium antes de ler como ferramenta de tráfego. Roxo carrega essa leitura; grafite dá o peso de produto de tecnologia sério sem competir com o roxo. Este é um sistema de Operar, não de Persuadir: densidade, escaneabilidade e consistência pesam mais que expressão.",
+    "keyCharacteristics": [
+      "Fundo levemente arroxeado (#f5f3f7), nunca cinza puro.",
+      "Preto de marca com traço de roxo, nunca black absoluto.",
+      "Tipo compacto e denso: 11px a 24px, a maior parte em 13px.",
+      "Duas sombras só — repouso e flutuante.",
+      "z-index numa escala fixa e nomeada, nunca valor arbitrário maior que o anterior."
+    ],
+    "rules": [
+      { "name": "A Regra do Roxo Deliberado", "body": "Esta paleta é roxo + preto por decisão de marca documentada, não convergência de padrão de IA generativa. A exceção ao anti-padrão ai-color-palette está registrada em .impeccable/config.json de propósito.", "section": "colors" },
+      { "name": "A Regra do Contraste Mínimo", "body": "Nenhum texto ou ícone funcional usa cor abaixo de stone-500 sobre fundo claro. stone-400 e mais claros só para traço decorativo ou ícone ao lado de texto já legível.", "section": "colors" },
+      { "name": "A Regra do Piso de 11px", "body": "Nenhum texto funcional, incluindo rótulo decorativo em caixa alta, fica abaixo de 11px.", "section": "typography" },
+      { "name": "A Regra do 11px Deliberado", "body": "Nota, dica e mensagem de erro ficam em 11px, não 12px+ — subir empataria com o rótulo de campo (12px) e apagaria um degrau da hierarquia. Ver EST-R14 em CLAUDE.md.", "section": "typography" },
+      { "name": "A Regra das Duas Sombras", "body": "Card em repouso e o que paira — nada entre os dois papéis.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do manter roxo como único acento de marca por tela.",
+      "Do usar stone-500 como piso para texto/ícone funcional sobre fundo claro.",
+      "Do manter texto funcional em 11px ou mais.",
+      "Do nomear a propriedade animada — nunca transition-all.",
+      "Do usar só as duas sombras nomeadas."
+    ],
+    "donts": [
+      "Don't suavizar o roxo/grafite por soar a 'paleta de IA' — é decisão de marca.",
+      "Don't usar stone-400 ou mais claro para texto que carrega informação sozinho.",
+      "Don't deixar estado desabilitado sem cor de texto própria.",
+      "Don't subir nota/campo-dica para 12px sem checar o empate com campo-rotulo."
+    ]
+  }
+}
