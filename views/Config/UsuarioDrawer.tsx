@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, Info, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useUsuarios } from '@/src/contexts/UsuariosContext';
+import { useFocoPreso } from '@/src/components/ui/focoPreso';
 import {
   DEPARTAMENTOS,
   PERMISSAO_LABEL,
@@ -161,11 +162,15 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
     aoFechar();
   }
 
+  const refGaveta = useRef<HTMLFormElement>(null);
+  useFocoPreso(refGaveta);
+
   return (
     <div className="pilha-dialogo flex justify-end">
       <button type="button" aria-label="Fechar" onClick={aoFechar} className="veu" />
 
       <form
+        ref={refGaveta}
         onSubmit={submeter}
         role="dialog"
         aria-modal="true"
@@ -343,10 +348,10 @@ export function UsuarioDrawer({ editando, aoFechar, aoSalvar }: Props) {
                   >
                     {m.nivel === 'full' && <Check className="size-3.5 shrink-0" />}
                     {m.rotulo}
-                    {m.nivel === 'restricted' && <span className="nota text-[10px]">parcial</span>}
+                    {m.nivel === 'restricted' && <span className="nota">parcial</span>}
                     {m.viaPermissao && (
                       <span
-                        className={`text-[10px] ${ESTILO_TEXTO.marca}`}
+                        className={`text-[11px] ${ESTILO_TEXTO.marca}`}
                         title="Liberado por permissão nomeada, não pelo papel"
                       >
                         via permissão

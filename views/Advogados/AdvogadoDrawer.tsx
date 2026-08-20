@@ -1,9 +1,10 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { useUsuarios } from '@/src/contexts/UsuariosContext';
 import { Campo, entrada } from '@/src/components/ui/Campo';
+import { useFocoPreso } from '@/src/components/ui/focoPreso';
 import {
   UFS,
   formatarOab,
@@ -95,11 +96,15 @@ export function AdvogadoDrawer({
     aoFechar();
   }
 
+  const refGaveta = useRef<HTMLFormElement>(null);
+  useFocoPreso(refGaveta);
+
   return (
     <div className="pilha-dialogo flex justify-end">
       <button type="button" aria-label="Fechar" onClick={aoFechar} className="veu" />
 
       <form
+        ref={refGaveta}
         onSubmit={submeter}
         role="dialog"
         aria-modal="true"

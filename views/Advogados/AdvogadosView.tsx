@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BadgeCheck, Plus, Search, Table2, Trophy, X } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAdvogados } from '@/src/contexts/AdvogadosContext';
 import { useLeads } from '@/src/contexts/LeadsContext';
 import { useUsuarios } from '@/src/contexts/UsuariosContext';
 import { Toast, type Aviso } from '@/src/components/ui/Toast';
+import { AvisoErro } from '@/src/components/ui/AvisoErro';
+import { useFocoPreso } from '@/src/components/ui/focoPreso';
 import { MenuCartao } from '@/src/components/ui/MenuCartao';
 import { ESTILO_CHIP, type Tom } from '@/src/lib/estilo';
 import {
@@ -45,7 +47,7 @@ const brl = new Intl.NumberFormat('pt-BR', {
  */
 export function AdvogadosView() {
   const { perfil } = useAuth();
-  const { advogados, mover, conferirOab, vincularUsuario } = useAdvogados();
+  const { advogados, mover, conferirOab, vincularUsuario, erro, recarregar } = useAdvogados();
   const { leads } = useLeads();
   const { usuarios, criarParaAdvogado } = useUsuarios();
 
@@ -175,6 +177,11 @@ export function AdvogadosView() {
 
   return (
     <div className="flex flex-col h-full">
+      {erro && (
+        <div className="shrink-0 px-4 sm:px-6 pt-6">
+          <AvisoErro erro={erro} aoTentarNovamente={recarregar} />
+        </div>
+      )}
       {/* Cabeçalho ------------------------------------------------------- */}
       <div className="shrink-0 px-4 sm:px-6 pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
@@ -477,7 +484,7 @@ function BotaoVisao({
       onClick={aoClicar}
       aria-pressed={ativo}
       title={rotulo}
-      className={`btn h-8 px-3 gap-1.5 ${
+      className={`btn h-11 px-3 gap-1.5 ${
         ativo ? 'bg-roxo-100 text-roxo-800' : 'text-stone-500 hover:text-roxo-800'
       }`}
     >
@@ -508,11 +515,13 @@ function MotivoDoEncerramento({
   }, [aoCancelar]);
 
   const recusa = destino === 'recusado';
+  const refDialogo = useRef<HTMLDivElement>(null);
+  useFocoPreso(refDialogo);
 
   return (
     <div className="pilha-dialogo grid place-items-center p-4">
       <button type="button" aria-label="Cancelar" onClick={aoCancelar} className="veu" />
-      <div role="dialog" aria-modal="true" className="dialogo max-w-md p-6">
+      <div ref={refDialogo} role="dialog" aria-modal="true" className="dialogo max-w-md p-6">
         <h2 className="text-[15px] font-semibold text-roxo-900">
           Por que {advogado.nome} foi {recusa ? 'recusado' : 'perdido'}?
         </h2>
